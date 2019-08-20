@@ -334,6 +334,33 @@ impl Fp2 {
         }
         res
     }
+
+    /// Attempts to convert a little-endian byte representation of
+    /// a scalar into an `Fp2`.
+    ///
+    /// Only fails when the underlying Fp elements are not canonical,
+    /// but not when `Fp2` is not part of the subgroup.
+    pub fn from_bytes_unchecked(bytes: &[u8; 96]) -> CtOption<Fp2> {
+        let mut buf = [0u8; 48];
+
+        buf.copy_from_slice(&bytes[0..48]);
+        let c0 = Fp::from_bytes(&buf);
+        buf.copy_from_slice(&bytes[48..96]);
+        let c1 = Fp::from_bytes(&buf);
+
+        c0.and_then(|c0| c1.map(|c1| Fp2 { c0, c1 }))
+    }
+
+    /// Converts an element of `Fp2` into a byte representation in
+    /// big-endian byte order.
+    pub fn to_bytes(&self) -> [u8; 96] {
+        let mut res = [0; 96];
+
+        res[0..48].copy_from_slice(&self.c0.to_bytes());
+        res[48..96].copy_from_slice(&self.c1.to_bytes());
+
+        res
+    }
 }
 
 #[test]

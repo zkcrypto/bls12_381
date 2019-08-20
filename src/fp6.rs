@@ -222,6 +222,36 @@ impl Fp6 {
             c2: t * c2,
         })
     }
+
+    /// Attempts to convert a little-endian byte representation of
+    /// a scalar into an `Fp6`.
+    ///
+    /// Only fails when the underlying Fp elements are not canonical,
+    /// but not when `Fp6` is not part of the subgroup.
+    pub fn from_bytes_unchecked(bytes: &[u8; 288]) -> CtOption<Fp6> {
+        let mut buf = [0u8; 96];
+
+        buf.copy_from_slice(&bytes[0..96]);
+        let c0 = Fp2::from_bytes_unchecked(&buf);
+        buf.copy_from_slice(&bytes[96..192]);
+        let c1 = Fp2::from_bytes_unchecked(&buf);
+        buf.copy_from_slice(&bytes[192..288]);
+        let c2 = Fp2::from_bytes_unchecked(&buf);
+
+        c0.and_then(|c0| c1.and_then(|c1| c2.map(|c2| Fp6 { c0, c1, c2 })))
+    }
+
+    /// Converts an element of `Fp6` into a byte representation in
+    /// big-endian byte order.
+    pub fn to_bytes(&self) -> [u8; 288] {
+        let mut res = [0; 288];
+
+        res[0..96].copy_from_slice(&self.c0.to_bytes());
+        res[96..192].copy_from_slice(&self.c1.to_bytes());
+        res[192..288].copy_from_slice(&self.c2.to_bytes());
+
+        res
+    }
 }
 
 impl<'a, 'b> Mul<&'b Fp6> for &'a Fp6 {

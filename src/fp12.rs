@@ -1,6 +1,7 @@
 use crate::fp::*;
 use crate::fp2::*;
 use crate::fp6::*;
+use crate::scalar::MODULUS;
 
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
@@ -177,6 +178,68 @@ impl Fp12 {
                 c0: self.c0 * t,
                 c1: self.c1 * -t,
             })
+    }
+
+    /// Although this is labeled "vartime", it is only
+    /// variable time with respect to the exponent. It
+    /// is also not exposed in the public API.
+    pub fn pow_vartime(&self, by: &[u64]) -> Self {
+        let mut res = Self::one();
+        for e in by.iter().rev() {
+            for i in (0..64).rev() {
+                res = res.square();
+
+                if ((*e >> i) & 1) == 1 {
+                    res *= self;
+                }
+            }
+        }
+        res
+    }
+
+    /// Attempts to convert a little-endian byte representation of
+    /// a scalar into an `Fp12`.
+    ///
+    /// Only fails when the underlying Fp elements are not canonical,
+    /// but not when `Fp12` is not part of the subgroup.
+    pub fn from_bytes_unchecked(bytes: &[u8; 576]) -> CtOption<Fp12> {
+        let mut buf = [0u8; 288];
+
+        buf.copy_from_slice(&bytes[0..288]);
+        let c0 = Fp6::from_bytes_unchecked(&buf);
+        buf.copy_from_slice(&bytes[288..576]);
+        let c1 = Fp6::from_bytes_unchecked(&buf);
+
+        c0.and_then(|c0| c1.map(|c1| Fp12 { c0, c1 }))
+    }
+
+    /// Attempts to convert a little-endian byte representation of
+    /// a scalar into an `Fp12`, failing if the input is not canonical.
+    pub fn from_bytes(bytes: &[u8; 576]) -> CtOption<Fp12> {
+        Fp12::from_bytes_unchecked(bytes).and_then(|res| {
+            // The exponent is a constant,
+            // thus this operation is constant time as well.
+            let modulus_pow = res.pow_vartime(&<[u64; 4]>::from(&MODULUS));
+
+            // Any field of characteristic p has at most one subgroup
+            // of order q so it suffices to check that raising the
+            // element to the power q aka scalar::MODULUS gives the
+            // identity.
+            let is_some = modulus_pow.ct_eq(&Fp12::one());
+
+            CtOption::new(res, is_some)
+        })
+    }
+
+    /// Converts an element of `Fp12` into a byte representation in
+    /// big-endian byte order.
+    pub fn to_bytes(&self) -> [u8; 576] {
+        let mut res = [0; 576];
+
+        res[0..288].copy_from_slice(&self.c0.to_bytes());
+        res[288..576].copy_from_slice(&self.c1.to_bytes());
+
+        res
     }
 }
 

@@ -63,7 +63,7 @@ impl ConditionallySelectable for Scalar {
 
 /// Constant representing the modulus
 /// q = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001
-const MODULUS: Scalar = Scalar([
+pub(crate) const MODULUS: Scalar = Scalar([
     0xffffffff00000001,
     0x53bda402fffe5bfe,
     0x3339d80809a1d805,
@@ -616,6 +616,14 @@ impl Scalar {
 impl<'a> From<&'a Scalar> for [u8; 32] {
     fn from(value: &'a Scalar) -> [u8; 32] {
         value.to_bytes()
+    }
+}
+
+impl<'a> From<&'a Scalar> for [u64; 4] {
+    fn from(value: &'a Scalar) -> [u64; 4] {
+        let res =
+            Scalar::montgomery_reduce(value.0[0], value.0[1], value.0[2], value.0[3], 0, 0, 0, 0);
+        res.0
     }
 }
 
