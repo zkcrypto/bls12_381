@@ -45,6 +45,10 @@ Applications may wish to exchange pairing performance and/or G<sub>2</sub> perfo
 
 Please see `Cargo.toml` for a list of primary authors of this codebase.
 
+## Alternative implementations
+
+- [noble-bls12-381](https://github.com/paulmillr/noble-bls12-381) for node.js and browsers
+
 ## License
 
 Licensed under either of
