@@ -7,14 +7,41 @@ use bls12_381::*;
 use criterion::{black_box, Criterion};
 
 fn criterion_benchmark(c: &mut Criterion) {
+    // Scalar
+    {
+        let name = "Scalar";
+        let x = Scalar::from_raw([1, 2, 3, 4]);
+        let y = Scalar::from_raw([1, 2, 3, 4]);
+        let bytes = [0u8; 64];
+        c.bench_function(&format!("{} addition", name), move |b| {
+            b.iter(|| black_box(&x) + black_box(&y))
+        });
+        c.bench_function(&format!("{} multiplication", name), move |b| {
+            b.iter(|| black_box(&x) * black_box(&y))
+        });
+        c.bench_function(&format!("{} exponentiation", name), move |b| {
+            b.iter(|| black_box(&x).pow(&black_box((&y).into())))
+        });
+        c.bench_function(&format!("{} from bytes wide", name), move |b| {
+            b.iter(|| Scalar::from_bytes_wide(black_box(&bytes)))
+        });
+    }
+
     // Pairings
     {
+        let name = "Gt";
         let g = G1Affine::generator();
         let h = G2Affine::generator();
+        let a = pairing(&g, &h);
+        let s = Scalar::from_raw([1, 2, 3, 4]);
         c.bench_function("full pairing", move |b| {
             b.iter(|| pairing(black_box(&g), black_box(&h)))
         });
+        c.bench_function(&format!("{} scalar multiplication", name), move |b| {
+            b.iter(|| black_box(a) * black_box(s))
+        });
     }
+
     // G1Affine
     {
         let name = "G1Affine";
