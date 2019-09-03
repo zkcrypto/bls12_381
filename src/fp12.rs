@@ -217,16 +217,7 @@ impl Fp12 {
     /// a scalar into an `Fp12`, failing if the input is not canonical.
     pub fn from_bytes(bytes: &[u8; 576]) -> CtOption<Fp12> {
         Fp12::from_bytes_unchecked(bytes).and_then(|res| {
-            // The exponent is a constant,
-            // thus this operation is constant time as well.
-            let modulus_pow = res.pow_vartime(&<[u64; 4]>::from(&MODULUS));
-
-            // Any field of characteristic p has at most one subgroup
-            // of order q so it suffices to check that raising the
-            // element to the power q aka scalar::MODULUS gives the
-            // identity.
-            let is_some = modulus_pow.ct_eq(&Fp12::one());
-
+            let is_some = res.is_element();
             CtOption::new(res, is_some)
         })
     }
@@ -240,6 +231,19 @@ impl Fp12 {
         res[288..576].copy_from_slice(&self.c1.to_bytes());
 
         res
+    }
+
+    /// Returns true if this element belongs to the Fp12 group.
+    pub fn is_element(&self) -> Choice {
+        // The exponent is a constant,
+        // thus this operation is constant time as well.
+        let modulus_pow = self.pow_vartime(&<[u64; 4]>::from(&MODULUS));
+
+        // Any field of characteristic p has at most one subgroup
+        // of order q so it suffices to check that raising the
+        // element to the power q aka scalar::MODULUS gives the
+        // identity.
+        modulus_pow.ct_eq(&Fp12::one())
     }
 }
 
