@@ -34,12 +34,22 @@ fn criterion_benchmark(c: &mut Criterion) {
         let h = G2Affine::generator();
         let a = pairing(&g, &h);
         let s = Scalar::from_raw([1, 2, 3, 4]);
+        let compressed = [0u8; 288];
+        let uncompressed = [0u8; 576];
         c.bench_function("full pairing", move |b| {
             b.iter(|| pairing(black_box(&g), black_box(&h)))
         });
         c.bench_function(&format!("{} scalar multiplication", name), move |b| {
             b.iter(|| black_box(a) * black_box(s))
         });
+        c.bench_function(
+            &format!("{} deserialize compressed element", name),
+            move |b| b.iter(|| Gt::from_compressed(black_box(&compressed))),
+        );
+        c.bench_function(
+            &format!("{} deserialize uncompressed element", name),
+            move |b| b.iter(|| Gt::from_uncompressed(black_box(&uncompressed))),
+        );
     }
 
     // G1Affine
