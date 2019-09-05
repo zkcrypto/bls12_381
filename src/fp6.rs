@@ -218,69 +218,36 @@ impl Fp6 {
 
     /// Square root
     ///
-    /// As described by:
-    /// "On the Computation of Square Roots in Finite Fields", proposition 2.1
-    /// By Siguna Müller, 2004
+    /// Based on the generalized Atkin-algorithm due to Siguna Müller described
+    /// in proposition 2.1 of the 2014 "On the Computation of Square Roots
+    /// in Finite Fields".  In his proposal Müller uses two exponentiations,
+    /// of which one can be eliminated.
     ///
     /// Uses the fact that p^6 = 9 mod 16.
     pub fn sqrt(&self) -> CtOption<Self> {
-        // Q_1_4 = (modulus^6 - 1) / 4
-        const Q_1_4: [u64; 36] = [
-            0xb1b26118f01c175a,
-            0xf8a2683cfd2fcb7,
-            0xf5ecead6e31ae561,
-            0x788892a3ae5aaa66,
-            0x6f1b989afdd74c6c,
-            0x44b0febfb9ca2f19,
-            0xaa44afead22b2a8c,
-            0x44412b069787405b,
-            0x1d4f314ef085b227,
-            0xa3438bfd9d5dc836,
-            0x3aca6af3d8e4c9cd,
-            0x9233ff8daf86758b,
-            0xf183aa79f6a23e1e,
-            0x9285a7b5ef849914,
-            0x3392479651e7cbc1,
-            0xba3bd9bd93f0e78e,
-            0x1681362d6278bb82,
-            0xbf9fb30183701059,
-            0x8e8e4f1c7eea8aa5,
-            0xe0eba5f5b90a8877,
-            0x82c196b55e440708,
-            0x476387890d02af5e,
-            0x733d7734aebdd85b,
-            0x233beef2d2cc2a7b,
-            0xfe1257e301d152ee,
-            0x977cd3e02d91b8c0,
-            0x1a7e36349a50bf5b,
-            0xf734044b05c5b0a7,
-            0x6455a14c3662f861,
-            0xedea13251b5203df,
-            0x714e2975915a9a71,
-            0x817b0e2e3d10781d,
-            0x52fd761dc052d57d,
-            0x3c8b51fa3d322987,
-            0x687d273175e44744,
-            0x49b8ea73982,
-        ];
 
-        // Note: 2^((p^6-1)/4) = 1 in Fp6, so s^2 = self^((p^6-1)/2),
-        // so Legendre-symbol, hence self is a quadratic residue iff s = 1 or s = -1.
-        // TODO: use addition chains.
-        let s = (self + self).pow_vartime(&Q_1_4);
+        // In Müller's proposal one first computes  s := (2x)^((p^6-1)/4).
+        // If s is 1 or -1, then the x is a quadratic residue (ie. the square
+        // exists.)  Depending on the value of s, one choses a random d which
+        // is either a quadratic residue or not.  Instead of computing s, we
+        // simply proceed with two fixed choices of d of which one is
+        // a quadratic residue and the other isn't.  At the end we check which
+        // candidate is an actual root and return it (or return nothing
+        // if both aren't roots.)
 
-        let v = Fp6 {
+        let d1 = -Fp6::one(); // -1, a quadratic residue
+        let d2 = Fp6 {
             c0: Fp2::zero(),
             c1: Fp2::one(),
             c2: Fp2::zero(),
-        };
+        }; // v, a quadratic non-residue
 
-        let is_one = s.ct_eq(&Fp6::one());
-        let is_neg_one = s.ct_eq(&-Fp6::one());
+        // (2d1^2)^((p^6-9)/16)
+        let d1p = Fp6 { c0: Fp2 { c0: Fp::from_raw_unchecked([0x3e2f585da55c9ad1, 0x4294213d86c18183, 0x382844c88b623732, 0x92ad2afd19103e18, 0x1d794e4fac7cf0b9, 0xbd592fc7d825ec8]), c1: Fp::from_raw_unchecked([0,0,0,0,0,0])}, c1: Fp2 { c0: Fp::from_raw_unchecked([0,0,0,0,0,0]), c1: Fp::from_raw_unchecked([0,0,0,0,0,0])}, c2: Fp2 { c0: Fp::from_raw_unchecked([0,0,0,0,0,0]), c1: Fp::from_raw_unchecked([0,0,0,0,0,0])}};
+        // (2d2^2)^((p^6-9)/16)
+        let d2p = Fp6 { c0: Fp2 { c0: Fp::from_raw_unchecked([0,0,0,0,0,0]), c1: Fp::from_raw_unchecked([0,0,0,0,0,0])}, c1: Fp2 { c0: Fp::from_raw_unchecked([0,0,0,0,0,0]), c1: Fp::from_raw_unchecked([0,0,0,0,0,0])}, c2: Fp2 { c0: Fp::from_raw_unchecked([0,0,0,0,0,0]), c1: Fp::from_raw_unchecked([0xa1fafffffffe5557, 0x995bfff976a3fffe, 0x3f41d24d174ceb4, 0xf6547998c1995dbd, 0x778a468f507a6034, 0x20559931f7f8103])}};
 
-        let d = Fp6::conditional_select(&-Fp6::one(), &v, is_one);
-
-        // Q_9_16 = (modulus^6 - 9) / 16
+        // Q_9_16 = (p^6 - 9) / 16
         const Q_9_16: [u64; 36] = [
             0xec6c98463c0705d6,
             0x43e289a0f3f4bf2d,
@@ -320,18 +287,22 @@ impl Fp6 {
             0x126e3a9ce60,
         ];
 
-        let dd = d * d;
-        let ddx = dd * self;
+        let xp = self.pow_vartime(&Q_9_16); // x^((p^6-9)/16)
+        let z1 = xp * d1p;
+        let z2 = xp * d2p;
+        let z1d1 = z1*d1;
+        let z2d2 = z2*d2;
+        let hi1 = z1d1*z1d1*self;
+        let hi2 = z2d2*z2d2*self;
+        let i1 = hi1 + hi1;
+        let i2 = hi2 + hi2;
+        let a1 = z1d1* self *(i1 - Fp6::one());
+        let a2 = z2d2* self *(i2 - Fp6::one());
+        let c1 = self.ct_eq(&(a1*a1));
+        let c2 = self.ct_eq(&(a2*a2));
 
-        // TODO: use addition chains.
-        let z = (ddx + ddx).pow_vartime(&Q_9_16);
-
-        let hi = ddx * z * z;
-        let i = hi + hi;
-
-        let a = z * d * self * (i - Fp6::one());
-
-        CtOption::new(a, is_one | is_neg_one)
+        let a = Fp6::conditional_select(&a1, &a2, c2);
+        CtOption::new(a, c1 | c2)
     }
 
     #[inline]
