@@ -142,6 +142,20 @@ impl Fp6 {
         }
     }
 
+    /// Returns whether or not this element is strictly lexicographically
+    /// larger than its negation.
+    #[inline]
+    pub fn lexicographically_largest(&self) -> Choice {
+        // If this element's c1 coefficient is lexicographically largest
+        // then it is lexicographically largest. Otherwise, in the event
+        // the c1 coefficient is zero and the c0 coefficient is
+        // lexicographically largest, then this element is lexicographically
+        // largest.
+
+        self.c1.lexicographically_largest()
+            | (self.c1.is_zero() & self.c0.lexicographically_largest())
+    }
+
     /// Raises this element to p.
     #[inline(always)]
     pub fn frobenius_map(&self) -> Self {
@@ -202,6 +216,124 @@ impl Fp6 {
         }
     }
 
+    /// Square root
+    ///
+    /// As described by:
+    /// "On the Computation of Square Roots in Finite Fields", proposition 2.1
+    /// By Siguna Müller, 2004
+    ///
+    /// Uses the fact that p^6 = 9 mod 16.
+    pub fn sqrt(&self) -> CtOption<Self> {
+        // Q_1_4 = (modulus^6 - 1) / 4
+        const Q_1_4: [u64; 36] = [
+            0xb1b26118f01c175a,
+            0xf8a2683cfd2fcb7,
+            0xf5ecead6e31ae561,
+            0x788892a3ae5aaa66,
+            0x6f1b989afdd74c6c,
+            0x44b0febfb9ca2f19,
+            0xaa44afead22b2a8c,
+            0x44412b069787405b,
+            0x1d4f314ef085b227,
+            0xa3438bfd9d5dc836,
+            0x3aca6af3d8e4c9cd,
+            0x9233ff8daf86758b,
+            0xf183aa79f6a23e1e,
+            0x9285a7b5ef849914,
+            0x3392479651e7cbc1,
+            0xba3bd9bd93f0e78e,
+            0x1681362d6278bb82,
+            0xbf9fb30183701059,
+            0x8e8e4f1c7eea8aa5,
+            0xe0eba5f5b90a8877,
+            0x82c196b55e440708,
+            0x476387890d02af5e,
+            0x733d7734aebdd85b,
+            0x233beef2d2cc2a7b,
+            0xfe1257e301d152ee,
+            0x977cd3e02d91b8c0,
+            0x1a7e36349a50bf5b,
+            0xf734044b05c5b0a7,
+            0x6455a14c3662f861,
+            0xedea13251b5203df,
+            0x714e2975915a9a71,
+            0x817b0e2e3d10781d,
+            0x52fd761dc052d57d,
+            0x3c8b51fa3d322987,
+            0x687d273175e44744,
+            0x49b8ea73982,
+        ];
+
+        // Note: 2^((p^6-1)/4) = 1 in Fp6, so s^2 = self^((p^6-1)/2),
+        // so Legendre-symbol, hence self is a quadratic residue iff s = 1 or s = -1.
+        // TODO: use addition chains.
+        let s = (self + self).pow_vartime(&Q_1_4);
+
+        let v = Fp6 {
+            c0: Fp2::zero(),
+            c1: Fp2::one(),
+            c2: Fp2::zero(),
+        };
+
+        let is_one = s.ct_eq(&Fp6::one());
+        let is_neg_one = s.ct_eq(&-Fp6::one());
+
+        let d = Fp6::conditional_select(&-Fp6::one(), &v, is_one);
+
+        // Q_9_16 = (modulus^6 - 9) / 16
+        const Q_9_16: [u64; 36] = [
+            0xec6c98463c0705d6,
+            0x43e289a0f3f4bf2d,
+            0xbd7b3ab5b8c6b958,
+            0x1e2224a8eb96aa99,
+            0x5bc6e626bf75d31b,
+            0x112c3fafee728bc6,
+            0xea912bfab48acaa3,
+            0xd1104ac1a5e1d016,
+            0x8753cc53bc216c89,
+            0x68d0e2ff6757720d,
+            0xceb29abcf6393273,
+            0xa48cffe36be19d62,
+            0x3c60ea9e7da88f87,
+            0x64a169ed7be12645,
+            0x8ce491e59479f2f0,
+            0xae8ef66f64fc39e3,
+            0x45a04d8b589e2ee0,
+            0x6fe7ecc060dc0416,
+            0xe3a393c71fbaa2a9,
+            0x383ae97d6e42a21d,
+            0xa0b065ad579101c2,
+            0xd1d8e1e24340abd7,
+            0xdccf5dcd2baf7616,
+            0x88cefbbcb4b30a9e,
+            0x3f8495f8c07454bb,
+            0xe5df34f80b646e30,
+            0xc69f8d8d26942fd6,
+            0x7dcd0112c1716c29,
+            0xd91568530d98be18,
+            0x7b7a84c946d480f7,
+            0x5c538a5d6456a69c,
+            0x605ec38b8f441e07,
+            0xd4bf5d877014b55f,
+            0xf22d47e8f4c8a61,
+            0x9a1f49cc5d7911d1,
+            0x126e3a9ce60,
+        ];
+
+        let dd = d * d;
+        let ddx = dd * self;
+
+        // TODO: use addition chains.
+        let z = (ddx + ddx).pow_vartime(&Q_9_16);
+
+        let hi = ddx * z * z;
+        let i = hi + hi;
+
+        let a = z * d * self * (i - Fp6::one());
+
+        CtOption::new(a, is_one | is_neg_one)
+    }
+
     #[inline]
     pub fn invert(&self) -> CtOption<Self> {
         let c0 = (self.c1 * self.c2).mul_by_nonresidue();
@@ -221,6 +353,23 @@ impl Fp6 {
             c1: t * c1,
             c2: t * c2,
         })
+    }
+
+    /// Although this is labeled "vartime", it is only
+    /// variable time with respect to the exponent. It
+    /// is also not exposed in the public API.
+    pub fn pow_vartime(&self, by: &[u64]) -> Self {
+        let mut res = Self::one();
+        for e in by.iter().rev() {
+            for i in (0..64).rev() {
+                res = res.square();
+
+                if ((*e >> i) & 1) == 1 {
+                    res *= self;
+                }
+            }
+        }
+        res
     }
 
     /// Attempts to convert a little-endian byte representation of
@@ -534,4 +683,300 @@ fn test_arithmetic() {
         (&a * &b).invert().unwrap()
     );
     assert_eq!(&a.invert().unwrap() * &a, Fp6::one());
+}
+
+#[test]
+fn test_sqrt() {
+    let a = Fp6 {
+        c0: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0x615eaaf7e0049a1b,
+                0x7db3249009df9588,
+                0x5d9254c0f7ae87f1,
+                0x14fee19cbfc1faca,
+                0x3017e7271c83b32b,
+                0xbdc34aaf515eb44,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x27e6b317a77e12d0,
+                0x341b70fc95934deb,
+                0x26bd37e4251442ab,
+                0x8c7bf72e39756512,
+                0x1d2a1377ffc35dd4,
+                0x735f5a52f945f95,
+            ]),
+        },
+        c1: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0x2b5775a7a21ba5ba,
+                0x8b5c1025c7098c9f,
+                0x4d29b1556a548261,
+                0x7a045cbceb12c9f0,
+                0x2324654df63d1675,
+                0x1113123138f58432,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x3f4d0c00005dc31b,
+                0xed1d44e80072a5b,
+                0xfdeda4845c7115ed,
+                0x6b8d8cd2f54986dd,
+                0xa3de763c81254081,
+                0x1030efee1d581ee4,
+            ]),
+        },
+        c2: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xf376d245bed59044,
+                0x335afd18409563ee,
+                0xd1ee1e7d2cfba1b4,
+                0x17086c56016a6b2b,
+                0x30c195f0664865a9,
+                0x5bc0c3bef4e9565,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x29241b89771406dd,
+                0x3b269017c337a140,
+                0xcf0c50cfdf0fb818,
+                0xf1a56e35e67614bd,
+                0x373427c6e475ec5e,
+                0x10ab1bd5fbed215d,
+            ]),
+        },
+    };
+
+    assert!(bool::from(a.sqrt().is_none()));
+
+    let b = Fp6 {
+        c0: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0x760900000002fffd,
+                0xebf4000bc40c0002,
+                0x5f48985753c758ba,
+                0x77ce585370525745,
+                0x5c071a97a256ec6d,
+                0x15f65ec3fa80e493,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x321300000006554f,
+                0xb93c0018d6c40005,
+                0x57605e0db0ddbb51,
+                0x8b256521ed1f9bcb,
+                0x6cf28d7901622c03,
+                0x11ebab9dbb81e28c,
+            ]),
+        },
+        c1: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xee1d00000009aaa1,
+                0x86840025e97c0007,
+                0x4f7823c40df41de8,
+                0x9e7c71f069ece051,
+                0x7dde005a606d6b99,
+                0xde0f8777c82e085,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0xaa270000000cfff3,
+                0x53cc0032fc34000a,
+                0x478fe97a6b0a807f,
+                0xb1d37ebee6ba24d7,
+                0x8ec9733bbf78ab2f,
+                0x9d645513d83de7e,
+            ]),
+        },
+        c2: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0x6631000000105545,
+                0x211400400eec000d,
+                0x3fa7af30c820e316,
+                0xc52a8b8d6387695d,
+                0x9fb4e61d1e83eac5,
+                0x5cb922afe84dc77,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x223b00000013aa97,
+                0xee5c004d21a40010,
+                0x37bf74e7253745ac,
+                0xd881985be054ade3,
+                0xb0a058fe7d8f2a5b,
+                0x1c0df04bf85da70,
+            ]),
+        },
+    };
+    let b_sqrt = Fp6 {
+        c0: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xdacab8ec196d0e90,
+                0x87e85ab6ea88b979,
+                0x3dfe939a4a365ef1,
+                0x78d2523061125499,
+                0x6fc4397c4dc7b39,
+                0x178d99f425a98078,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x5f61615b4b6b9955,
+                0xfa5b876c8ea831b5,
+                0x3fd6d7cd22e2fb76,
+                0x2d55c9a9feef3d0a,
+                0x7adfaf601698839c,
+                0xd2971c3c245dbdb,
+            ]),
+        },
+        c1: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xd1857aba9d3a5ad2,
+                0xaa0fcc118b33fd83,
+                0xdddf06c2cd76474b,
+                0xf2ba6fae3c211902,
+                0x81b879d941bf01e8,
+                0x16efa6ec5c6ebf43,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x6b7a79f9320e4b80,
+                0xf0d55c31e63117d6,
+                0x9f0c4f9fbb78699e,
+                0xffc9af394b9b8049,
+                0xb76d97ef754a5ad,
+                0xb5172e8b69f5596,
+            ]),
+        },
+        c2: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xf140b9d2f1e99c5e,
+                0xc78982e4ca301b97,
+                0x98f3a4b656f50198,
+                0xaa310cb32c652865,
+                0xcbee9785769731bb,
+                0x16f81c9ea55bde91,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x83304d5cf6ddb3d0,
+                0x3bc1eac936b91f3f,
+                0x26009dc8b2afd880,
+                0x3d88fa5fd4a3a1a7,
+                0x524af7c39e6b675d,
+                0x1460fef116f3d046,
+            ]),
+        },
+    };
+
+    assert_eq!(b_sqrt * b_sqrt, b);
+    assert_eq!(b.sqrt().unwrap().square(), b);
+    assert_eq!(b.sqrt().unwrap(), b_sqrt);
+
+    let c = Fp6 {
+        c0: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xaa270000000cfff3,
+                0x53cc0032fc34000a,
+                0x478fe97a6b0a807f,
+                0xb1d37ebee6ba24d7,
+                0x8ec9733bbf78ab2f,
+                0x9d645513d83de7e,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x321300000006554f,
+                0xb93c0018d6c40005,
+                0x57605e0db0ddbb51,
+                0x8b256521ed1f9bcb,
+                0x6cf28d7901622c03,
+                0x11ebab9dbb81e28c,
+            ]),
+        },
+        c1: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xee1d00000009aaa1,
+                0x86840025e97c0007,
+                0x4f7823c40df41de8,
+                0x9e7c71f069ece051,
+                0x7dde005a606d6b99,
+                0xde0f8777c82e085,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0xaa270000000cfff3,
+                0x53cc0032fc34000a,
+                0x478fe97a6b0a807f,
+                0xb1d37ebee6ba24d7,
+                0x8ec9733bbf78ab2f,
+                0x9d645513d83de7e,
+            ]),
+        },
+        c2: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0x6631000000105545,
+                0x211400400eec000d,
+                0x3fa7af30c820e316,
+                0xc52a8b8d6387695d,
+                0x9fb4e61d1e83eac5,
+                0x5cb922afe84dc77,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x223b00000013aa97,
+                0xee5c004d21a40010,
+                0x37bf74e7253745ac,
+                0xd881985be054ade3,
+                0xb0a058fe7d8f2a5b,
+                0x1c0df04bf85da70,
+            ]),
+        },
+    };
+    let c_sqrt = Fp6 {
+        c0: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xbc5c83c79ee17378,
+                0x6234c76e1e43427d,
+                0xa967a76ded98934,
+                0x60530cb49f3aa701,
+                0xf1e78d8b238ce13b,
+                0xcae66f9d906cc2,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x8e0b93ad5a9e2ad8,
+                0x9f651961fde14bf2,
+                0x4c1dbb672da9e549,
+                0x6a9dd580ee524230,
+                0x37f847eccc026,
+                0x8759709a578b0d,
+            ]),
+        },
+        c1: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0x1df7771f87b25d2d,
+                0xce9d90f1fb56fe78,
+                0xea74bda2cc72e5ea,
+                0xf240542d5067f34e,
+                0x5c127ed5f9d549c6,
+                0x4b40109ac4a835a,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x280644f936de9b22,
+                0xc66d88e8b24bcc50,
+                0x59c13da5b138eb11,
+                0x58eb4797886a4ad5,
+                0x906577dcb6d18661,
+                0x12b4501b3e3c9f3a,
+            ]),
+        },
+        c2: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xccbcf4677c99dfcb,
+                0x8001c4f4626cc646,
+                0x47d3f89c286446a9,
+                0x1c85adb35001a959,
+                0x933daef463a2592c,
+                0x2763061b8787ca0,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0xdcb4c1ccf25dcf8e,
+                0xf1a4f384c2a0a4ae,
+                0x3e20636334c0d7d1,
+                0xcb6d42fd5a06e476,
+                0x3eff57d6357d7d40,
+                0x1528dc22578f54dd,
+            ]),
+        },
+    };
+
+    assert_eq!(c_sqrt * c_sqrt, c);
+    assert_eq!(c.sqrt().unwrap().square(), c);
+    assert_eq!(c.sqrt().unwrap(), c_sqrt);
 }

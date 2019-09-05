@@ -1,5 +1,6 @@
 use crate::fp12::Fp12;
 use crate::fp2::Fp2;
+use crate::fp6::Fp6;
 use crate::{G1Affine, G2Affine, G2Projective, Scalar, BLS_X, BLS_X_IS_NEGATIVE};
 
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
@@ -163,7 +164,66 @@ impl Gt {
     /// Attempts to deserialize an uncompressed element. See [`notes::serialization`](crate::notes::serialization)
     /// for details about how group elements are serialized.
     pub fn from_uncompressed(bytes: &[u8; 576]) -> CtOption<Self> {
-        Fp12::from_bytes(bytes).map(|x| Gt(x))
+        Fp12::from_bytes(bytes).map(Gt)
+    }
+
+    /// Serializes this element into compressed form. See [`notes::serialization`](crate::notes::serialization)
+    /// for details about how group elements are serialized.
+    pub fn to_compressed(&self) -> [u8; 288] {
+        let mut res = self.0.c1.to_bytes();
+
+        // This point is in compressed form, so we set the most significant bit.
+        res[0] |= 1u8 << 7;
+
+        // Is the y-coordinate the lexicographically largest of the two associated with the
+        // x-coordinate? If so, set the second-most significant bit so long as this is not
+        // the point at infinity.
+        res[0] |= u8::conditional_select(&0u8, &(1u8 << 6), self.0.c0.lexicographically_largest());
+
+        res
+    }
+
+    /// Attempts to deserialize a compressed element. See [`notes::serialization`](crate::notes::serialization)
+    /// for details about how group elements are serialized.
+    pub fn from_compressed(bytes: &[u8; 288]) -> CtOption<Self> {
+        Self::from_compressed_unchecked(bytes).and_then(|p| CtOption::new(p, p.0.is_element()))
+    }
+
+    /// Attempts to deserialize an compressed element, not checking if the
+    /// element is in the correct pairing group.
+    /// **This is dangerous to call unless you trust the bytes you are reading; otherwise,
+    /// API invariants may be broken.** Please consider using `from_uncompressed()` instead.
+    pub fn from_compressed_unchecked(bytes: &[u8; 288]) -> CtOption<Self> {
+        let compression_flag_set = Choice::from((bytes[0] >> 7) & 1);
+        let sort_flag_set = Choice::from((bytes[0] >> 6) & 1);
+
+        let xc1 = {
+            let mut tmp = [0; 288];
+            tmp.copy_from_slice(&bytes[0..288]);
+
+            // Mask away the flag bits
+            tmp[0] &= 0b0011_1111;
+
+            Fp6::from_bytes_unchecked(&tmp)
+        };
+
+        xc1.and_then(|c1| {
+            // c_0^2 = 1 + v * c_1^2
+            let xc0 = (Fp6::one() + c1.square().mul_by_nonresidue()).sqrt();
+
+            xc0.and_then(|c0| {
+                let p = Fp12 {
+                    c0: Fp6::conditional_select(
+                        &c0,
+                        &-c0,
+                        c0.lexicographically_largest() ^ sort_flag_set,
+                    ),
+                    c1,
+                };
+
+                CtOption::new(Gt(p), compression_flag_set)
+            })
+        })
     }
 }
 
@@ -431,4 +491,48 @@ fn test_unitary() {
 
     assert_eq!(p, q);
     assert_eq!(q, r);
+}
+
+#[test]
+fn test_uncompressed() {
+    let gt =
+        pairing(&G1Affine::generator(), &G2Affine::generator()) * Scalar::from_raw([1, 2, 3, 4]);
+    let buf = gt.to_uncompressed();
+    let gt2 = Gt::from_uncompressed(&buf).unwrap();
+
+    assert_eq!(gt, gt2);
+
+    let gt =
+        pairing(&G1Affine::generator(), &G2Affine::generator()) * Scalar::from_raw([1, 2, 3, 5]);
+    let buf = gt.to_uncompressed();
+    let gt2 = Gt::from_uncompressed(&buf).unwrap();
+
+    assert_eq!(gt, gt2);
+}
+
+#[test]
+fn test_compressed() {
+    let gt =
+        pairing(&G1Affine::generator(), &G2Affine::generator()) * Scalar::from_raw([1, 2, 3, 4]);
+
+    let buf = gt.to_compressed();
+
+    assert_eq!(buf[0] >> 7 & 1, 1);
+    assert_eq!(buf[0] >> 6 & 1, 1);
+
+    let gt2 = Gt::from_compressed(&buf).unwrap();
+
+    assert_eq!(gt, gt2);
+
+    let gt = pairing(&G1Affine::generator(), &G2Affine::generator())
+        * Scalar::from_raw([500001, 2, 3, 4]);
+
+    let buf = gt.to_compressed();
+
+    assert_eq!(buf[0] >> 7 & 1, 1);
+    assert_eq!(buf[0] >> 6 & 1, 0);
+
+    let gt2 = Gt::from_compressed(&buf).unwrap();
+
+    assert_eq!(gt, gt2);
 }
