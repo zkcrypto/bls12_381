@@ -213,7 +213,11 @@ impl Gt {
 
             xc0.and_then(|c0| {
                 let p = Fp12 {
-                    c0: Fp6::conditional_select(&c0, &-c0, sort_flag_set),
+                    c0: Fp6::conditional_select(
+                        &c0,
+                        &-c0,
+                        c0.lexicographically_largest() ^ sort_flag_set,
+                    ),
                     c1,
                 };
 
@@ -510,23 +514,25 @@ fn test_uncompressed() {
 fn test_compressed() {
     let gt =
         pairing(&G1Affine::generator(), &G2Affine::generator()) * Scalar::from_raw([1, 2, 3, 4]);
+
     let buf = gt.to_compressed();
 
     assert_eq!(buf[0] >> 7 & 1, 1);
     assert_eq!(buf[0] >> 6 & 1, 1);
 
-    let gt2 = Gt::from_compressed_unchecked(&buf).unwrap();
+    let gt2 = Gt::from_compressed(&buf).unwrap();
 
     assert_eq!(gt, gt2);
 
-    let gt =
-        pairing(&G1Affine::generator(), &G2Affine::generator()) * Scalar::from_raw([1, 2, 3, 5]);
+    let gt = pairing(&G1Affine::generator(), &G2Affine::generator())
+        * Scalar::from_raw([500001, 2, 3, 4]);
+
     let buf = gt.to_compressed();
 
     assert_eq!(buf[0] >> 7 & 1, 1);
     assert_eq!(buf[0] >> 6 & 1, 0);
 
-    let gt2 = Gt::from_compressed_unchecked(&buf).unwrap();
+    let gt2 = Gt::from_compressed(&buf).unwrap();
 
     assert_eq!(gt, gt2);
 }
