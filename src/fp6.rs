@@ -330,15 +330,47 @@ impl Fp6 {
     /// variable time with respect to the exponent. It
     /// is also not exposed in the public API.
     pub fn pow_vartime(&self, by: &[u64]) -> Self {
-        let mut res = Self::one();
-        for e in by.iter().rev() {
-            for i in (0..64).rev() {
-                res = res.square();
+        // We use a 8-bit window.  A 7-bit window would use the least
+        // (weighed) number of squares and multiplications, but the code
+        // would be a bit trickier.  A smaller window (5- or 6-bit) might
+        // be even faster, as the lookup-table would fit in L1 cache.
 
-                if ((*e >> i) & 1) == 1 {
-                    res *= self;
+        // Precompute lut[i] = x^i for i in {0, ..., 255}
+        let mut lut : [Fp6; 256] = [Default::default(); 256];
+        lut[0] = Fp6::one();
+        lut[1] = *self;
+        for i in 1..128 {
+            lut[2*i] = lut[i].square();
+            lut[2*i + 1] = lut[2*i] * self;
+        }
+
+        let mut res = Fp6::one();
+        let mut first = true;
+        for j in (0..by.len()).rev() {
+            let e = by[j];
+            if first {
+                first = false;
+            } else {
+                for _ in 0..8 {
+                    res = res.square();
                 }
             }
+
+            res *= lut[((e >> (7 * 8)) & 255u64) as usize];
+            for _ in 0..8 { res = res.square(); }
+            res *= lut[((e >> (6 * 8)) & 255u64) as usize];
+            for _ in 0..8 { res = res.square(); }
+            res *= lut[((e >> (5 * 8)) & 255u64) as usize];
+            for _ in 0..8 { res = res.square(); }
+            res *= lut[((e >> (4 * 8)) & 255u64) as usize];
+            for _ in 0..8 { res = res.square(); }
+            res *= lut[((e >> (3 * 8)) & 255u64) as usize];
+            for _ in 0..8 { res = res.square(); }
+            res *= lut[((e >> (2 * 8)) & 255u64) as usize];
+            for _ in 0..8 { res = res.square(); }
+            res *= lut[((e >> (1 * 8)) & 255u64) as usize];
+            for _ in 0..8 { res = res.square(); }
+            res *= lut[(e  & 255u64) as usize];
         }
         res
     }
