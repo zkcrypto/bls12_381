@@ -225,7 +225,6 @@ impl Fp6 {
     ///
     /// Uses the fact that p^6 = 9 mod 16.
     pub fn sqrt(&self) -> CtOption<Self> {
-
         // In Müller's proposal one first computes  s := (2x)^((p^6-1)/4).
         // If s is 1 or -1, then the x is a quadratic residue (ie. the square
         // exists.)  Depending on the value of s, one choses a random d which
@@ -243,9 +242,49 @@ impl Fp6 {
         }; // v, a quadratic non-residue
 
         // (2d1^2)^((p^6-9)/16)
-        let d1p = Fp6 { c0: Fp2 { c0: Fp::from_raw_unchecked([0x3e2f585da55c9ad1, 0x4294213d86c18183, 0x382844c88b623732, 0x92ad2afd19103e18, 0x1d794e4fac7cf0b9, 0xbd592fc7d825ec8]), c1: Fp::from_raw_unchecked([0,0,0,0,0,0])}, c1: Fp2 { c0: Fp::from_raw_unchecked([0,0,0,0,0,0]), c1: Fp::from_raw_unchecked([0,0,0,0,0,0])}, c2: Fp2 { c0: Fp::from_raw_unchecked([0,0,0,0,0,0]), c1: Fp::from_raw_unchecked([0,0,0,0,0,0])}};
+        let d1p = Fp6 {
+            c0: Fp2 {
+                c0: Fp::from_raw_unchecked([
+                    0x3e2f585da55c9ad1,
+                    0x4294213d86c18183,
+                    0x382844c88b623732,
+                    0x92ad2afd19103e18,
+                    0x1d794e4fac7cf0b9,
+                    0xbd592fc7d825ec8,
+                ]),
+                c1: Fp::from_raw_unchecked([0, 0, 0, 0, 0, 0]),
+            },
+            c1: Fp2 {
+                c0: Fp::from_raw_unchecked([0, 0, 0, 0, 0, 0]),
+                c1: Fp::from_raw_unchecked([0, 0, 0, 0, 0, 0]),
+            },
+            c2: Fp2 {
+                c0: Fp::from_raw_unchecked([0, 0, 0, 0, 0, 0]),
+                c1: Fp::from_raw_unchecked([0, 0, 0, 0, 0, 0]),
+            },
+        };
         // (2d2^2)^((p^6-9)/16)
-        let d2p = Fp6 { c0: Fp2 { c0: Fp::from_raw_unchecked([0,0,0,0,0,0]), c1: Fp::from_raw_unchecked([0,0,0,0,0,0])}, c1: Fp2 { c0: Fp::from_raw_unchecked([0,0,0,0,0,0]), c1: Fp::from_raw_unchecked([0,0,0,0,0,0])}, c2: Fp2 { c0: Fp::from_raw_unchecked([0,0,0,0,0,0]), c1: Fp::from_raw_unchecked([0xa1fafffffffe5557, 0x995bfff976a3fffe, 0x3f41d24d174ceb4, 0xf6547998c1995dbd, 0x778a468f507a6034, 0x20559931f7f8103])}};
+        let d2p = Fp6 {
+            c0: Fp2 {
+                c0: Fp::from_raw_unchecked([0, 0, 0, 0, 0, 0]),
+                c1: Fp::from_raw_unchecked([0, 0, 0, 0, 0, 0]),
+            },
+            c1: Fp2 {
+                c0: Fp::from_raw_unchecked([0, 0, 0, 0, 0, 0]),
+                c1: Fp::from_raw_unchecked([0, 0, 0, 0, 0, 0]),
+            },
+            c2: Fp2 {
+                c0: Fp::from_raw_unchecked([0, 0, 0, 0, 0, 0]),
+                c1: Fp::from_raw_unchecked([
+                    0xa1fafffffffe5557,
+                    0x995bfff976a3fffe,
+                    0x3f41d24d174ceb4,
+                    0xf6547998c1995dbd,
+                    0x778a468f507a6034,
+                    0x20559931f7f8103,
+                ]),
+            },
+        };
 
         // Q_9_16 = (p^6 - 9) / 16
         const Q_9_16: [u64; 36] = [
@@ -290,16 +329,16 @@ impl Fp6 {
         let xp = self.pow_vartime(&Q_9_16); // x^((p^6-9)/16)
         let z1 = xp * d1p;
         let z2 = xp * d2p;
-        let z1d1 = z1*d1;
-        let z2d2 = z2*d2;
-        let hi1 = z1d1*z1d1*self;
-        let hi2 = z2d2*z2d2*self;
+        let z1d1 = z1 * d1;
+        let z2d2 = z2 * d2;
+        let hi1 = z1d1 * z1d1 * self;
+        let hi2 = z2d2 * z2d2 * self;
         let i1 = hi1 + hi1;
         let i2 = hi2 + hi2;
-        let a1 = z1d1* self *(i1 - Fp6::one());
-        let a2 = z2d2* self *(i2 - Fp6::one());
-        let c1 = self.ct_eq(&(a1*a1));
-        let c2 = self.ct_eq(&(a2*a2));
+        let a1 = z1d1 * self * (i1 - Fp6::one());
+        let a2 = z2d2 * self * (i2 - Fp6::one());
+        let c1 = self.ct_eq(&(a1 * a1));
+        let c2 = self.ct_eq(&(a2 * a2));
 
         let a = Fp6::conditional_select(&a1, &a2, c2);
         CtOption::new(a, c1 | c2)
