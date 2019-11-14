@@ -146,14 +146,9 @@ impl Fp6 {
     /// larger than its negation.
     #[inline]
     pub fn lexicographically_largest(&self) -> Choice {
-        // If this element's c1 coefficient is lexicographically largest
-        // then it is lexicographically largest. Otherwise, in the event
-        // the c1 coefficient is zero and the c0 coefficient is
-        // lexicographically largest, then this element is lexicographically
-        // largest.
-
-        self.c1.lexicographically_largest()
-            | (self.c1.is_zero() & self.c0.lexicographically_largest())
+        self.c2.lexicographically_largest()
+            | (self.c2.is_zero() & self.c1.lexicographically_largest())
+            | (self.c2.is_zero() & self.c1.is_zero() & self.c0.lexicographically_largest())
     }
 
     /// Raises this element to p.
