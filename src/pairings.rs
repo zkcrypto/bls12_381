@@ -189,7 +189,7 @@ impl Gt {
         Self::from_compressed_unchecked(bytes).and_then(|p| CtOption::new(p, p.0.is_element()))
     }
 
-    /// Attempts to deserialize an compressed element, not checking if the
+    /// Attempts to deserialize a compressed element, not checking if the
     /// element is in the correct pairing group.
     /// **This is dangerous to call unless you trust the bytes you are reading; otherwise,
     /// API invariants may be broken.** Please consider using `from_uncompressed()` instead.
