@@ -197,8 +197,7 @@ impl Fp12 {
         res
     }
 
-    /// Attempts to convert a little-endian byte representation of
-    /// a scalar into an `Fp12`.
+    /// Attempts to convert a big-endian byte representation into an `Fp12`.
     ///
     /// Only fails when the underlying Fp elements are not canonical,
     /// but not when `Fp12` is not part of the subgroup.
