@@ -9,11 +9,57 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::util::{adc, mac, sbb};
 
+mod magnitudes;
+
+pub use magnitudes::*;
+
 // The internal representation of this type is six 64-bit unsigned
 // integers in little-endian order. `Fp` values are always in
 // Montgomery form; i.e., Scalar(a) = aR mod p, with R = 2^384.
 #[derive(Copy, Clone)]
 pub struct Fp([u64; 6]);
+
+#[derive(Debug)]
+pub struct FpWide([u64; 12]);
+
+impl FpWide {
+    pub const fn add(&self, rhs: &FpWide) -> FpWide {
+        let (d0, carry) = adc(self.0[0], rhs.0[0], 0);
+        let (d1, carry) = adc(self.0[1], rhs.0[1], carry);
+        let (d2, carry) = adc(self.0[2], rhs.0[2], carry);
+        let (d3, carry) = adc(self.0[3], rhs.0[3], carry);
+        let (d4, carry) = adc(self.0[4], rhs.0[4], carry);
+        let (d5, carry) = adc(self.0[5], rhs.0[5], carry);
+        let (d6, carry) = adc(self.0[6], rhs.0[6], carry);
+        let (d7, carry) = adc(self.0[7], rhs.0[7], carry);
+        let (d8, carry) = adc(self.0[8], rhs.0[8], carry);
+        let (d9, carry) = adc(self.0[9], rhs.0[9], carry);
+        let (d10, carry) = adc(self.0[10], rhs.0[10], carry);
+        let (d11, _) = adc(self.0[11], rhs.0[11], carry);
+
+        FpWide([d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11])
+    }
+
+    /// Negates an element of magnitude 1 by subtracting it from a multiple of
+    /// the prime that is larger than this element could be (p^2), increasing
+    /// the magnitude by 1.
+    pub const fn negate(&self) -> FpWide {
+        let (d0, borrow) = sbb(<U1 as Magnitude>::P2[0], self.0[0], 0);
+        let (d1, borrow) = sbb(<U1 as Magnitude>::P2[1], self.0[1], borrow);
+        let (d2, borrow) = sbb(<U1 as Magnitude>::P2[2], self.0[2], borrow);
+        let (d3, borrow) = sbb(<U1 as Magnitude>::P2[3], self.0[3], borrow);
+        let (d4, borrow) = sbb(<U1 as Magnitude>::P2[4], self.0[4], borrow);
+        let (d5, borrow) = sbb(<U1 as Magnitude>::P2[5], self.0[5], borrow);
+        let (d6, borrow) = sbb(<U1 as Magnitude>::P2[6], self.0[6], borrow);
+        let (d7, borrow) = sbb(<U1 as Magnitude>::P2[7], self.0[7], borrow);
+        let (d8, borrow) = sbb(<U1 as Magnitude>::P2[8], self.0[8], borrow);
+        let (d9, borrow) = sbb(<U1 as Magnitude>::P2[9], self.0[9], borrow);
+        let (d10, borrow) = sbb(<U1 as Magnitude>::P2[10], self.0[10], borrow);
+        let (d11, _) = sbb(<U1 as Magnitude>::P2[11], self.0[11], borrow);
+
+        FpWide([d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11])
+    }
+}
 
 impl fmt::Debug for Fp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -199,9 +245,9 @@ impl Fp {
     pub fn to_bytes(&self) -> [u8; 48] {
         // Turn into canonical form by computing
         // (a.R) / R = a
-        let tmp = Fp::montgomery_reduce(
+        let tmp = Fp::montgomery_reduce(FpWide([
             self.0[0], self.0[1], self.0[2], self.0[3], self.0[4], self.0[5], 0, 0, 0, 0, 0, 0,
-        );
+        ]));
 
         let mut res = [0; 48];
         res[0..8].copy_from_slice(&tmp.0[5].to_be_bytes());
@@ -223,9 +269,9 @@ impl Fp {
         // (p - 1) // 2.
 
         // First, because self is in Montgomery form we need to reduce it
-        let tmp = Fp::montgomery_reduce(
+        let tmp = Fp::montgomery_reduce(FpWide([
             self.0[0], self.0[1], self.0[2], self.0[3], self.0[4], self.0[5], 0, 0, 0, 0, 0, 0,
-        );
+        ]));
 
         let (_, borrow) = sbb(tmp.0[0], 0xdcff7fffffffd556, 0);
         let (_, borrow) = sbb(tmp.0[1], 0x0f55ffff58a9ffff, borrow);
@@ -369,32 +415,19 @@ impl Fp {
     }
 
     #[inline(always)]
-    const fn montgomery_reduce(
-        t0: u64,
-        t1: u64,
-        t2: u64,
-        t3: u64,
-        t4: u64,
-        t5: u64,
-        t6: u64,
-        t7: u64,
-        t8: u64,
-        t9: u64,
-        t10: u64,
-        t11: u64,
-    ) -> Self {
+    pub const fn montgomery_reduce(t: FpWide) -> Self {
         // The Montgomery reduction here is based on Algorithm 14.32 in
         // Handbook of Applied Cryptography
         // <http://cacr.uwaterloo.ca/hac/about/chap14.pdf>.
 
-        let k = t0.wrapping_mul(INV);
-        let (_, carry) = mac(t0, k, MODULUS[0], 0);
-        let (r1, carry) = mac(t1, k, MODULUS[1], carry);
-        let (r2, carry) = mac(t2, k, MODULUS[2], carry);
-        let (r3, carry) = mac(t3, k, MODULUS[3], carry);
-        let (r4, carry) = mac(t4, k, MODULUS[4], carry);
-        let (r5, carry) = mac(t5, k, MODULUS[5], carry);
-        let (r6, r7) = adc(t6, 0, carry);
+        let k = t.0[0].wrapping_mul(INV);
+        let (_, carry) = mac(t.0[0], k, MODULUS[0], 0);
+        let (r1, carry) = mac(t.0[1], k, MODULUS[1], carry);
+        let (r2, carry) = mac(t.0[2], k, MODULUS[2], carry);
+        let (r3, carry) = mac(t.0[3], k, MODULUS[3], carry);
+        let (r4, carry) = mac(t.0[4], k, MODULUS[4], carry);
+        let (r5, carry) = mac(t.0[5], k, MODULUS[5], carry);
+        let (r6, r7) = adc(t.0[6], 0, carry);
 
         let k = r1.wrapping_mul(INV);
         let (_, carry) = mac(r1, k, MODULUS[0], 0);
@@ -403,7 +436,7 @@ impl Fp {
         let (r4, carry) = mac(r4, k, MODULUS[3], carry);
         let (r5, carry) = mac(r5, k, MODULUS[4], carry);
         let (r6, carry) = mac(r6, k, MODULUS[5], carry);
-        let (r7, r8) = adc(t7, r7, carry);
+        let (r7, r8) = adc(t.0[7], r7, carry);
 
         let k = r2.wrapping_mul(INV);
         let (_, carry) = mac(r2, k, MODULUS[0], 0);
@@ -412,7 +445,7 @@ impl Fp {
         let (r5, carry) = mac(r5, k, MODULUS[3], carry);
         let (r6, carry) = mac(r6, k, MODULUS[4], carry);
         let (r7, carry) = mac(r7, k, MODULUS[5], carry);
-        let (r8, r9) = adc(t8, r8, carry);
+        let (r8, r9) = adc(t.0[8], r8, carry);
 
         let k = r3.wrapping_mul(INV);
         let (_, carry) = mac(r3, k, MODULUS[0], 0);
@@ -421,7 +454,7 @@ impl Fp {
         let (r6, carry) = mac(r6, k, MODULUS[3], carry);
         let (r7, carry) = mac(r7, k, MODULUS[4], carry);
         let (r8, carry) = mac(r8, k, MODULUS[5], carry);
-        let (r9, r10) = adc(t9, r9, carry);
+        let (r9, r10) = adc(t.0[9], r9, carry);
 
         let k = r4.wrapping_mul(INV);
         let (_, carry) = mac(r4, k, MODULUS[0], 0);
@@ -430,7 +463,7 @@ impl Fp {
         let (r7, carry) = mac(r7, k, MODULUS[3], carry);
         let (r8, carry) = mac(r8, k, MODULUS[4], carry);
         let (r9, carry) = mac(r9, k, MODULUS[5], carry);
-        let (r10, r11) = adc(t10, r10, carry);
+        let (r10, r11) = adc(t.0[10], r10, carry);
 
         let k = r5.wrapping_mul(INV);
         let (_, carry) = mac(r5, k, MODULUS[0], 0);
@@ -439,7 +472,7 @@ impl Fp {
         let (r8, carry) = mac(r8, k, MODULUS[3], carry);
         let (r9, carry) = mac(r9, k, MODULUS[4], carry);
         let (r10, carry) = mac(r10, k, MODULUS[5], carry);
-        let (r11, _) = adc(t11, r11, carry);
+        let (r11, _) = adc(t.0[11], r11, carry);
 
         // Attempt to subtract the modulus, to ensure the value
         // is smaller than the modulus.
@@ -448,6 +481,11 @@ impl Fp {
 
     #[inline]
     pub const fn mul(&self, rhs: &Fp) -> Fp {
+        Self::montgomery_reduce(self.mul_unreduced(rhs))
+    }
+
+    #[inline]
+    pub const fn mul_unreduced(&self, rhs: &Fp) -> FpWide {
         let (t0, carry) = mac(0, self.0[0], rhs.0[0], 0);
         let (t1, carry) = mac(0, self.0[0], rhs.0[1], carry);
         let (t2, carry) = mac(0, self.0[0], rhs.0[2], carry);
@@ -490,12 +528,18 @@ impl Fp {
         let (t9, carry) = mac(t9, self.0[5], rhs.0[4], carry);
         let (t10, t11) = mac(t10, self.0[5], rhs.0[5], carry);
 
-        Self::montgomery_reduce(t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11)
+        FpWide([t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11])
     }
 
     /// Squares this element.
     #[inline]
     pub const fn square(&self) -> Self {
+        Self::montgomery_reduce(self.square_unreduced())
+    }
+
+    /// Squares this element, returning the wide value.
+    #[inline]
+    pub const fn square_unreduced(&self) -> FpWide {
         let (t1, carry) = mac(0, self.0[0], self.0[1], 0);
         let (t2, carry) = mac(0, self.0[0], self.0[2], carry);
         let (t3, carry) = mac(0, self.0[0], self.0[3], carry);
@@ -541,7 +585,7 @@ impl Fp {
         let (t10, carry) = mac(t10, self.0[5], self.0[5], carry);
         let (t11, _) = adc(t11, 0, carry);
 
-        Self::montgomery_reduce(t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11)
+        FpWide([t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11])
     }
 }
 
