@@ -3,9 +3,13 @@ use crate::fp2::*;
 
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
+#[cfg(feature = "zeroize")]
+use zeroize::Zeroize;
 
 /// This represents an element $c_0 + c_1 v + c_2 v^2$ of $\mathbb{F}_{p^6} = \mathbb{F}_{p^2} / v^3 - u - 1$.
+#[cfg_attr(feature = "zeroize", derive(Zeroize))]
 pub struct Fp6 {
     pub c0: Fp2,
     pub c1: Fp2,

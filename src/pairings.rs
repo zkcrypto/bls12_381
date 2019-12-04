@@ -6,6 +6,8 @@ use crate::{G1Affine, G2Affine, G2Projective, Scalar, BLS_X, BLS_X_IS_NEGATIVE};
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
+#[cfg(feature = "zeroize")]
+use zeroize::Zeroize;
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
@@ -13,6 +15,7 @@ use alloc::vec::Vec;
 /// Represents results of a Miller loop, one of the most expensive portions
 /// of the pairing function. `MillerLoopResult`s cannot be compared with each
 /// other until `.final_exponentiation()` is called, which is also expensive.
+#[cfg_attr(feature = "zeroize", derive(Zeroize))]
 #[derive(Copy, Clone, Debug)]
 pub struct MillerLoopResult(pub(crate) Fp12);
 
@@ -174,6 +177,7 @@ impl_add_binop_specify_output!(MillerLoopResult, MillerLoopResult, MillerLoopRes
 ///
 /// Typically, $\mathbb{G}_T$ is written multiplicatively but we will write it additively to
 /// keep code and abstractions consistent.
+#[cfg_attr(feature = "zeroize", derive(Zeroize))]
 #[derive(Copy, Clone, Debug)]
 pub struct Gt(pub(crate) Fp12);
 

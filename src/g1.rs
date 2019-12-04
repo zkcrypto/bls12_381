@@ -3,6 +3,8 @@
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
+#[cfg(feature = "zeroize")]
+use zeroize::Zeroize;
 
 use crate::fp::Fp;
 use crate::Scalar;
@@ -389,6 +391,7 @@ impl G1Affine {
 }
 
 /// This is an element of $\mathbb{G}_1$ represented in the projective coordinate space.
+#[cfg_attr(feature = "zeroize", derive(Zeroize))]
 #[derive(Copy, Clone, Debug)]
 pub struct G1Projective {
     x: Fp,

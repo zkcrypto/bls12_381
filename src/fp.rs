@@ -6,12 +6,15 @@ use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
+#[cfg(feature = "zeroize")]
+use zeroize::Zeroize;
 
 use crate::util::{adc, mac, sbb};
 
 // The internal representation of this type is six 64-bit unsigned
 // integers in little-endian order. `Fp` values are always in
 // Montgomery form; i.e., Scalar(a) = aR mod p, with R = 2^384.
+#[cfg_attr(feature = "zeroize", derive(Zeroize))]
 #[derive(Copy, Clone)]
 pub struct Fp([u64; 6]);
 
