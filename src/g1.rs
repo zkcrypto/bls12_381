@@ -144,11 +144,11 @@ impl<'a, 'b> Sub<&'b G1Affine> for &'a G1Projective {
 
 impl<T> Sum<T> for G1Projective
 where
-    T: Borrow<G1Projective>
+    T: Borrow<G1Projective>,
 {
     fn sum<I>(iter: I) -> Self
     where
-        I: Iterator<Item = T>
+        I: Iterator<Item = T>,
     {
         iter.fold(Self::identity(), |acc, item| acc + item.borrow())
     }
