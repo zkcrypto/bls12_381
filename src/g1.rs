@@ -1,5 +1,7 @@
 //! This module provides an implementation of the $\mathbb{G}_1$ group of BLS12-381.
 
+use core::borrow::Borrow;
+use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
@@ -137,6 +139,18 @@ impl<'a, 'b> Sub<&'b G1Affine> for &'a G1Projective {
     #[inline]
     fn sub(self, rhs: &'b G1Affine) -> G1Projective {
         self + (-rhs)
+    }
+}
+
+impl<T> Sum<T> for G1Projective
+where
+    T: Borrow<G1Projective>,
+{
+    fn sum<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = T>,
+    {
+        iter.fold(Self::identity(), |acc, item| acc + item.borrow())
     }
 }
 

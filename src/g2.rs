@@ -1,5 +1,7 @@
 //! This module provides an implementation of the $\mathbb{G}_2$ group of BLS12-381.
 
+use core::borrow::Borrow;
+use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
@@ -138,6 +140,18 @@ impl<'a, 'b> Sub<&'b G2Affine> for &'a G2Projective {
     #[inline]
     fn sub(self, rhs: &'b G2Affine) -> G2Projective {
         self + (-rhs)
+    }
+}
+
+impl<T> Sum<T> for G2Projective
+where
+    T: Borrow<G2Projective>,
+{
+    fn sum<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = T>,
+    {
+        iter.fold(Self::identity(), |acc, item| acc + item.borrow())
     }
 }
 
