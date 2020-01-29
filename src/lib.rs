@@ -56,6 +56,8 @@ mod fp2;
 mod g1;
 #[cfg(feature = "groups")]
 mod g2;
+#[cfg(feature = "groups")]
+mod hashable;
 
 #[cfg(feature = "groups")]
 pub use g1::{G1Affine, G1Projective};
