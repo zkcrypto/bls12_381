@@ -8,7 +8,7 @@
 //! * This implementation does not require the Rust standard library.
 //! * All operations are constant time unless explicitly noted.
 
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)] 
 // Catch documentation errors caused by code changes.
 #![deny(intra_doc_link_resolution_failure)]
 #![deny(missing_debug_implementations)]
@@ -80,4 +80,5 @@ pub use pairings::{pairing, Gt, MillerLoopResult};
 #[cfg(all(feature = "pairings", feature = "alloc"))]
 pub use pairings::{multi_miller_loop, G2Prepared};
 
+#[cfg(feature = "groups")]
 pub mod multiscalar_mul;
