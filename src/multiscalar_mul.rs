@@ -3,7 +3,7 @@ use crate::{g1::G1Affine, scalar::Scalar};
 use byteorder;
 
 #[cfg(feature = "std")]
-fn pippenger(points: &Vec<G1Affine>, scalars: Vec<Scalar>) -> G1Affine {
+pub fn pippenger(points: &Vec<G1Affine>, scalars: Vec<Scalar>) -> G1Affine {
     let mut scalars = scalars.into_iter();
     let size = scalars.by_ref().size_hint().0;
 
@@ -99,7 +99,7 @@ fn to_radix_2w_size_hint(w: usize) -> usize {
     digits_count
 }
 
-pub(crate) fn to_radix_2w(scalar: &Scalar, w: usize) -> [i8; 43] {
+fn to_radix_2w(scalar: &Scalar, w: usize) -> [i8; 43] {
     debug_assert!(w >= 6);
     debug_assert!(w <= 8);
 
