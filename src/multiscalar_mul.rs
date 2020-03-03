@@ -1,9 +1,10 @@
 //! Multiscalar multiplication implementation using pippenger algorithm.
-use crate::{g1::G1Affine, scalar::Scalar};
+use crate::{g1::G1Projective, scalar::Scalar};
 use byteorder;
 
 #[cfg(feature = "std")]
-pub fn pippenger(points: &Vec<G1Affine>, scalars: Vec<Scalar>) -> G1Affine {
+/// Dummy docs
+pub fn pippenger(points: &[G1Projective], scalars: &[Scalar]) -> G1Projective {
     let mut scalars = scalars.into_iter();
     let size = scalars.by_ref().size_hint().0;
 
@@ -19,25 +20,24 @@ pub fn pippenger(points: &Vec<G1Affine>, scalars: Vec<Scalar>) -> G1Affine {
     };
 
     let max_digit: usize = 1 << w;
-    let digits_count: usize = Scalar::to_radix_2w_size_hint(w);
+    let digits_count: usize = to_radix_2w_size_hint(w);
     let buckets_count: usize = max_digit / 2; // digits are signed+centered hence 2^w/2, excluding 0-th bucket
 
     // Collect optimized scalars and points in buffers for repeated access
     // (scanning the whole set per digit position).
-    let scalars = scalars.map(|s| s.borrow().to_radix_2w(w));
-    let scalars_points = scalars
-        .zip(points)
-        .map(|(s, maybe_p)| maybe_p.map(|p| (s, p)))
-        .collect::<Option<Vec<_>>>()?;
+    let scalars = scalars.map(|s| to_radix_2w(s, w));
+    let scalars_points = scalars.zip(points).collect::<Vec<_>>();
 
     // Prepare 2^w/2 buckets.
     // buckets[i] corresponds to a multiplication factor (i+1).
-    let mut buckets: Vec<_> = (0..buckets_count).map(|_| G1Affine::identity()).collect();
+    let mut buckets: Vec<_> = (0..buckets_count)
+        .map(|_| G1Projective::identity())
+        .collect();
 
     let mut columns = (0..digits_count).rev().map(|digit_index| {
         // Clear the buckets when processing another digit.
         for i in 0..buckets_count {
-            buckets[i] = G1Affine::identity();
+            buckets[i] = G1Projective::identity();
         }
 
         // Iterate over pairs of (point, scalar)
@@ -49,10 +49,10 @@ pub fn pippenger(points: &Vec<G1Affine>, scalars: Vec<Scalar>) -> G1Affine {
             let digit = digits[digit_index] as i16;
             if digit > 0 {
                 let b = (digit - 1) as usize;
-                buckets[b] = (&buckets[b] + pt);
+                buckets[b] = buckets[b] + *pt;
             } else if digit < 0 {
                 let b = (-digit - 1) as usize;
-                buckets[b] = (&buckets[b] - pt);
+                buckets[b] = buckets[b] - *pt;
             }
         }
 
@@ -78,7 +78,20 @@ pub fn pippenger(points: &Vec<G1Affine>, scalars: Vec<Scalar>) -> G1Affine {
     // `unwrap()` always succeeds because we know we have more than zero digits.
     let hi_column = columns.next().unwrap();
 
-    Some(columns.fold(hi_column, |total, p| total.mul_by_pow_2(w as u32) + p))
+    columns.fold(hi_column, |total, p| mul_by_pow_2(&total, w as u32) + p)
+}
+
+/// Compute \\([2\^k] P \\) by successive doublings. Requires \\( k > 0 \\).
+pub(crate) fn mul_by_pow_2(point: &G1Projective, k: u32) -> G1Projective {
+    debug_assert!(k > 0);
+    let mut r: G1Projective;
+    let mut s = point;
+    for _ in 0..(k - 1) {
+        r = s.double();
+        s = &r;
+    }
+    // Unroll last iteration so we can go directly to_extended()
+    s.double()
 }
 
 /// Returns a size hint indicating how many entries of the return
@@ -157,35 +170,34 @@ fn to_radix_2w(scalar: &Scalar, w: usize) -> [i8; 43] {
     digits
 }
 
-#[cfg(feature = "std")]
-#[test]
-fn multiscalar_mul() {
-    // Reuse points across different tests
-    let mut n = 512;
-    let x = Scalar::from(2128506u64).invert().unwrap();
-    let y = Scalar::from(4443282u64).invert().unwrap();
-    let points: Vec<_> = (0..n)
-        .map(|i| G1Affine::generator() * Scalar::from(1 + i as u64))
-        .collect();
-    let scalars: Vec<_> = (0..n)
-        .map(|i| x + (Scalar::from(i as u64) * y)) // fast way to make ~random but deterministic scalars
-        .collect();
+mod tests {
+    use super::*;
 
-    let premultiplied: Vec<G1Affine> = scalars
-        .iter()
-        .zip(points.iter())
-        .map(|(sc, pt)| sc * pt)
-        .collect();
-
-    while n > 0 {
-        let scalars = &scalars[0..n].to_vec();
-        let points = &points[0..n].to_vec();
-        let control: G1Affine = premultiplied[0..n].iter().sum();
-
-        let subject = pippenger(scalars.clone(), points.clone());
-
-        assert_eq!(subject.compress(), control.compress());
-
-        n = n / 2;
+    #[cfg(feature = "std")]
+    #[test]
+    fn multiscalar_mul() {
+        // Reuse points across different tests
+        let mut n = 512;
+        let x = Scalar::from(2128506u64).invert().unwrap();
+        let y = Scalar::from(4443282u64).invert().unwrap();
+        let points: Vec<_> = (0..n)
+            .map(|i| G1Projective::generator() * Scalar::from(1 + i as u64))
+            .collect();
+        let scalars: Vec<_> = (0..n)
+            .map(|i| x + (Scalar::from(i as u64) * y)) // fast way to make ~random but deterministic scalars
+            .collect();
+        let premultiplied: Vec<G1Projective> = scalars
+            .iter()
+            .zip(points.iter())
+            .map(|(sc, pt)| pt * sc)
+            .collect();
+        while n > 0 {
+            let scalars = &scalars[0..n];
+            let points = &points[0..n];
+            let control: G1Projective = premultiplied[0..n].iter().sum();
+            let subject = pippenger(points, scalars);
+            assert_eq!(subject, control);
+            n = n / 2;
+        }
     }
 }
