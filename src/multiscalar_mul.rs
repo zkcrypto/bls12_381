@@ -3,7 +3,9 @@ use crate::{g1::G1Projective, scalar::Scalar};
 use byteorder;
 
 #[cfg(feature = "std")]
-/// Dummy docs
+/// Performs multiscalar multiplication reliying on Pippenger's algorithm.
+/// This method was taken from `curve25519-dalek` and was originally made by
+/// Oleg Andreev <oleganza@gmail.com>.
 pub fn pippenger(points: &[G1Projective], scalars: &[Scalar]) -> G1Projective {
     let mut scalars = scalars.into_iter();
     let size = scalars.by_ref().size_hint().0;
