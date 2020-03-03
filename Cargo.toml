@@ -28,7 +28,7 @@ version = "2.2.1"
 default-features = false
 
 [features]
-default = ["groups", "pairings", "alloc", "std"]
+default = ["groups", "pairings", "alloc", "std" ,"endo"]
 groups = []
 pairings = ["groups"]
 alloc = []
