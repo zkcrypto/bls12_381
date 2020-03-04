@@ -6,9 +6,12 @@ use byteorder;
 /// Performs multiscalar multiplication reliying on Pippenger's algorithm.
 /// This method was taken from `curve25519-dalek` and was originally made by
 /// Oleg Andreev <oleganza@gmail.com>.
-pub fn pippenger(points: &[G1Projective], scalars: &[Scalar]) -> G1Projective {
-    let mut scalars = scalars.into_iter();
-    let size = scalars.by_ref().size_hint().0;
+pub fn pippenger<P, I>(points: P, scalars: I) -> G1Projective
+where
+    P: Iterator<Item = G1Projective>,
+    I: Iterator<Item = Scalar>,
+{
+    let size = scalars.size_hint().0;
 
     // Digit width in bits. As digit width grows,
     // number of point additions goes down, but amount of
@@ -27,7 +30,7 @@ pub fn pippenger(points: &[G1Projective], scalars: &[Scalar]) -> G1Projective {
 
     // Collect optimized scalars and points in buffers for repeated access
     // (scanning the whole set per digit position).
-    let scalars = scalars.map(|s| to_radix_2w(s, w));
+    let scalars = scalars.map(|s| to_radix_2w(&s, w));
     let scalars_points = scalars.zip(points).collect::<Vec<_>>();
 
     // Prepare 2^w/2 buckets.
@@ -51,10 +54,10 @@ pub fn pippenger(points: &[G1Projective], scalars: &[Scalar]) -> G1Projective {
             let digit = digits[digit_index] as i16;
             if digit > 0 {
                 let b = (digit - 1) as usize;
-                buckets[b] = buckets[b] + *pt;
+                buckets[b] = buckets[b] + pt;
             } else if digit < 0 {
                 let b = (-digit - 1) as usize;
-                buckets[b] = buckets[b] - *pt;
+                buckets[b] = buckets[b] - pt;
             }
         }
 
@@ -182,12 +185,12 @@ mod tests {
         let mut n = 512;
         let x = Scalar::from(2128506u64).invert().unwrap();
         let y = Scalar::from(4443282u64).invert().unwrap();
-        let points: Vec<_> = (0..n)
+        let points = (0..n)
             .map(|i| G1Projective::generator() * Scalar::from(1 + i as u64))
-            .collect();
-        let scalars: Vec<_> = (0..n)
-            .map(|i| x + (Scalar::from(i as u64) * y)) // fast way to make ~random but deterministic scalars
-            .collect();
+            .collect::<Vec<_>>();
+        let scalars = (0..n)
+            .map(|i| x + (Scalar::from(i as u64) * y))
+            .collect::<Vec<_>>(); // fast way to make ~random but deterministic scalars
         let premultiplied: Vec<G1Projective> = scalars
             .iter()
             .zip(points.iter())
@@ -197,7 +200,10 @@ mod tests {
             let scalars = &scalars[0..n];
             let points = &points[0..n];
             let control: G1Projective = premultiplied[0..n].iter().sum();
-            let subject = pippenger(points, scalars);
+            let subject = pippenger(
+                points.to_owned().into_iter(),
+                scalars.to_owned().into_iter(),
+            );
             assert_eq!(subject, control);
             n = n / 2;
         }
