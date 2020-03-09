@@ -3,7 +3,7 @@
 
 use core::convert::TryFrom;
 use core::fmt;
-use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign, Shr};
+use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Shr, Sub, SubAssign};
 
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
@@ -613,11 +613,30 @@ impl Scalar {
     }
 
     /// SHR impl
-    pub fn divn(&mut self, amt: usize) {
-        self.0[0] >> amt;
-        self.0[1] >> amt;
-        self.0[2] >> amt;
-        self.0[3] >> amt;
+    #[inline]
+    pub fn divn(&mut self, mut n: u32) {
+        if n >= 256 {
+            *self = Self::from(0);
+            return;
+        }
+
+        while n >= 64 {
+            let mut t = 0;
+            for i in self.0.iter_mut().rev() {
+                core::mem::swap(&mut t, i);
+            }
+            n -= 64;
+        }
+
+        if n > 0 {
+            let mut t = 0;
+            for i in self.0.iter_mut().rev() {
+                let t2 = *i << (64 - n);
+                *i >>= n;
+                *i |= t;
+                t = t2;
+            }
+        }
     }
 }
 

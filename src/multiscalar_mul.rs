@@ -221,7 +221,7 @@ pub fn msm_variable_base(points: &[G1Projective], scalars: &[Scalar]) -> G1Proje
 
                         // We right-shift by w_start, thus getting rid of the
                         // lower bits.
-                        scalar.divn(w_start);
+                        scalar.divn(w_start as u32);
 
                         // We mod the remaining bits by the window size.
                         let scalar = scalar.0[0] % (1 << c);
