@@ -7,7 +7,7 @@ use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
-#[cfg(feature = "pairings")]
+#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
 /// Represents results of a Miller loop, one of the most expensive portions
@@ -24,18 +24,83 @@ impl ConditionallySelectable for MillerLoopResult {
 
 impl MillerLoopResult {
     /// This performs a "final exponentiation" routine to convert the result
-    /// of a Miller loop into an element of `Gt` so that it can be compared
-    /// with other elements of `Gt`.
+    /// of a Miller loop into an element of `Gt` with help of efficient squaring
+    /// operation in the so-called `cyclotomic subgroup` of `Fq6` so that
+    /// it can be compared with other elements of `Gt`.
     pub fn final_exponentiation(&self) -> Gt {
-        let r = &self.0;
-
         #[must_use]
-        fn exp_by_x(f: Fp12, x: u64) -> Fp12 {
+        fn fp4_square(a: Fp2, b: Fp2) -> (Fp2, Fp2) {
+            let t0 = a.square();
+            let t1 = b.square();
+            let mut t2 = t1.mul_by_nonresidue();
+            let c0 = t2 + t0;
+            t2 = a + b;
+            t2 = t2.square();
+            t2 -= t0;
+            let c1 = t2 - t1;
+
+            (c0, c1)
+        }
+        // Adaptation of Algorithm 5.5.4, Guide to Pairing-Based Cryptography
+        // Faster Squaring in the Cyclotomic Subgroup of Sixth Degree Extensions
+        // https://eprint.iacr.org/2009/565.pdf
+        #[must_use]
+        fn cyclotomic_square(f: Fp12) -> Fp12 {
+            let mut z0 = f.c0.c0.clone();
+            let mut z4 = f.c0.c1.clone();
+            let mut z3 = f.c0.c2.clone();
+            let mut z2 = f.c1.c0.clone();
+            let mut z1 = f.c1.c1.clone();
+            let mut z5 = f.c1.c2.clone();
+
+            let (t0, t1) = fp4_square(z0, z1);
+
+            // For A
+            z0 = t0 - z0;
+            z0 += z0 + t0;
+
+            z1 = t1 + z1;
+            z1 += z1 + t1;
+
+            let (mut t0, t1) = fp4_square(z2, z3);
+            let (t2, t3) = fp4_square(z4, z5);
+
+            // For C
+            z4 = t0 - z4;
+            z4 += z4 + t0;
+
+            z5 = t1 + z5;
+            z5 += z5 + t1;
+
+            // For B
+            t0 = t3.mul_by_nonresidue();
+            z2 = t0 + z2;
+            z2 += z2 + t0;
+
+            z3 = t2 - z3;
+            z3 += z3 + t2;
+
+            Fp12 {
+                c0: Fp6 {
+                    c0: z0,
+                    c1: z4,
+                    c2: z3,
+                },
+                c1: Fp6 {
+                    c0: z2,
+                    c1: z1,
+                    c2: z5,
+                },
+            }
+        }
+        #[must_use]
+        fn cycolotomic_exp(f: Fp12) -> Fp12 {
+            let x = BLS_X;
             let mut tmp = Fp12::one();
             let mut found_one = false;
             for i in (0..64).rev().map(|b| ((x >> b) & 1) == 1) {
                 if found_one {
-                    tmp = tmp.square()
+                    tmp = cyclotomic_square(tmp)
                 } else {
                     found_one = i;
                 }
@@ -45,55 +110,46 @@ impl MillerLoopResult {
                 }
             }
 
-            if BLS_X_IS_NEGATIVE {
-                tmp = tmp.conjugate();
-            }
-
-            tmp
+            tmp.conjugate()
         }
 
-        let f1 = r.conjugate();
+        let mut f = self.0.clone();
+        let mut t0 = f
+            .frobenius_map()
+            .frobenius_map()
+            .frobenius_map()
+            .frobenius_map()
+            .frobenius_map()
+            .frobenius_map();
+        Gt(f.invert()
+            .map(|mut t1| {
+                let mut t2 = t0 * t1;
+                t1 = t2.clone();
+                t2 = t2.frobenius_map().frobenius_map();
+                t2 *= t1;
+                t1 = cyclotomic_square(t2).conjugate();
+                let mut t3 = cycolotomic_exp(t2);
+                let mut t4 = cyclotomic_square(t3);
+                let mut t5 = t1 * t3;
+                t1 = cycolotomic_exp(t5);
+                t0 = cycolotomic_exp(t1);
+                let mut t6 = cycolotomic_exp(t0);
+                t6 *= t4;
+                t4 = cycolotomic_exp(t6);
+                t5 = t5.conjugate();
+                t4 *= t5 * t2;
+                t5 = t2.conjugate();
+                t1 *= t2;
+                t1 = t1.frobenius_map().frobenius_map().frobenius_map();
+                t6 *= t5;
+                t6 = t6.frobenius_map();
+                t3 *= t0;
+                t3 = t3.frobenius_map().frobenius_map();
+                t3 *= t1;
+                t3 *= t6;
+                f = t3 * t4;
 
-        Gt(r.invert()
-            .map(|mut f2| {
-                let mut r = f1;
-                r *= f2;
-                f2 = r;
-                r = r.frobenius_map().frobenius_map();
-                r *= f2;
-                let mut x = BLS_X;
-                let y0 = r.square();
-                let mut y1 = y0;
-                y1 = exp_by_x(y1, x);
-                x >>= 1;
-                let mut y2 = y1;
-                y2 = exp_by_x(y2, x);
-                x <<= 1;
-                let mut y3 = r;
-                y3 = y3.conjugate();
-                y1 *= y3;
-                y1 = y1.conjugate();
-                y1 *= y2;
-                y2 = y1;
-                y2 = exp_by_x(y2, x);
-                y3 = y2;
-                y3 = exp_by_x(y3, x);
-                y1 = y1.conjugate();
-                y3 *= y1;
-                y1 = y1.conjugate();
-                y1 = y1.frobenius_map().frobenius_map().frobenius_map();
-                y2 = y2.frobenius_map().frobenius_map();
-                y1 *= y2;
-                y2 = y3;
-                y2 = exp_by_x(y2, x);
-                y2 *= y0;
-                y2 *= r;
-                y1 *= y2;
-                y2 = y3;
-                y2 = y2.frobenius_map();
-                y1 *= y2;
-
-                y1
+                f
             })
             // We unwrap() because `MillerLoopResult` can only be constructed
             // by a function within this crate, and we uphold the invariant
@@ -119,7 +175,7 @@ impl_add_binop_specify_output!(MillerLoopResult, MillerLoopResult, MillerLoopRes
 /// Typically, $\mathbb{G}_T$ is written multiplicatively but we will write it additively to
 /// keep code and abstractions consistent.
 #[derive(Copy, Clone, Debug)]
-pub struct Gt(Fp12);
+pub struct Gt(pub(crate) Fp12);
 
 impl ConstantTimeEq for Gt {
     fn ct_eq(&self, other: &Self) -> Choice {
@@ -297,7 +353,7 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a Gt {
 impl_binops_additive!(Gt, Gt);
 impl_binops_multiplicative!(Gt, Scalar);
 
-#[cfg(feature = "pairings")]
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
 /// This structure contains cached computations pertaining to a $\mathbb{G}_2$
 /// element as part of the pairing function (specifically, the Miller loop) and
@@ -306,14 +362,13 @@ impl_binops_multiplicative!(Gt, Scalar);
 /// conjunction with the [`multi_miller_loop`](crate::multi_miller_loop)
 /// function provided by this crate.
 ///
-/// Requires the `pairings` crate feature to be enabled, which requires the
-/// `alloc` crate.
+/// Requires the `alloc` and `pairing` crate features to be enabled.
 pub struct G2Prepared {
     infinity: Choice,
     coeffs: Vec<(Fp2, Fp2, Fp2)>,
 }
 
-#[cfg(feature = "pairings")]
+#[cfg(feature = "alloc")]
 impl From<G2Affine> for G2Prepared {
     fn from(q: G2Affine) -> G2Prepared {
         struct Adder {
@@ -364,12 +419,11 @@ impl From<G2Affine> for G2Prepared {
     }
 }
 
-#[cfg(feature = "pairings")]
+#[cfg(feature = "alloc")]
 /// Computes $$\sum_{i=1}^n \textbf{ML}(a_i, b_i)$$ given a series of terms
 /// $$(a_1, b_1), (a_2, b_2), ..., (a_n, b_n).$$
 ///
-/// Requires the `pairings` crate feature to be enabled, which requires the
-/// `alloc` crate.
+/// Requires the `alloc` and `pairing` crate features to be enabled.
 pub fn multi_miller_loop(terms: &[(&G1Affine, &G2Prepared)]) -> MillerLoopResult {
     struct Adder<'a, 'b, 'c> {
         terms: &'c [(&'a G1Affine, &'b G2Prepared)],
@@ -666,7 +720,7 @@ fn test_compressed() {
     assert_eq!(gt, gt2);
 }
 
-#[cfg(feature = "pairings")]
+#[cfg(feature = "alloc")]
 #[test]
 fn test_multi_miller_loop() {
     let a1 = G1Affine::generator();

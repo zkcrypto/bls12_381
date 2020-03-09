@@ -43,8 +43,18 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --verbose --release --tests
+          args: --verbose --release --tests --features endo
       - name: Run tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --verbose --release --features endo
+      - name: Build tests (no endomorphism)
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --verbose --release --tests
+      - name: Run tests (no endomorphism)
         uses: actions-rs/cargo@v1
         with:
           command: test
@@ -69,7 +79,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --verbose --target thumbv6m-none-eabi --no-default-features --features groups
+          args: --verbose --target thumbv6m-none-eabi --no-default-features --features groups,pairings
 
   doc-links:
     name: Nightly lint

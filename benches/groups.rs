@@ -50,6 +50,18 @@ fn criterion_benchmark(c: &mut Criterion) {
             &format!("{} deserialize uncompressed element", name),
             move |b| b.iter(|| Gt::from_uncompressed(black_box(&uncompressed))),
         );
+        c.bench_function("G2 preparation for pairing", move |b| {
+            b.iter(|| G2Prepared::from(h))
+        });
+        let prep = G2Prepared::from(h);
+        c.bench_function("miller loop for pairing", move |b| {
+            b.iter(|| multi_miller_loop(&[(&g, &prep)]))
+        });
+        let prep = G2Prepared::from(h);
+        let r = multi_miller_loop(&[(&g, &prep)]);
+        c.bench_function("final exponentiation for pairing", move |b| {
+            b.iter(|| r.final_exponentiation())
+        });
     }
 
     // G1Affine
