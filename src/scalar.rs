@@ -3,7 +3,7 @@
 
 use core::convert::TryFrom;
 use core::fmt;
-use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign, Shr};
 
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
@@ -610,6 +610,14 @@ impl Scalar {
         let mask = (((self.0[0] | self.0[1] | self.0[2] | self.0[3]) == 0) as u64).wrapping_sub(1);
 
         Scalar([d0 & mask, d1 & mask, d2 & mask, d3 & mask])
+    }
+
+    /// SHR impl
+    pub fn divn(&mut self, amt: usize) {
+        self.0[0] >> amt;
+        self.0[1] >> amt;
+        self.0[2] >> amt;
+        self.0[3] >> amt;
     }
 }
 
