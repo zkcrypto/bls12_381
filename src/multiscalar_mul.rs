@@ -180,7 +180,7 @@ fn to_radix_2w(scalar: &Scalar, w: usize) -> [i8; 43] {
 
 #[cfg(feature = "std")]
 /// Performs a Variable Base Multiscalar Multiplication.
-pub fn msm_variable_base(points: &[G1Projective], scalars: &[Scalar]) -> G1Projective {
+pub fn msm_variable_base(points: &[G1Affine], scalars: &[Scalar]) -> G1Projective {
     use rayon::prelude::*;
 
     let c = if scalars.len() < 32 {
@@ -213,11 +213,10 @@ pub fn msm_variable_base(points: &[G1Projective], scalars: &[Scalar]) -> G1Proje
                     if scalar == fr_one {
                         // We only process unit scalars once in the first window.
                         if w_start == 0 {
-                            res = res + base;
-                            //res.add_assign_mixed(base);
+                            res = res.add_mixed(base);
                         }
                     } else {
-                        let mut scalar = scalar;
+                        let mut scalar = scalar.reduce();
 
                         // We right-shift by w_start, thus getting rid of the
                         // lower bits.
@@ -230,17 +229,16 @@ pub fn msm_variable_base(points: &[G1Projective], scalars: &[Scalar]) -> G1Proje
                         // bucket.
                         // (Recall that `buckets` doesn't have a zero bucket.)
                         if scalar != 0 {
-                            buckets[(scalar - 1) as usize] = buckets[(scalar - 1) as usize] + base;
+                            buckets[(scalar - 1) as usize] =
+                                buckets[(scalar - 1) as usize].add_mixed(base);
                         }
                     }
                 });
-            // let buckets = G::Projective::batch_normalization(&buckets);
 
             let mut running_sum = G1Projective::identity();
             for b in buckets.into_iter().rev() {
                 running_sum = running_sum + b;
-                // running_sum.add_assign_mixed(&b);
-                res += running_sum;
+                res += &running_sum;
             }
 
             res
@@ -249,19 +247,18 @@ pub fn msm_variable_base(points: &[G1Projective], scalars: &[Scalar]) -> G1Proje
 
     // We store the sum for the lowest window.
     let lowest = *window_sums.first().unwrap();
-
     // We're traversing windows from high to low.
-    lowest
-        + window_sums[1..]
-            .iter()
-            .rev()
-            .fold(zero, |mut total, sum_i| {
-                total += sum_i;
-                for _ in 0..c {
-                    total = total.double();
-                }
-                total
-            })
+    window_sums[1..]
+        .iter()
+        .rev()
+        .fold(zero, |mut total, sum_i| {
+            total += sum_i;
+            for _ in 0..c {
+                total = total.double();
+            }
+            total
+        })
+        + lowest
 }
 
 fn ln_without_floats(a: usize) -> usize {
@@ -314,29 +311,10 @@ mod tests {
     #[cfg(feature = "std")]
     #[test]
     fn msm_variable_base_test() {
-        // Reuse points across different tests
-        let mut n = 512;
-        let x = Scalar::from(2128506u64).invert().unwrap();
-        let y = Scalar::from(4443282u64).invert().unwrap();
-        let points = (0..n)
-            .map(|i| G1Projective::generator() * Scalar::from(1 + i as u64))
-            .collect::<Vec<_>>();
-        let scalars = (0..n)
-            .map(|i| x + (Scalar::from(i as u64) * y))
-            .collect::<Vec<_>>(); // fast way to make ~random but deterministic scalars
-        let premultiplied: Vec<G1Projective> = scalars
-            .iter()
-            .zip(points.iter())
-            .map(|(sc, pt)| pt * sc)
-            .collect();
-        while n > 0 {
-            println!("N: {:?}", n);
-            let scalars = &scalars[0..n];
-            let points = &points[0..n];
-            let control: G1Projective = premultiplied[0..n].iter().sum();
-            let subject = msm_variable_base(&points, &scalars);
-            assert_eq!(subject, control);
-            n = n / 2;
-        }
+        let points = vec![G1Affine::generator()];
+        let scalars = vec![Scalar::from(100u64)];
+        let premultiplied = G1Projective::generator() * Scalar::from(100u64);
+        let subject = msm_variable_base(&points, &scalars);
+        assert_eq!(subject, premultiplied);
     }
 }
