@@ -1,5 +1,8 @@
 //! Multiscalar multiplication implementation using pippenger algorithm.
-use crate::{g1::G1Projective, scalar::Scalar};
+use crate::{
+    g1::{G1Affine, G1Projective},
+    scalar::Scalar,
+};
 use byteorder;
 
 #[cfg(feature = "std")]
@@ -175,12 +178,108 @@ fn to_radix_2w(scalar: &Scalar, w: usize) -> [i8; 43] {
     digits
 }
 
+#[cfg(feature = "std")]
+/// Performs a Variable Base Multiscalar Multiplication.
+pub fn msm_variable_base(points: &[G1Affine], scalars: &[Scalar]) -> G1Projective {
+    use rayon::prelude::*;
+
+    let c = if scalars.len() < 32 {
+        3
+    } else {
+        ln_without_floats(scalars.len()) + 2
+    };
+
+    let num_bits = 255usize;
+    let fr_one = Scalar::one();
+
+    let zero = G1Projective::identity();
+    let window_starts: Vec<_> = (0..num_bits).step_by(c).collect();
+
+    let window_starts_iter = window_starts.into_par_iter();
+
+    // Each window is of size `c`.
+    // We divide up the bits 0..num_bits into windows of size `c`, and
+    // in parallel process each such window.
+    let window_sums: Vec<_> = window_starts_iter
+        .map(|w_start| {
+            let mut res = zero;
+            // We don't need the "zero" bucket, so we only have 2^c - 1 buckets
+            let mut buckets = vec![zero; (1 << c) - 1];
+            scalars
+                .iter()
+                .zip(points)
+                .filter(|(s, _)| !(*s == &Scalar::zero()))
+                .for_each(|(&scalar, base)| {
+                    if scalar == fr_one {
+                        // We only process unit scalars once in the first window.
+                        if w_start == 0 {
+                            res = res.add_mixed(base);
+                        }
+                    } else {
+                        let mut scalar = scalar.reduce();
+
+                        // We right-shift by w_start, thus getting rid of the
+                        // lower bits.
+                        scalar.divn(w_start as u32);
+
+                        // We mod the remaining bits by the window size.
+                        let scalar = scalar.0[0] % (1 << c);
+
+                        // If the scalar is non-zero, we update the corresponding
+                        // bucket.
+                        // (Recall that `buckets` doesn't have a zero bucket.)
+                        if scalar != 0 {
+                            buckets[(scalar - 1) as usize] =
+                                buckets[(scalar - 1) as usize].add_mixed(base);
+                        }
+                    }
+                });
+
+            let mut running_sum = G1Projective::identity();
+            for b in buckets.into_iter().rev() {
+                running_sum = running_sum + b;
+                res += &running_sum;
+            }
+
+            res
+        })
+        .collect();
+
+    // We store the sum for the lowest window.
+    let lowest = *window_sums.first().unwrap();
+    // We're traversing windows from high to low.
+    window_sums[1..]
+        .iter()
+        .rev()
+        .fold(zero, |mut total, sum_i| {
+            total += sum_i;
+            for _ in 0..c {
+                total = total.double();
+            }
+            total
+        })
+        + lowest
+}
+
+fn ln_without_floats(a: usize) -> usize {
+    // log2(a) * ln(2)
+    (log2(a) * 69 / 100) as usize
+}
+fn log2(x: usize) -> u32 {
+    if x <= 1 {
+        return 0;
+    }
+
+    let n = x.leading_zeros();
+    core::mem::size_of::<usize>() as u32 * 8 - n
+}
+
 mod tests {
     use super::*;
 
     #[cfg(feature = "std")]
     #[test]
-    fn multiscalar_mul() {
+    fn pippenger_test() {
         // Reuse points across different tests
         let mut n = 512;
         let x = Scalar::from(2128506u64).invert().unwrap();
@@ -207,5 +306,15 @@ mod tests {
             assert_eq!(subject, control);
             n = n / 2;
         }
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn msm_variable_base_test() {
+        let points = vec![G1Affine::generator()];
+        let scalars = vec![Scalar::from(100u64)];
+        let premultiplied = G1Projective::generator() * Scalar::from(100u64);
+        let subject = msm_variable_base(&points, &scalars);
+        assert_eq!(subject, premultiplied);
     }
 }
