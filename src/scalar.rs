@@ -273,6 +273,12 @@ impl Scalar {
         (&Scalar(val)).mul(&R2)
     }
 
+    /// Reduces the scalar and returns it multiplied by the montgomery
+    /// radix.
+    pub fn reduce(&self) -> Scalar {
+        Scalar::montgomery_reduce(self.0[0], self.0[1], self.0[2], self.0[3], 0, 0, 0, 0)
+    }
+
     /// Squares this element.
     #[inline]
     pub const fn square(&self) -> Scalar {
