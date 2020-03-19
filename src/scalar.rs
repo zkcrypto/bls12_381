@@ -15,7 +15,7 @@ use crate::util::{adc, mac, sbb};
 // integers in little-endian order. `Scalar` values are always in
 // Montgomery form; i.e., Scalar(a) = aR mod q, with R = 2^256.
 #[derive(Clone, Copy, Eq)]
-pub struct Scalar(pub(crate) [u64; 4]);
+pub struct Scalar(pub [u64; 4]);
 
 impl fmt::Debug for Scalar {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -63,7 +63,7 @@ impl ConditionallySelectable for Scalar {
 
 /// Constant representing the modulus
 /// q = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001
-const MODULUS: Scalar = Scalar([
+pub const MODULUS: Scalar = Scalar([
     0xffffffff00000001,
     0x53bda402fffe5bfe,
     0x3339d80809a1d805,
@@ -146,7 +146,7 @@ const R3: Scalar = Scalar([
 ]);
 
 /// Two adacity
-pub const S: u32 = 32;
+pub const TWO_ADACITY: u32 = 32;
 
 /// GENERATOR^t where t * 2^s + 1 = q
 /// with t odd. In other words, this
@@ -183,6 +183,11 @@ impl Scalar {
     #[inline]
     pub const fn one() -> Scalar {
         R
+    }
+
+    /// Returns the internal representation of the Scalar.
+    pub const fn internal_repr(&self) -> &[u64; 4] {
+        &self.0
     }
 
     /// Doubles this field element.
@@ -329,14 +334,14 @@ impl Scalar {
             0x0000000039f6d3a9,
         ]);
 
-        let mut v = S;
+        let mut v = TWO_ADACITY;
         let mut x = self * w;
         let mut b = x * w;
 
         // Initialize z as the 2^S root of unity.
         let mut z = ROOT_OF_UNITY;
 
-        for max_v in (1..=S).rev() {
+        for max_v in (1..=TWO_ADACITY).rev() {
             let mut k = 1;
             let mut tmp = b.square();
             let mut j_less_than_v: Choice = 1.into();
@@ -1108,6 +1113,5 @@ fn test_double() {
         0x998c4fefecbc4ff3,
         0x1824b159acc50562,
     ]);
-
     assert_eq!(a.double(), a + a);
 }
