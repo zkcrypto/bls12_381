@@ -145,7 +145,7 @@ const R3: Scalar = Scalar([
     0x6e2a5bb9c8db33e9,
 ]);
 
-/// TWO ADACITY defined on the Scalar field of Bls12_381
+/// Two adacity
 pub const TWO_ADACITY: u32 = 32;
 
 /// GENERATOR^t where t * 2^s + 1 = q
@@ -155,12 +155,15 @@ pub const TWO_ADACITY: u32 = 32;
 /// `GENERATOR = 7 mod q` is a generator
 /// of the q - 1 order multiplicative
 /// subgroup.
-const ROOT_OF_UNITY: Scalar = Scalar([
+pub const ROOT_OF_UNITY: Scalar = Scalar([
     0xb9b58d8c5f0e466a,
     0x5b1b4c801819d7ec,
     0x0af53ae352a31e64,
     0x5bf3adda19e9b27b,
 ]);
+
+/// Generator of the Scalar field
+pub const GENERATOR: Scalar = Scalar([7, 0, 0, 0]);
 
 impl Default for Scalar {
     #[inline]
