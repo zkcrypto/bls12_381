@@ -8,7 +8,7 @@
 //! * This implementation does not require the Rust standard library.
 //! * All operations are constant time unless explicitly noted.
 
-#![cfg_attr(not(feature = "std"), no_std)] 
+#![cfg_attr(not(feature = "std"), no_std)]
 // Catch documentation errors caused by code changes.
 #![deny(intra_doc_link_resolution_failure)]
 #![deny(missing_debug_implementations)]
@@ -47,7 +47,7 @@ pub mod notes {
 mod scalar;
 
 pub use scalar::Scalar;
-pub use scalar::{GENERATOR, ROOT_OF_UNITY, S};
+pub use scalar::{GENERATOR, ROOT_OF_UNITY, TWO_ADACITY};
 
 #[cfg(feature = "groups")]
 mod fp;
