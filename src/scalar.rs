@@ -14,10 +14,10 @@ use crate::util::{adc, mac, sbb};
 // The internal representation of this type is four 64-bit unsigned
 // integers in little-endian order. `Scalar` values are always in
 // Montgomery form; i.e., Scalar(a) = aR mod q, with R = 2^256.
-#[derive(Clone, Copy, Eq, Debug)]
+#[derive(Clone, Copy, Eq)]
 pub struct Scalar(pub [u64; 4]);
 
-/*impl fmt::Debug for Scalar {
+impl fmt::Debug for Scalar {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let tmp = self.to_bytes();
         write!(f, "0x")?;
@@ -26,7 +26,7 @@ pub struct Scalar(pub [u64; 4]);
         }
         Ok(())
     }
-}*/
+}
 
 impl From<u64> for Scalar {
     fn from(val: u64) -> Scalar {
@@ -145,7 +145,8 @@ const R3: Scalar = Scalar([
     0x6e2a5bb9c8db33e9,
 ]);
 
-const S: u32 = 32;
+/// TWO ADACITY defined on the Scalar field of Bls12_381
+pub const TWO_ADACITY: u32 = 32;
 
 /// GENERATOR^t where t * 2^s + 1 = q
 /// with t odd. In other words, this
@@ -330,14 +331,14 @@ impl Scalar {
             0x0000000039f6d3a9,
         ]);
 
-        let mut v = S;
+        let mut v = TWO_ADACITY;
         let mut x = self * w;
         let mut b = x * w;
 
         // Initialize z as the 2^S root of unity.
         let mut z = ROOT_OF_UNITY;
 
-        for max_v in (1..=S).rev() {
+        for max_v in (1..=TWO_ADACITY).rev() {
             let mut k = 1;
             let mut tmp = b.square();
             let mut j_less_than_v: Choice = 1.into();
@@ -1109,6 +1110,5 @@ fn test_double() {
         0x998c4fefecbc4ff3,
         0x1824b159acc50562,
     ]);
-    println!("{:?}", -Scalar::one().reduce());
     assert_eq!(a.double(), a + a);
 }
