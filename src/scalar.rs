@@ -14,10 +14,10 @@ use crate::util::{adc, mac, sbb};
 // The internal representation of this type is four 64-bit unsigned
 // integers in little-endian order. `Scalar` values are always in
 // Montgomery form; i.e., Scalar(a) = aR mod q, with R = 2^256.
-#[derive(Clone, Copy, Eq)]
-pub struct Scalar(pub(crate) [u64; 4]);
+#[derive(Clone, Copy, Eq, Debug)]
+pub struct Scalar(pub [u64; 4]);
 
-impl fmt::Debug for Scalar {
+/*impl fmt::Debug for Scalar {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let tmp = self.to_bytes();
         write!(f, "0x")?;
@@ -26,7 +26,7 @@ impl fmt::Debug for Scalar {
         }
         Ok(())
     }
-}
+}*/
 
 impl From<u64> for Scalar {
     fn from(val: u64) -> Scalar {
@@ -63,7 +63,7 @@ impl ConditionallySelectable for Scalar {
 
 /// Constant representing the modulus
 /// q = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001
-const MODULUS: Scalar = Scalar([
+pub const MODULUS: Scalar = Scalar([
     0xffffffff00000001,
     0x53bda402fffe5bfe,
     0x3339d80809a1d805,
@@ -179,6 +179,11 @@ impl Scalar {
     #[inline]
     pub const fn one() -> Scalar {
         R
+    }
+
+    /// Returns the internal representation of the Scalar.
+    pub const fn internal_repr(&self) -> &[u64; 4] {
+        &self.0
     }
 
     /// Doubles this field element.
@@ -1104,6 +1109,6 @@ fn test_double() {
         0x998c4fefecbc4ff3,
         0x1824b159acc50562,
     ]);
-
+    println!("{:?}", -Scalar::one().reduce());
     assert_eq!(a.double(), a + a);
 }
