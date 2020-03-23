@@ -282,6 +282,22 @@ impl Scalar {
         (&Scalar(val)).mul(&R2)
     }
 
+    /// Reduces the `Scalar` and returns it's base-4 repr.
+    /// Ensures that the high quad is < 3 (Repr is correct)
+    pub fn to_base_4(&self) -> [u8;64] {
+        let mut tmp = self.reduce();
+        let mut res = [0u8; 64];
+        let mut pos = 0usize;
+        for i in 0..=3 {
+            while tmp.0[i] > 0u64{
+               res[pos] = (tmp.0[i] % 4u64) as u8;
+               tmp.0[i] = tmp.0[i] >> 2;
+               pos += 1;
+            }
+        }
+        res
+    }
+
     /// Reduces the scalar and returns it multiplied by the montgomery
     /// radix.
     pub fn reduce(&self) -> Scalar {
@@ -1114,4 +1130,18 @@ fn test_double() {
         0x1824b159acc50562,
     ]);
     assert_eq!(a.double(), a + a);
+}
+
+#[test]
+fn test_base_4() {
+    let one = Scalar::one();
+    let corr_one = [1u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    let four = Scalar::from(4u64);
+    let corr_four = [0u8, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    let t_p_63_min_1 = Scalar::from((1 << 63) -1); 
+    let t_p_63_min_1_corr = [3u8, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    
+    assert_eq!(&one.to_base_4()[0..64], &corr_one[0..64]);
+    assert_eq!(&four.to_base_4()[0..64], &corr_four[0..64]);
+    assert_eq!(&t_p_63_min_1.to_base_4()[0..64], &t_p_63_min_1_corr[0..64]);
 }
