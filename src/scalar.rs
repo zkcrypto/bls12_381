@@ -2,6 +2,7 @@
 //! where `q = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001`
 
 use core::convert::TryFrom;
+use std::cmp::{Ord, Ordering, PartialOrd};
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Shr, Sub, SubAssign};
 
@@ -47,6 +48,25 @@ impl PartialEq for Scalar {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.ct_eq(other).unwrap_u8() == 1
+    }
+}
+
+impl PartialOrd for Scalar {
+    fn partial_cmp(&self, other: &Scalar) -> Option<Ordering> {
+        Some(self.cmp(&other))
+    }
+}
+
+impl Ord for Scalar {
+    fn cmp(&self, other: &Self) -> Ordering {
+        for i in (0..4).rev() {
+            if self.0[i] > other.0[i] {
+                return Ordering::Greater;
+            } else if self.0[i] < other.0[i] {
+                return Ordering::Less;
+            }
+        }
+        Ordering::Equal
     }
 }
 
@@ -1149,4 +1169,10 @@ fn test_base_4() {
     assert_eq!(&four.to_base_4()[0..128], &corr_four[0..128]);
     assert_eq!(&t_p_63_min_1.to_base_4()[0..128], &t_p_63_min_1_corr[0..128]);
     assert_eq!(&min_one.to_base_4()[0..128], &corr_min_one[0..128]);
+}
+
+#[test]
+fn test_partial_ord() {
+    let one = Scalar::one();
+    assert!(one < -one);
 }
