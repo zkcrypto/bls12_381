@@ -4,7 +4,7 @@
 use core::convert::TryFrom;
 use std::cmp::{Ord, Ordering, PartialOrd};
 use core::fmt;
-use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Shr, Sub, SubAssign};
+use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Shr, Sub, SubAssign, BitAnd, BitXor};
 
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
@@ -132,6 +132,48 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a Scalar {
     #[inline]
     fn mul(self, rhs: &'b Scalar) -> Scalar {
         self.mul(rhs)
+    }
+}
+
+impl<'a, 'b> BitXor<&'b Scalar> for &'a Scalar {
+    type Output = Scalar;
+
+    fn bitxor(self, rhs: &'b Scalar) -> Scalar {
+        Scalar([
+            self.0[0] ^ rhs.0[0],
+            self.0[1] ^ rhs.0[1],
+            self.0[2] ^ rhs.0[2],
+            self.0[3] ^ rhs.0[3],
+        ])
+    }
+}
+
+impl BitXor<Scalar> for Scalar {
+    type Output = Scalar;
+
+    fn bitxor(self, rhs: Scalar) -> Scalar {
+        &self ^ &rhs
+    }
+}
+
+impl<'a, 'b> BitAnd<&'b Scalar> for &'a Scalar {
+    type Output = Scalar;
+
+    fn bitand(self, rhs: &'b Scalar) -> Scalar {
+        Scalar([
+            self.0[0] & rhs.0[0],
+            self.0[1] & rhs.0[1],
+            self.0[2] & rhs.0[2],
+            self.0[3] & rhs.0[3],
+        ])
+    }
+}
+
+impl BitAnd<Scalar> for Scalar {
+    type Output = Scalar;
+
+    fn bitand(self, rhs: Scalar) -> Scalar {
+        &self ^ &rhs
     }
 }
 
@@ -1176,3 +1218,4 @@ fn test_partial_ord() {
     let one = Scalar::one();
     assert!(one < -one);
 }
+
