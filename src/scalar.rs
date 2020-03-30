@@ -139,11 +139,14 @@ impl<'a, 'b> BitXor<&'b Scalar> for &'a Scalar {
     type Output = Scalar;
 
     fn bitxor(self, rhs: &'b Scalar) -> Scalar {
-        Scalar([
-            self.0[0] ^ rhs.0[0],
-            self.0[1] ^ rhs.0[1],
-            self.0[2] ^ rhs.0[2],
-            self.0[3] ^ rhs.0[3],
+        let a_red = self.reduce();
+        println!("{:?}", a_red);
+        let b_red = rhs.reduce();
+        Scalar::from_raw([
+            a_red.0[0] ^ b_red.0[0],
+            a_red.0[1] ^ b_red.0[1],
+            a_red.0[2] ^ b_red.0[2],
+            a_red.0[3] ^ b_red.0[3],
         ])
     }
 }
@@ -160,11 +163,13 @@ impl<'a, 'b> BitAnd<&'b Scalar> for &'a Scalar {
     type Output = Scalar;
 
     fn bitand(self, rhs: &'b Scalar) -> Scalar {
-        Scalar([
-            self.0[0] & rhs.0[0],
-            self.0[1] & rhs.0[1],
-            self.0[2] & rhs.0[2],
-            self.0[3] & rhs.0[3],
+        let a_red = self.reduce();
+        let b_red = rhs.reduce();
+        Scalar::from_raw([
+            a_red.0[0] & b_red.0[0],
+            a_red.0[1] & b_red.0[1],
+            a_red.0[2] & b_red.0[2],
+            a_red.0[3] & b_red.0[3],
         ])
     }
 }
@@ -1219,3 +1224,10 @@ fn test_partial_ord() {
     assert!(one < -one);
 }
 
+#[test]
+fn test_xor() {
+    let a = Scalar::from(500u64);
+    let b = Scalar::from(499u64);
+    let res = Scalar::from(7u64);
+    assert_eq!(&a ^ &b, res);
+}
