@@ -140,7 +140,6 @@ impl<'a, 'b> BitXor<&'b Scalar> for &'a Scalar {
 
     fn bitxor(self, rhs: &'b Scalar) -> Scalar {
         let a_red = self.reduce();
-        println!("{:?}", a_red);
         let b_red = rhs.reduce();
         Scalar::from_raw([
             a_red.0[0] ^ b_red.0[0],
@@ -178,7 +177,7 @@ impl BitAnd<Scalar> for Scalar {
     type Output = Scalar;
 
     fn bitand(self, rhs: Scalar) -> Scalar {
-        &self ^ &rhs
+        &self & &rhs
     }
 }
 
@@ -1230,4 +1229,14 @@ fn test_xor() {
     let b = Scalar::from(499u64);
     let res = Scalar::from(7u64);
     assert_eq!(&a ^ &b, res);
+}
+
+#[test]
+fn test_and() {
+    let a = Scalar::one();
+    let b = Scalar::one();
+    let res = Scalar::one();
+    assert_eq!(&a & &b, res);
+
+    assert_eq!(a & -a, Scalar::zero());
 }
