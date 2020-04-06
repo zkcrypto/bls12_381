@@ -2,8 +2,9 @@
 //! where `q = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001`
 
 use core::convert::TryFrom;
+use std::cmp::{Ord, Ordering, PartialOrd};
 use core::fmt;
-use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Shr, Sub, SubAssign};
+use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Shr, Sub, SubAssign, BitAnd, BitXor};
 use std::iter::{Sum, Product};
 use std::borrow::Borrow;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
@@ -48,6 +49,25 @@ impl PartialEq for Scalar {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.ct_eq(other).unwrap_u8() == 1
+    }
+}
+
+impl PartialOrd for Scalar {
+    fn partial_cmp(&self, other: &Scalar) -> Option<Ordering> {
+        Some(self.cmp(&other))
+    }
+}
+
+impl Ord for Scalar {
+    fn cmp(&self, other: &Self) -> Ordering {
+        for i in (0..4).rev() {
+            if self.0[i] > other.0[i] {
+                return Ordering::Greater;
+            } else if self.0[i] < other.0[i] {
+                return Ordering::Less;
+            }
+        }
+        Ordering::Equal
     }
 }
 
@@ -113,6 +133,52 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a Scalar {
     #[inline]
     fn mul(self, rhs: &'b Scalar) -> Scalar {
         self.mul(rhs)
+    }
+}
+
+impl<'a, 'b> BitXor<&'b Scalar> for &'a Scalar {
+    type Output = Scalar;
+
+    fn bitxor(self, rhs: &'b Scalar) -> Scalar {
+        let a_red = self.reduce();
+        let b_red = rhs.reduce();
+        Scalar::from_raw([
+            a_red.0[0] ^ b_red.0[0],
+            a_red.0[1] ^ b_red.0[1],
+            a_red.0[2] ^ b_red.0[2],
+            a_red.0[3] ^ b_red.0[3],
+        ])
+    }
+}
+
+impl BitXor<Scalar> for Scalar {
+    type Output = Scalar;
+
+    fn bitxor(self, rhs: Scalar) -> Scalar {
+        &self ^ &rhs
+    }
+}
+
+impl<'a, 'b> BitAnd<&'b Scalar> for &'a Scalar {
+    type Output = Scalar;
+
+    fn bitand(self, rhs: &'b Scalar) -> Scalar {
+        let a_red = self.reduce();
+        let b_red = rhs.reduce();
+        Scalar::from_raw([
+            a_red.0[0] & b_red.0[0],
+            a_red.0[1] & b_red.0[1],
+            a_red.0[2] & b_red.0[2],
+            a_red.0[3] & b_red.0[3],
+        ])
+    }
+}
+
+impl BitAnd<Scalar> for Scalar {
+    type Output = Scalar;
+
+    fn bitand(self, rhs: Scalar) -> Scalar {
+        &self & &rhs
     }
 }
 
@@ -1143,6 +1209,27 @@ fn test_double() {
 }
 
 #[test]
+fn test_partial_ord() {
+    let one = Scalar::one();
+    assert!(one < -one);
+}
+
+#[test]
+fn test_xor() {
+    let a = Scalar::from(500u64);
+    let b = Scalar::from(499u64);
+    let res = Scalar::from(7u64);
+    assert_eq!(&a ^ &b, res);
+}
+
+#[test]
+fn test_and() {
+    let a = Scalar::one();
+    let b = Scalar::one();
+    let res = Scalar::one();
+    assert_eq!(&a & &b, res);
+
+    assert_eq!(a & -a, Scalar::zero());
 fn test_iter_sum() {
     let scalars = vec![Scalar::one(), Scalar::one()];
     let res: Scalar = scalars.iter().sum();
