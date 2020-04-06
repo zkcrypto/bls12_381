@@ -348,24 +348,6 @@ impl Scalar {
         (&Scalar(val)).mul(&R2)
     }
 
-    /// Reduces the `Scalar` and returns it's base-4 repr.
-    /// Ensures that the high quad is < 3 (Repr is correct)
-    pub fn to_base_4(&self) -> [u8;128] {
-        let mut tmp = self.reduce();
-        let mut res = [0u8; 128];
-        let mut pos = 0usize;
-        for i in 0..=3 {
-            while tmp.0[i] > 0u64 {
-                res[pos] = (tmp.0[i] % 4u64) as u8;
-                tmp.0[i] = tmp.0[i] >> 2;
-                pos += 1;
-            }
-        }
-        // Check latest bit = 0
-        assert!(res[127] < 3);
-        res
-    }
-
     /// Reduces the scalar and returns it multiplied by the montgomery
     /// radix.
     pub fn reduce(&self) -> Scalar {
