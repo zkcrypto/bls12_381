@@ -1228,8 +1228,9 @@ fn test_and() {
     let b = Scalar::one();
     let res = Scalar::one();
     assert_eq!(&a & &b, res);
-
     assert_eq!(a & -a, Scalar::zero());
+}
+
 fn test_iter_sum() {
     let scalars = vec![Scalar::one(), Scalar::one()];
     let res: Scalar = scalars.iter().sum();
