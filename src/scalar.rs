@@ -4,7 +4,8 @@
 use core::convert::TryFrom;
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Shr, Sub, SubAssign};
-
+use std::iter::{Sum, Product};
+use std::borrow::Borrow;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::util::{adc, mac, sbb};
@@ -164,6 +165,31 @@ pub const ROOT_OF_UNITY: Scalar = Scalar([
 
 /// Generator of the Scalar field
 pub const GENERATOR: Scalar = Scalar([7, 0, 0, 0]);
+
+impl<T> Product<T> for Scalar
+where
+    T: Borrow<Scalar>
+{
+    fn product<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = T>
+    {
+        iter.fold(Scalar::one(), |acc, item| acc * item.borrow())
+    }
+}
+
+impl<T> Sum<T> for Scalar
+where
+    T: Borrow<Scalar>
+{
+    fn sum<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = T>
+    {
+        iter.fold(Scalar::zero(), |acc, item| acc + item.borrow())
+    }
+}
+
 
 impl Default for Scalar {
     #[inline]
@@ -1114,4 +1140,18 @@ fn test_double() {
         0x1824b159acc50562,
     ]);
     assert_eq!(a.double(), a + a);
+}
+
+#[test]
+fn test_iter_sum() {
+    let scalars = vec![Scalar::one(), Scalar::one()];
+    let res: Scalar = scalars.iter().sum();
+    assert_eq!(res, Scalar::one() + Scalar::one());
+}
+
+#[test]
+fn test_iter_prod() {
+    let scalars = vec![Scalar::one()+  Scalar::one(), Scalar::one()+  Scalar::one()];
+    let res: Scalar = scalars.iter().product();
+    assert_eq!(res, Scalar::from(4u64));
 }
