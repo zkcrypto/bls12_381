@@ -5,7 +5,8 @@ use core::convert::TryFrom;
 use std::cmp::{Ord, Ordering, PartialOrd};
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Shr, Sub, SubAssign, BitAnd, BitXor};
-
+use std::iter::{Sum, Product};
+use std::borrow::Borrow;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::util::{adc, mac, sbb};
@@ -230,6 +231,31 @@ pub const ROOT_OF_UNITY: Scalar = Scalar([
 
 /// Generator of the Scalar field
 pub const GENERATOR: Scalar = Scalar([7, 0, 0, 0]);
+
+impl<T> Product<T> for Scalar
+where
+    T: Borrow<Scalar>
+{
+    fn product<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = T>
+    {
+        iter.fold(Scalar::one(), |acc, item| acc * item.borrow())
+    }
+}
+
+impl<T> Sum<T> for Scalar
+where
+    T: Borrow<Scalar>
+{
+    fn sum<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = T>
+    {
+        iter.fold(Scalar::zero(), |acc, item| acc + item.borrow())
+    }
+}
+
 
 impl Default for Scalar {
     #[inline]
@@ -1183,23 +1209,6 @@ fn test_double() {
 }
 
 #[test]
-fn test_base_4() {
-    let one = Scalar::one();
-    let corr_one = [1u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    let four = Scalar::from(4u64);
-    let corr_four = [0u8, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    let t_p_63_min_1 = Scalar::from((1 << 63) -1); 
-    let t_p_63_min_1_corr = [3u8, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    let min_one = -one;
-    let corr_min_one = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 2, 1, 1, 2, 3, 3, 3, 3, 3, 3, 3, 2, 0, 0, 0, 0, 1, 2, 2, 1, 3, 3, 2, 3, 0, 1, 1, 1, 1, 0, 0, 0, 2, 1, 3, 1, 0, 2, 2, 1, 2, 0, 0, 0, 2, 0, 0, 0, 2, 1, 3, 1, 2, 3, 0, 3, 0, 3, 0, 2, 0, 1, 1, 3, 3, 1, 1, 3, 1, 2, 1, 2, 2, 0, 3, 0, 1, 1, 3, 1, 2, 2, 1, 3, 2, 3, 3, 0, 3, 1, 0];
-
-    assert_eq!(&one.to_base_4()[0..128], &corr_one[0..128]);
-    assert_eq!(&four.to_base_4()[0..128], &corr_four[0..128]);
-    assert_eq!(&t_p_63_min_1.to_base_4()[0..128], &t_p_63_min_1_corr[0..128]);
-    assert_eq!(&min_one.to_base_4()[0..128], &corr_min_one[0..128]);
-}
-
-#[test]
 fn test_partial_ord() {
     let one = Scalar::one();
     assert!(one < -one);
@@ -1221,4 +1230,15 @@ fn test_and() {
     assert_eq!(&a & &b, res);
 
     assert_eq!(a & -a, Scalar::zero());
+fn test_iter_sum() {
+    let scalars = vec![Scalar::one(), Scalar::one()];
+    let res: Scalar = scalars.iter().sum();
+    assert_eq!(res, Scalar::one() + Scalar::one());
+}
+
+#[test]
+fn test_iter_prod() {
+    let scalars = vec![Scalar::one()+  Scalar::one(), Scalar::one()+  Scalar::one()];
+    let res: Scalar = scalars.iter().product();
+    assert_eq!(res, Scalar::from(4u64));
 }
