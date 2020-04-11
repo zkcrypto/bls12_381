@@ -901,10 +901,10 @@ impl G2Projective {
         };
 
         G2Projective {
-            // x = frobenius^2(x)/2^((p-1)/3)
-            x: self.x.frobenius_map().frobenius_map() * psi2_coeff_x,
-            // y = -frobenius^2(y)
-            y: self.y.frobenius_map().frobenius_map().neg(),
+            // x = frobenius^2(x)/2^((p-1)/3); note that q^2 is the order of the field.
+            x: self.x * psi2_coeff_x,
+            // y = -frobenius^2(y); note that q^2 is the order of the field.
+            y: self.y.neg(),
             // z = z
             z: self.z,
         }
