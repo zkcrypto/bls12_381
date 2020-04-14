@@ -8,7 +8,7 @@ use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Shr, Sub, SubAssign, BitAnd
 use std::iter::{Sum, Product};
 use std::borrow::Borrow;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
-
+use serde::{Serialize, Serializer, Deserialize, Deserializer, de::Visitor};
 use crate::util::{adc, mac, sbb};
 
 /// Represents an element of the scalar field $\mathbb{F}_q$ of the BLS12-381 elliptic
@@ -79,6 +79,52 @@ impl ConditionallySelectable for Scalar {
             u64::conditional_select(&a.0[2], &b.0[2], choice),
             u64::conditional_select(&a.0[3], &b.0[3], choice),
         ])
+    }
+}
+
+impl Serialize for Scalar {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: Serializer
+    {
+        use serde::ser::SerializeTuple;
+        let mut tup = serializer.serialize_tuple(32)?;
+        for byte in self.to_bytes().iter() {
+            tup.serialize_element(byte)?;
+        }
+        tup.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for Scalar {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where D: Deserializer<'de>
+    {
+        struct ScalarVisitor;
+
+        impl<'de> Visitor<'de> for ScalarVisitor {
+            type Value = Scalar;
+
+            fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+                formatter.write_str("a 32-byte cannonical Scalar from Bls12_381")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Scalar, A::Error>
+                where A: serde::de::SeqAccess<'de>
+            {
+                let mut bytes = [0u8; 32];
+                for i in 0..32 {
+                    bytes[i] = seq.next_element()?
+                        .ok_or(serde::de::Error::invalid_length(i, &"expected 32 bytes"))?;
+                }
+                let res = Scalar::from_bytes(&bytes);
+                if res.is_some().unwrap_u8() == 1u8 {return Ok(res.unwrap())}
+                else {return Err(serde::de::Error::custom(
+                    &"scalar was not canonically encoded"
+                ))}
+            }
+        }
+
+        deserializer.deserialize_tuple(32, ScalarVisitor)
     }
 }
 
@@ -1242,4 +1288,22 @@ fn test_iter_prod() {
     let scalars = vec![Scalar::one()+  Scalar::one(), Scalar::one()+  Scalar::one()];
     let res: Scalar = scalars.iter().product();
     assert_eq!(res, Scalar::from(4u64));
+}
+
+#[test]
+fn serde_bincode_scalar_roundtrip() {
+    use bincode;
+    let scalar = -Scalar::from(3u64);
+    let encoded = bincode::serialize(&scalar).unwrap();
+    let parsed: Scalar = bincode::deserialize(&encoded).unwrap();
+    assert_eq!(parsed, scalar);
+
+    // Check that the encoding is 32 bytes exactly
+    assert_eq!(encoded.len(), 32);
+
+    // Check that the encoding itself matches the usual one
+    assert_eq!(
+        scalar,
+        bincode::deserialize(&scalar.to_bytes()).unwrap(),
+    );
 }
