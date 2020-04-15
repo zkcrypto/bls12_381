@@ -4,7 +4,7 @@
 use core::convert::TryFrom;
 use std::cmp::{Ord, Ordering, PartialOrd};
 use core::fmt;
-use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Shr, Sub, SubAssign, BitAnd, BitXor};
+use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign, BitAnd, BitXor};
 use std::iter::{Sum, Product};
 use std::borrow::Borrow;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
@@ -1277,6 +1277,7 @@ fn test_and() {
     assert_eq!(a & -a, Scalar::zero());
 }
 
+#[test]
 fn test_iter_sum() {
     let scalars = vec![Scalar::one(), Scalar::one()];
     let res: Scalar = scalars.iter().sum();
