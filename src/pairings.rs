@@ -4,7 +4,9 @@ use crate::fp6::Fp6;
 use crate::{G1Affine, G2Affine, G2Projective, Scalar, BLS_X, BLS_X_IS_NEGATIVE};
 
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-
+use serde::{
+    self, de::Visitor, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer,
+};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
 #[cfg(feature = "alloc")]
@@ -289,6 +291,94 @@ impl_binops_multiplicative!(Gt, Scalar);
 pub struct G2Prepared {
     infinity: Choice,
     coeffs: Vec<(Fp2, Fp2, Fp2)>,
+}
+
+impl Serialize for G2Prepared {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut g2_prepared = serializer.serialize_struct("struct G2Prepared", 2)?;
+        // We encode the choice as an u8 field.
+        g2_prepared.serialize_field("choice", &self.infinity.unwrap_u8())?;
+        // Since we have serde support for `Fp2` we can treat the `Vec` as a 
+        // regular field.
+        g2_prepared.serialize_field("coeffs", &self.coeffs)?;
+        g2_prepared.end()
+    }
+}
+
+
+impl<'de> Deserialize<'de> for G2Prepared {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        enum Field {
+            Choice,
+            Coeffs,
+        };
+
+        impl<'de> Deserialize<'de> for Field {
+            fn deserialize<D>(deserializer: D) -> Result<Field, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                struct FieldVisitor;
+
+                impl<'de> Visitor<'de> for FieldVisitor {
+                    type Value = Field;
+
+                    fn expecting(
+                        &self,
+                        formatter: &mut ::core::fmt::Formatter,
+                    ) -> ::core::fmt::Result {
+                        formatter.write_str("struct G2Prepared")
+                    }
+
+                    fn visit_str<E>(self, value: &str) -> Result<Field, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "choice" => Ok(Field::Choice),
+                            "coeffs" => Ok(Field::Coeffs),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+
+                deserializer.deserialize_identifier(FieldVisitor)
+            }
+        }
+
+        struct G2PreparedVisitor;
+
+        impl<'de> Visitor<'de> for G2PreparedVisitor {
+            type Value = G2Prepared;
+
+            fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+                formatter.write_str("struct G2Prepared")
+            }
+
+            fn visit_seq<V>(self, mut seq: V) -> Result<G2Prepared, V::Error>
+            where
+                V: serde::de::SeqAccess<'de>,
+            {
+                let choice_as_u8: u8 = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+                let coeffs = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+                let choice: Choice = Choice::from(choice_as_u8);
+                Ok(G2Prepared { infinity: choice, coeffs })
+            }
+        }
+
+        const FIELDS: &[&str] = &["choice", "coeffs"];
+        deserializer.deserialize_struct("G2Prepared", FIELDS, G2PreparedVisitor)
+    }
 }
 
 #[cfg(feature = "alloc")]
@@ -651,4 +741,16 @@ fn test_multi_miller_loop() {
     .final_exponentiation();
 
     assert_eq!(expected, test);
+}
+
+#[test]
+fn g2_prepared_serde_roundtrip() {
+    use bincode;
+
+    let g2_prepared = G2Prepared::from(G2Affine::generator());
+    let ser = bincode::serialize(&g2_prepared).unwrap();
+    let deser: G2Prepared = bincode::deserialize(&ser).unwrap();
+
+    assert_eq!(g2_prepared.coeffs, deser.coeffs);
+    assert_eq!(g2_prepared.infinity.unwrap_u8(), deser.infinity.unwrap_u8())
 }
