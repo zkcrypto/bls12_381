@@ -275,6 +275,7 @@ fn log2(x: usize) -> u32 {
 }
 
 mod tests {
+    #[allow(unused_imports)]
     use super::*;
 
     #[cfg(feature = "std")]
