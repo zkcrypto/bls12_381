@@ -28,7 +28,8 @@ extern crate alloc;
 
 #[cfg(all(test, feature = "serial"))]
 extern crate bincode;
-
+#[cfg(feature = "serde")]
+extern crate serde;
 
 #[cfg(test)]
 #[macro_use]
