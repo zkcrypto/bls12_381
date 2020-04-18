@@ -12,8 +12,12 @@ edition = "2018"
 [package.metadata.docs.rs]
 rustdoc-args = [ "--html-in-header", "katex-header.html" ]
 
+[dependencies]
+serde = {version = "1.0.106", optional = true}
+
 [dev-dependencies]
 criterion = "0.2.11"
+bincode = "1.2.1"
 
 [[bench]]
 name = "groups"
@@ -25,11 +29,12 @@ version = "2.2.1"
 default-features = false
 
 [features]
-default = ["groups", "pairings", "alloc"]
+default = ["groups", "pairings", "alloc", "serial"]
 groups = []
 pairings = ["groups"]
 alloc = []
 nightly = ["subtle/nightly"]
+serial = []
 
 # GLV patents US7110538B2 and US7995752B2 expire in September 2020.
 endo = []
