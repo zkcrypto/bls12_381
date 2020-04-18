@@ -85,6 +85,57 @@ impl PartialEq for G2Affine {
     }
 }
 
+#[cfg(feature = "serde")]
+use serde::{Serialize, Serializer, Deserialize, Deserializer, de::Visitor};
+
+#[cfg(feature = "serde")]
+impl Serialize for G2Affine {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: Serializer
+    {
+        use serde::ser::SerializeTuple;
+        let mut tup = serializer.serialize_tuple(96)?;
+        for byte in self.to_compressed().iter() {
+            tup.serialize_element(byte)?;
+        }
+        tup.end()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for G2Affine {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where D: Deserializer<'de>
+    {
+        struct G2AffineVisitor;
+
+        impl<'de> Visitor<'de> for G2AffineVisitor {
+            type Value = G2Affine;
+
+            fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+                formatter.write_str("a 48-byte cannonical compressed G2Affine point from Bls12_381")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<G2Affine, A::Error>
+                where A: serde::de::SeqAccess<'de>
+            {
+                let mut bytes = [0u8; 96];
+                for i in 0..96 {
+                    bytes[i] = seq.next_element()?
+                        .ok_or(serde::de::Error::invalid_length(i, &"expected 48 bytes"))?;
+                }
+                let res = G2Affine::from_compressed(&bytes);
+                if res.is_some().unwrap_u8() == 1u8 {return Ok(res.unwrap())}
+                else {return Err(serde::de::Error::custom(
+                    &"compressed G2Affine was not canonically encoded"
+                ))}
+            }
+        }
+
+        deserializer.deserialize_tuple(96, G2AffineVisitor)
+    }
+}
+
 impl<'a> Neg for &'a G2Affine {
     type Output = G2Affine;
 
@@ -1911,4 +1962,16 @@ fn test_batch_normalize() {
             }
         }
     }
+}
+
+#[cfg(feature = "serde")]
+#[test]
+fn g2_affine_serde_roundtrip() {
+    use bincode;
+
+    let gen = G2Affine::generator();
+    let ser = bincode::serialize(&gen).unwrap();
+    let deser: G2Affine = bincode::deserialize(&ser).unwrap();
+
+    assert_eq!(gen, deser);
 }
