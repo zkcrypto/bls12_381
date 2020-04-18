@@ -86,12 +86,13 @@ impl PartialEq for G2Affine {
 }
 
 #[cfg(feature = "serde")]
-use serde::{Serialize, Serializer, Deserialize, Deserializer, de::Visitor};
+use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
 #[cfg(feature = "serde")]
 impl Serialize for G2Affine {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         use serde::ser::SerializeTuple;
         let mut tup = serializer.serialize_tuple(96)?;
@@ -105,7 +106,8 @@ impl Serialize for G2Affine {
 #[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for G2Affine {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer<'de>
+    where
+        D: Deserializer<'de>,
     {
         struct G2AffineVisitor;
 
@@ -117,18 +119,23 @@ impl<'de> Deserialize<'de> for G2Affine {
             }
 
             fn visit_seq<A>(self, mut seq: A) -> Result<G2Affine, A::Error>
-                where A: serde::de::SeqAccess<'de>
+            where
+                A: serde::de::SeqAccess<'de>,
             {
                 let mut bytes = [0u8; 96];
                 for i in 0..96 {
-                    bytes[i] = seq.next_element()?
+                    bytes[i] = seq
+                        .next_element()?
                         .ok_or(serde::de::Error::invalid_length(i, &"expected 48 bytes"))?;
                 }
                 let res = G2Affine::from_compressed(&bytes);
-                if res.is_some().unwrap_u8() == 1u8 {return Ok(res.unwrap())}
-                else {return Err(serde::de::Error::custom(
-                    &"compressed G2Affine was not canonically encoded"
-                ))}
+                if res.is_some().unwrap_u8() == 1u8 {
+                    return Ok(res.unwrap());
+                } else {
+                    return Err(serde::de::Error::custom(
+                        &"compressed G2Affine was not canonically encoded",
+                    ));
+                }
             }
         }
 

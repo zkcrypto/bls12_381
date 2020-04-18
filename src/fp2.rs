@@ -962,7 +962,7 @@ fn test_lexicographic_largest() {
 fn fp2_serde_roundtrip() {
     use bincode;
 
-    let fp2 = Fp2{
+    let fp2 = Fp2 {
         c0: Fp::one(),
         c1: Fp::one(),
     };

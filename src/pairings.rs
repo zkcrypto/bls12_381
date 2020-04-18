@@ -305,7 +305,7 @@ impl Serialize for G2Prepared {
         let mut g2_prepared = serializer.serialize_struct("struct G2Prepared", 2)?;
         // We encode the choice as an u8 field.
         g2_prepared.serialize_field("choice", &self.infinity.unwrap_u8())?;
-        // Since we have serde support for `Fp2` we can treat the `Vec` as a 
+        // Since we have serde support for `Fp2` we can treat the `Vec` as a
         // regular field.
         g2_prepared.serialize_field("coeffs", &self.coeffs)?;
         g2_prepared.end()
@@ -376,7 +376,10 @@ impl<'de> Deserialize<'de> for G2Prepared {
                     .next_element()?
                     .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
                 let choice: Choice = Choice::from(choice_as_u8);
-                Ok(G2Prepared { infinity: choice, coeffs })
+                Ok(G2Prepared {
+                    infinity: choice,
+                    coeffs,
+                })
             }
         }
 
