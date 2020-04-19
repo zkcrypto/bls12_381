@@ -9,6 +9,7 @@ use std::iter::{Sum, Product};
 use std::borrow::Borrow;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 use serde::{Serialize, Serializer, Deserialize, Deserializer, de::Visitor};
+use rand::{CryptoRng, Rng};
 use crate::util::{adc, mac, sbb};
 
 /// Represents an element of the scalar field $\mathbb{F}_q$ of the BLS12-381 elliptic
@@ -418,6 +419,23 @@ impl Scalar {
     /// into its (congruent) `Scalar` representation.
     pub const fn from_raw(val: [u64; 4]) -> Self {
         (&Scalar(val)).mul(&R2)
+    }
+
+    /// Generate a valid Scalar choosen uniformly using user-
+    /// provided rng.
+    ///
+    /// By `rng` we mean any Rng that implements: `Rng` + `CryptoRng`.
+    pub fn random<T>(rand: &mut T) -> Scalar
+    where
+        T: Rng + CryptoRng,
+    {
+        let mut bytes = [0u8; 32];
+        rand.fill_bytes(&mut bytes);
+        // Ensure that the value is lower than `MODULUS`.
+        // Since modulus has 254-bits or less, we cut our bytes
+        // to get cannonical Scalars.
+        bytes[31] &= 0b0011_1111;
+        Scalar::from_bytes(&bytes).unwrap()
     }
 
     /// Reduces the scalar and returns it multiplied by the montgomery
@@ -1307,4 +1325,11 @@ fn serde_bincode_scalar_roundtrip() {
         scalar,
         bincode::deserialize(&scalar.to_bytes()).unwrap(),
     );
+}
+
+#[test]
+fn random_scalar_generation() {
+    for _ in 0..5000 {
+        Scalar::random(&mut rand::thread_rng());
+    };
 }
