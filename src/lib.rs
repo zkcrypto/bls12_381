@@ -24,6 +24,7 @@
 #![allow(clippy::suspicious_arithmetic_impl)]
 
 extern crate serde;
+extern crate rand;
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
