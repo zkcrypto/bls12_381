@@ -1,5 +1,23 @@
 # bls12_381 [![Crates.io](https://img.shields.io/crates/v/bls12_381.svg)](https://crates.io/crates/bls12_381) #
 
+
+** THIS CRATE IS JUST A FORK OF [https://github.com/zkcrypto/bls12_381/](https://github.com/zkcrypto/bls12_381/) where the Dusk-Network team has added a variety of tools required by other libraries built on the top of this one.
+The 99% of the library stills being done by @ebfull and you SHOULD NOT use this one unless you need a specific tool that we've 
+implemented and it's not on the original library.**
+
+## Extra tools added to the original bls12_381 lib:
+- Add serde support for every single data structure in the crate that is exported.
+- Add various multiscalar_mul algorithms.
+- Use `std & endo` as a default feature.
+- Impl Iter Sum & Product for Scalar.
+- Implement random for Scalar.
+- Implement XOR & AND for Scalar.
+- Add base_4 conversion fn (no longer required).
+- Impl Ord & PartialOrd for Scalar.
+- Implement w_naf_scalar_mul (71% faster than the original double-and-add impl).
+- Implement a reduce function wrapper for Scalar.
+- Expose some Scarlar-related Constants as public.
+
 This crate provides an implementation of the BLS12-381 pairing-friendly elliptic curve construction.
 
 * **This implementation has not been reviewed or audited. Use at your own risk.**
