@@ -3,11 +3,10 @@ use crate::fp2::*;
 
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 use serde::{
     self, de::Visitor, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer,
 };
-
+use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 /// This represents an element $c_0 + c_1 v + c_2 v^2$ of $\mathbb{F}_{p^6} = \mathbb{F}_{p^2} / v^3 - u - 1$.
 pub struct Fp6 {
@@ -61,7 +60,6 @@ impl fmt::Debug for Fp6 {
         write!(f, "{:?} + ({:?})*v + ({:?})*v^2", self.c0, self.c1, self.c2)
     }
 }
-
 
 impl Serialize for Fp6 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -604,7 +602,7 @@ fn test_arithmetic() {
 fn fp6_serde_roundtrip() {
     use bincode;
 
-    let fp6 = Fp6{
+    let fp6 = Fp6 {
         c0: Fp2::one(),
         c1: Fp2::one(),
         c2: Fp2::one(),
@@ -615,4 +613,3 @@ fn fp6_serde_roundtrip() {
 
     assert_eq!(fp6, deser);
 }
-

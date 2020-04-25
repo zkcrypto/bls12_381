@@ -1,16 +1,16 @@
 //! This module provides an implementation of the BLS12-381 scalar field $\mathbb{F}_q$
 //! where `q = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001`
 
-use core::convert::TryFrom;
-use std::cmp::{Ord, Ordering, PartialOrd};
-use core::fmt;
-use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign, BitAnd, BitXor};
-use std::iter::{Sum, Product};
-use std::borrow::Borrow;
-use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
-use serde::{Serialize, Serializer, Deserialize, Deserializer, de::Visitor};
-use rand::{CryptoRng, Rng};
 use crate::util::{adc, mac, sbb};
+use core::convert::TryFrom;
+use core::fmt;
+use core::ops::{Add, AddAssign, BitAnd, BitXor, Mul, MulAssign, Neg, Sub, SubAssign};
+use rand::{CryptoRng, Rng};
+use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
+use std::borrow::Borrow;
+use std::cmp::{Ord, Ordering, PartialOrd};
+use std::iter::{Product, Sum};
+use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 /// Represents an element of the scalar field $\mathbb{F}_q$ of the BLS12-381 elliptic
 /// curve construction.
@@ -85,7 +85,8 @@ impl ConditionallySelectable for Scalar {
 
 impl Serialize for Scalar {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         use serde::ser::SerializeTuple;
         let mut tup = serializer.serialize_tuple(32)?;
@@ -98,7 +99,8 @@ impl Serialize for Scalar {
 
 impl<'de> Deserialize<'de> for Scalar {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer<'de>
+    where
+        D: Deserializer<'de>,
     {
         struct ScalarVisitor;
 
@@ -110,18 +112,23 @@ impl<'de> Deserialize<'de> for Scalar {
             }
 
             fn visit_seq<A>(self, mut seq: A) -> Result<Scalar, A::Error>
-                where A: serde::de::SeqAccess<'de>
+            where
+                A: serde::de::SeqAccess<'de>,
             {
                 let mut bytes = [0u8; 32];
                 for i in 0..32 {
-                    bytes[i] = seq.next_element()?
+                    bytes[i] = seq
+                        .next_element()?
                         .ok_or(serde::de::Error::invalid_length(i, &"expected 32 bytes"))?;
                 }
                 let res = Scalar::from_bytes(&bytes);
-                if res.is_some().unwrap_u8() == 1u8 {return Ok(res.unwrap())}
-                else {return Err(serde::de::Error::custom(
-                    &"scalar was not canonically encoded"
-                ))}
+                if res.is_some().unwrap_u8() == 1u8 {
+                    return Ok(res.unwrap());
+                } else {
+                    return Err(serde::de::Error::custom(
+                        &"scalar was not canonically encoded",
+                    ));
+                }
             }
         }
 
@@ -281,11 +288,11 @@ pub const GENERATOR: Scalar = Scalar([7, 0, 0, 0]);
 
 impl<T> Product<T> for Scalar
 where
-    T: Borrow<Scalar>
+    T: Borrow<Scalar>,
 {
     fn product<I>(iter: I) -> Self
     where
-        I: Iterator<Item = T>
+        I: Iterator<Item = T>,
     {
         iter.fold(Scalar::one(), |acc, item| acc * item.borrow())
     }
@@ -293,16 +300,15 @@ where
 
 impl<T> Sum<T> for Scalar
 where
-    T: Borrow<Scalar>
+    T: Borrow<Scalar>,
 {
     fn sum<I>(iter: I) -> Self
     where
-        I: Iterator<Item = T>
+        I: Iterator<Item = T>,
     {
         iter.fold(Scalar::zero(), |acc, item| acc + item.borrow())
     }
 }
-
 
 impl Default for Scalar {
     #[inline]
@@ -1304,7 +1310,7 @@ fn test_iter_sum() {
 
 #[test]
 fn test_iter_prod() {
-    let scalars = vec![Scalar::one()+  Scalar::one(), Scalar::one()+  Scalar::one()];
+    let scalars = vec![Scalar::one() + Scalar::one(), Scalar::one() + Scalar::one()];
     let res: Scalar = scalars.iter().product();
     assert_eq!(res, Scalar::from(4u64));
 }
@@ -1321,15 +1327,12 @@ fn serde_bincode_scalar_roundtrip() {
     assert_eq!(encoded.len(), 32);
 
     // Check that the encoding itself matches the usual one
-    assert_eq!(
-        scalar,
-        bincode::deserialize(&scalar.to_bytes()).unwrap(),
-    );
+    assert_eq!(scalar, bincode::deserialize(&scalar.to_bytes()).unwrap(),);
 }
 
 #[test]
 fn random_scalar_generation() {
     for _ in 0..5000 {
         Scalar::random(&mut rand::thread_rng());
-    };
+    }
 }

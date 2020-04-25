@@ -23,8 +23,8 @@
 // involve various binary operators, and so this lint is triggered unnecessarily.
 #![allow(clippy::suspicious_arithmetic_impl)]
 
-extern crate serde;
 extern crate rand;
+extern crate serde;
 
 #[cfg(feature = "alloc")]
 extern crate alloc;

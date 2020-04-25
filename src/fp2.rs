@@ -50,7 +50,6 @@ impl PartialEq for Fp2 {
     }
 }
 
-
 impl Serialize for Fp2 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -62,7 +61,6 @@ impl Serialize for Fp2 {
         fp2.end()
     }
 }
-
 
 impl<'de> Deserialize<'de> for Fp2 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -958,7 +956,7 @@ fn test_lexicographic_largest() {
 fn fp2_serde_roundtrip() {
     use bincode;
 
-    let fp2 = Fp2{
+    let fp2 = Fp2 {
         c0: Fp::one(),
         c1: Fp::one(),
     };

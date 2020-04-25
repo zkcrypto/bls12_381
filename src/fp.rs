@@ -54,7 +54,6 @@ impl PartialEq for Fp {
     }
 }
 
-
 impl Serialize for Fp {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -89,14 +88,16 @@ impl<'de> Deserialize<'de> for Fp {
             {
                 let mut bytes = [0u8; 48];
                 for i in 0..48 {
-                    bytes[i] = seq.next_element()?
+                    bytes[i] = seq
+                        .next_element()?
                         .ok_or(serde::de::Error::invalid_length(i, &"expected 48 bytes"))?;
                 }
                 let res = Fp::from_bytes(&bytes);
-                if res.is_some().unwrap_u8() == 1u8 {return Ok(res.unwrap())}
-                else {return Err(serde::de::Error::custom(
-                    &"fp was not canonically encoded"
-                ))}
+                if res.is_some().unwrap_u8() == 1u8 {
+                    return Ok(res.unwrap());
+                } else {
+                    return Err(serde::de::Error::custom(&"fp was not canonically encoded"));
+                }
             }
         }
 
