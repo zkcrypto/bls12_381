@@ -1,7 +1,7 @@
 # bls12_381 [![Crates.io](https://img.shields.io/crates/v/bls12_381.svg)](https://crates.io/crates/bls12_381) #
 
 
-** THIS CRATE IS JUST A FORK OF [https://github.com/zkcrypto/bls12_381/](https://github.com/zkcrypto/bls12_381/) where the Dusk-Network team has added a variety of tools required by other libraries built on the top of this one.
+**THIS CRATE IS JUST A FORK OF [https://github.com/zkcrypto/bls12_381/](https://github.com/zkcrypto/bls12_381/) where the Dusk-Network team has added a variety of tools required by other libraries built on the top of this one.
 The 99% of the library stills being done by @ebfull and you SHOULD NOT use this one unless you need a specific tool that we've 
 implemented and it's not on the original library.**
 
