@@ -1,8 +1,10 @@
 //! This module provides an implementation of the BLS12-381 scalar field $\mathbb{F}_q$
 //! where `q = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001`
 
+use core::borrow::Borrow;
 use core::convert::TryFrom;
 use core::fmt;
+use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
@@ -112,6 +114,18 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a Scalar {
     #[inline]
     fn mul(self, rhs: &'b Scalar) -> Scalar {
         self.mul(rhs)
+    }
+}
+
+impl<T> Sum<T> for Scalar
+where
+    T: Borrow<Scalar>,
+{
+    fn sum<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = T>,
+    {
+        iter.fold(Self::zero(), |acc, item| acc + item.borrow())
     }
 }
 
