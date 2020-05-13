@@ -136,6 +136,20 @@ impl<'de> Deserialize<'de> for Scalar {
     }
 }
 
+pub const GEN_X Fr([
+    0x1539098E9CBCC1D5,
+    0x0CCC77B0E1804E8D,
+    0x6EEF947A6FD0FB2C,
+    0xA3D063F54E10DDE9,
+]);
+
+pub const GEN_Y: Fr([
+    0x6540D21E7007DC60,
+    0x3B0D848E832A862F,
+    0xB53BB87E05DA8257,
+    0xCD482CC3FD6FF4D,
+]);
+
 /// Constant representing the modulus
 /// q = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001
 pub const MODULUS: Scalar = Scalar([
