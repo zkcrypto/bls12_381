@@ -17,8 +17,8 @@ use crate::Scalar;
 /// "unchecked" API was misused.
 #[derive(Copy, Clone, Debug)]
 pub struct G1Affine {
-    pub x: Fp,
-    pub y: Fp,
+    pub(crate) x: Fp,
+    pub(crate) y: Fp,
     infinity: Choice,
 }
 
