@@ -403,17 +403,12 @@ impl Scalar {
     /// Returns the bit representation of the given `Scalar` as
     /// an array of 256 bits represented as `u8`.
     pub fn to_bits(&self) -> [u8; 256] {
+        let mut res = [0u8;256];
         let bytes = self.to_bytes();
-        let mut res = [0u8; 256];
-
-        let mut j = 0;
-
-        for byte in &bytes {
-            for i in 0..8 {
-                let bit = byte >> i as u8;
-                res[j] = bit & 1u8;
-                j += 1;
-            }
+        for (byte, bits) in bytes.iter().zip(res.chunks_mut(8)) {
+            bits.iter_mut()
+                  .enumerate()
+                  .for_each(|(i, bit)| *bit = (byte >> i) & 1)
         }
         res
     }
