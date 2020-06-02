@@ -400,6 +400,24 @@ impl Scalar {
         res
     }
 
+    /// Returns the bit representation of the given `Scalar` as
+    /// an array of 256 bits represented as `u8`.
+    pub fn to_bits(&self) -> [u8; 256] {
+        let bytes = self.to_bytes();
+        let mut res = [0u8; 256];
+
+        let mut j = 0;
+
+        for byte in &bytes {
+            for i in 0..8 {
+                let bit = byte >> i as u8;
+                res[j] = bit & 1u8;
+                j += 1;
+            }
+        }
+        res
+    }
+
     /// Converts a 512-bit little endian integer into
     /// a `Scalar` by reducing by the modulus.
     pub fn from_bytes_wide(bytes: &[u8; 64]) -> Scalar {
@@ -1349,4 +1367,16 @@ fn random_scalar_generation() {
     for _ in 0..5000 {
         Scalar::random(&mut rand::thread_rng());
     }
+}
+
+#[test]
+fn bit_repr() {
+    let two_pow_128 = Scalar::from(2u64).pow(&[128,0,0,0]);
+    let two_pow_128_bits  = [0u8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0u8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+    assert_eq!(&two_pow_128.to_bits()[..], &two_pow_128_bits[..]);
+
+
+    let two_pow_128_minus_rand = Scalar::from(2u64).pow(&[128,0,0,0]) - Scalar::from(7568589u64);
+    let two_pow_128_bits  = [1u8, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+    assert_eq!(&two_pow_128_minus_rand.to_bits()[..128], &two_pow_128_bits[..])
 }
