@@ -136,6 +136,7 @@ impl<'de> Deserialize<'de> for Scalar {
     }
 }
 
+#[allow(dead_code)]
 pub const GEN_X: Scalar = Scalar([
     0x1539098E9CBCC1D5,
     0x0CCC77B0E1804E8D,
@@ -143,6 +144,7 @@ pub const GEN_X: Scalar = Scalar([
     0xA3D063F54E10DDE9,
 ]);
 
+#[allow(dead_code)]
 pub const GEN_Y: Scalar = Scalar([
     0x6540D21E7007DC60,
     0x3B0D848E832A862F,
