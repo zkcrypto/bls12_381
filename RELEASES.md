@@ -1,3 +1,18 @@
+# v0.1.3
+
+- Implement `is_zero`, `is_one` & `pow_of_2` for `Scalar`.
+
+# v0.1.2
+
+- Internal repr getters to work outside Montgomery domain.
+- Implement base-4 conversion for Scalar.
+- Implement PartialOrd & Ord for Scalar.
+- Implement XOR & AND for Scalar.
+- Implement Iter::Sum & Iter::Mul.
+- Implement Serde for all exported data structures.
+- Implement Scalar::random.
+- Implement to_bits for Scalar.
+
 # 0.1.1
 
 Added `clear_cofactor` methods to `G1Projective` and `G2Projective`. If the crate feature `endo`
