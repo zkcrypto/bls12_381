@@ -346,6 +346,16 @@ impl Scalar {
         R
     }
 
+    /// Checks in ct_time whether a Scalar is equal to zero.
+    pub fn is_zero(&self) -> Choice {
+        self.ct_eq(&Scalar::zero())
+    }
+
+    /// Checks in ct_time whether a Scalar is equal to one.   
+    pub fn is_one(&self) -> Choice {
+        self.ct_eq(&Scalar::one())
+    }
+
     /// Returns the internal representation of the Scalar.
     pub const fn internal_repr(&self) -> &[u64; 4] {
         &self.0
