@@ -605,6 +605,20 @@ impl Scalar {
         res
     }
 
+    /// Computes `2^X` where X is a `u64` without the need to generate
+    // an array in the stack as `pow` & `pow_vartime` require.
+    pub fn pow_of_2(by: u64) -> Self {
+        let two = Scalar::from(2u64);
+        let mut res = Self::one();
+        for i in (0..64).rev() {
+            res = res.square();
+            let mut tmp = res;
+            tmp *= two;
+            res.conditional_assign(&tmp, (((by >> i) & 0x1) as u8).into());
+        }
+        res
+    }
+
     /// Computes the multiplicative inverse of this element,
     /// failing if the element is zero.
     pub fn invert(&self) -> CtOption<Self> {
@@ -1404,4 +1418,12 @@ fn bit_repr() {
         &two_pow_128_minus_rand.to_bits()[..128],
         &two_pow_128_bits[..]
     )
+}
+
+#[test]
+fn pow_of_two_test() {
+    let two = Scalar::from(2u64);
+    for i in 0..1000 {
+        assert_eq!(Scalar::pow_of_2(i as u64), two.pow(&[i as u64, 0, 0, 0]));
+    }
 }
