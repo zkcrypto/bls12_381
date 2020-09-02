@@ -23,21 +23,21 @@ name = "groups"
 harness = false
 required-features = ["groups"]
 
-[dependencies.byteorder]
-version = "1"
+[dependencies.bitvec]
+version = "0.18"
 default-features = false
 
 [dependencies.ff]
-version = "0.7"
+version = "0.8"
 default-features = false
 
 [dependencies.group]
-version = "0.7"
+version = "0.8"
 default-features = false
 optional = true
 
 [dependencies.pairing]
-version = "0.17"
+version = "0.18"
 optional = true
 
 [dependencies.rand_core]
@@ -52,7 +52,7 @@ default-features = false
 default = ["groups", "pairings", "alloc"]
 groups = ["group"]
 pairings = ["groups", "pairing"]
-alloc = []
+alloc = ["group/alloc"]
 nightly = ["subtle/nightly"]
 
 # GLV patents US7110538B2 and US7995752B2 expire in September 2020.

@@ -1,7 +1,8 @@
 //! This module provides an implementation of the BLS12-381 scalar field $\mathbb{F}_q$
 //! where `q = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001`
 
-use core::convert::TryFrom;
+use bitvec::{array::BitArray, order::Lsb0};
+use core::convert::{TryFrom, TryInto};
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand_core::RngCore;
@@ -77,11 +78,6 @@ const MODULUS: Scalar = Scalar([
     0x3339_d808_09a1_d805,
     0x73ed_a753_299d_7d48,
 ]);
-
-const MODULUS_BYTES: [u8; 32] = [
-    0x01, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xfe, 0x5b, 0xfe, 0xff, 0x02, 0xa4, 0xbd, 0x53,
-    0x05, 0xd8, 0xa1, 0x09, 0x08, 0xd8, 0x39, 0x33, 0x48, 0x7d, 0x9d, 0x29, 0x53, 0xa7, 0xed, 0x73,
-];
 
 // The number of bits needed to represent the modulus.
 const MODULUS_BITS: u32 = 255;
@@ -651,7 +647,7 @@ impl<'a> From<&'a Scalar> for [u8; 32] {
 }
 
 impl Field for Scalar {
-    fn random<R: RngCore + ?Sized>(rng: &mut R) -> Self {
+    fn random(mut rng: impl RngCore) -> Self {
         let mut buf = [0; 64];
         rng.fill_bytes(&mut buf);
         Self::from_bytes_wide(&buf)
@@ -690,7 +686,7 @@ impl Field for Scalar {
 
 impl PrimeField for Scalar {
     type Repr = [u8; 32];
-    type ReprEndianness = byteorder::LittleEndian;
+    type ReprBits = [u64; 4];
 
     fn from_repr(r: Self::Repr) -> Option<Self> {
         let res = Self::from_bytes(&r);
@@ -705,12 +701,23 @@ impl PrimeField for Scalar {
         self.to_bytes()
     }
 
+    fn to_le_bits(&self) -> BitArray<Lsb0, Self::ReprBits> {
+        let bytes = self.to_bytes();
+        let limbs = [
+            u64::from_le_bytes(bytes[0..8].try_into().unwrap()),
+            u64::from_le_bytes(bytes[8..16].try_into().unwrap()),
+            u64::from_le_bytes(bytes[16..24].try_into().unwrap()),
+            u64::from_le_bytes(bytes[24..32].try_into().unwrap()),
+        ];
+        BitArray::new(limbs)
+    }
+
     fn is_odd(&self) -> bool {
         self.to_bytes()[0] & 1 == 1
     }
 
-    fn char() -> Self::Repr {
-        MODULUS_BYTES
+    fn char_le_bits() -> BitArray<Lsb0, Self::ReprBits> {
+        BitArray::new(MODULUS.0)
     }
 
     const NUM_BITS: u32 = MODULUS_BITS;
