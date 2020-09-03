@@ -44,10 +44,8 @@ impl fmt::Display for G2Affine {
 impl<'a> From<&'a G2Projective> for G2Affine {
     fn from(p: &'a G2Projective) -> G2Affine {
         let zinv = p.z.invert().unwrap_or(Fp2::zero());
-        let zinv2 = zinv.square();
-        let x = p.x * zinv2;
-        let zinv3 = zinv2 * zinv;
-        let y = p.y * zinv3;
+        let x = p.x * zinv;
+        let y = p.y * zinv;
 
         let tmp = G2Affine {
             x,
@@ -188,6 +186,8 @@ const B: Fp2 = Fp2 {
         0x09d6_4551_3d83_de7e,
     ]),
 };
+
+const B3: Fp2 = Fp2::add(&Fp2::add(&B, &B), &B);
 
 impl G2Affine {
     /// Returns the identity of the group: the point at infinity.
@@ -525,16 +525,13 @@ impl From<G2Affine> for G2Projective {
 
 impl ConstantTimeEq for G2Projective {
     fn ct_eq(&self, other: &Self) -> Choice {
-        // Is (xz^2, yz^3, z) equal to (x'z'^2, yz'^3, z') when converted to affine?
+        // Is (xz, yz, z) equal to (x'z', y'z', z') when converted to affine?
 
-        let z = other.z.square();
-        let x1 = self.x * z;
-        let z = z * other.z;
-        let y1 = self.y * z;
-        let z = self.z.square();
-        let x2 = other.x * z;
-        let z = z * self.z;
-        let y2 = other.y * z;
+        let x1 = self.x * other.z;
+        let x2 = other.x * self.z;
+
+        let y1 = self.y * other.z;
+        let y2 = other.y * self.z;
 
         let self_is_zero = self.z.is_zero();
         let other_is_zero = other.z.is_zero();
@@ -623,6 +620,11 @@ impl_binops_additive!(G2Projective, G2Projective);
 impl_binops_multiplicative!(G2Projective, Scalar);
 impl_binops_multiplicative_mixed!(G2Affine, Scalar, G2Projective);
 
+#[inline(always)]
+fn mul_by_3b(x: Fp2) -> Fp2 {
+    x * B3
+}
+
 impl G2Projective {
     /// Returns the identity of the group: the point at infinity.
     pub fn identity() -> G2Projective {
@@ -679,26 +681,26 @@ impl G2Projective {
 
     /// Computes the doubling of this point.
     pub fn double(&self) -> G2Projective {
-        // http://www.hyperelliptic.org/EFD/g2p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
-        //
-        // There are no points of order 2.
+        // Algorithm 9, https://eprint.iacr.org/2015/1060.pdf
 
-        let a = self.x.square();
-        let b = self.y.square();
-        let c = b.square();
-        let d = self.x + b;
-        let d = d.square();
-        let d = d - a - c;
-        let d = d + d;
-        let e = a + a + a;
-        let f = e.square();
-        let z3 = self.z * self.y;
+        let t0 = self.y.square();
+        let z3 = t0 + t0;
         let z3 = z3 + z3;
-        let x3 = f - (d + d);
-        let c = c + c;
-        let c = c + c;
-        let c = c + c;
-        let y3 = e * (d - x3) - c;
+        let z3 = z3 + z3;
+        let t1 = self.y * self.z;
+        let t2 = self.z.square();
+        let t2 = mul_by_3b(t2);
+        let x3 = t2 * z3;
+        let y3 = t0 + t2;
+        let z3 = t1 * z3;
+        let t1 = t2 + t2;
+        let t2 = t1 + t2;
+        let t0 = t0 - t2;
+        let y3 = t0 * y3;
+        let y3 = x3 + y3;
+        let t1 = self.x * self.y;
+        let x3 = t0 * t1;
+        let x3 = x3 + x3;
 
         let tmp = G2Projective {
             x: x3,
@@ -711,130 +713,79 @@ impl G2Projective {
 
     /// Adds this point to another point.
     pub fn add(&self, rhs: &G2Projective) -> G2Projective {
-        // This Jacobian point addition technique is based on the implementation in libsecp256k1,
-        // which assumes that rhs has z=1. Let's address the case of zero z-coordinates generally.
+        // Algorithm 7, https://eprint.iacr.org/2015/1060.pdf
 
-        // If self is the identity, return rhs. Otherwise, return self. The other cases will be
-        // predicated on neither self nor rhs being the identity.
-        let f1 = self.is_identity();
-        let res = G2Projective::conditional_select(self, rhs, f1);
-        let f2 = rhs.is_identity();
+        let t0 = self.x * rhs.x;
+        let t1 = self.y * rhs.y;
+        let t2 = self.z * rhs.z;
+        let t3 = self.x + self.y;
+        let t4 = rhs.x + rhs.y;
+        let t3 = t3 * t4;
+        let t4 = t0 + t1;
+        let t3 = t3 - t4;
+        let t4 = self.y + self.z;
+        let x3 = rhs.y + rhs.z;
+        let t4 = t4 * x3;
+        let x3 = t1 + t2;
+        let t4 = t4 - x3;
+        let x3 = self.x + self.z;
+        let y3 = rhs.x + rhs.z;
+        let x3 = x3 * y3;
+        let y3 = t0 + t2;
+        let y3 = x3 - y3;
+        let x3 = t0 + t0;
+        let t0 = x3 + t0;
+        let t2 = mul_by_3b(t2);
+        let z3 = t1 + t2;
+        let t1 = t1 - t2;
+        let y3 = mul_by_3b(y3);
+        let x3 = t4 * y3;
+        let t2 = t3 * t1;
+        let x3 = t2 - x3;
+        let y3 = y3 * t0;
+        let t1 = t1 * z3;
+        let y3 = t1 + y3;
+        let t0 = t0 * t3;
+        let z3 = z3 * t4;
+        let z3 = z3 + t0;
 
-        // If neither are the identity but x1 = x2 and y1 != y2, then return the identity
-        let z = rhs.z.square();
-        let u1 = self.x * z;
-        let z = z * rhs.z;
-        let s1 = self.y * z;
-        let z = self.z.square();
-        let u2 = rhs.x * z;
-        let z = z * self.z;
-        let s2 = rhs.y * z;
-        let f3 = u1.ct_eq(&u2) & (!s1.ct_eq(&s2));
-        let res =
-            G2Projective::conditional_select(&res, &G2Projective::identity(), (!f1) & (!f2) & f3);
-
-        let t = u1 + u2;
-        let m = s1 + s2;
-        let rr = t.square();
-        let m_alt = -u2;
-        let tt = u1 * m_alt;
-        let rr = rr + tt;
-
-        // Correct for x1 != x2 but y1 = -y2, which can occur because p - 1 is divisible by 3.
-        // libsecp256k1 does this by substituting in an alternative (defined) expression for lambda.
-        let degenerate = m.is_zero() & rr.is_zero();
-        let rr_alt = s1 + s1;
-        let m_alt = m_alt + u1;
-        let rr_alt = Fp2::conditional_select(&rr_alt, &rr, !degenerate);
-        let m_alt = Fp2::conditional_select(&m_alt, &m, !degenerate);
-
-        let n = m_alt.square();
-        let q = n * t;
-
-        let n = n.square();
-        let n = Fp2::conditional_select(&n, &m, degenerate);
-        let t = rr_alt.square();
-        let z3 = m_alt * self.z * rhs.z; // We allow rhs.z != 1, so we must account for this.
-        let z3 = z3 + z3;
-        let q = -q;
-        let t = t + q;
-        let x3 = t;
-        let t = t + t;
-        let t = t + q;
-        let t = t * rr_alt;
-        let t = t + n;
-        let y3 = -t;
-        let x3 = x3 + x3;
-        let x3 = x3 + x3;
-        let y3 = y3 + y3;
-        let y3 = y3 + y3;
-
-        let tmp = G2Projective {
+        G2Projective {
             x: x3,
             y: y3,
             z: z3,
-        };
-
-        G2Projective::conditional_select(&res, &tmp, (!f1) & (!f2) & (!f3))
+        }
     }
 
     /// Adds this point to another point in the affine model.
     pub fn add_mixed(&self, rhs: &G2Affine) -> G2Projective {
-        // This Jacobian point addition technique is based on the implementation in libsecp256k1,
-        // which assumes that rhs has z=1. Let's address the case of zero z-coordinates generally.
+        // Algorithm 8, https://eprint.iacr.org/2015/1060.pdf
 
-        // If self is the identity, return rhs. Otherwise, return self. The other cases will be
-        // predicated on neither self nor rhs being the identity.
-        let f1 = self.is_identity();
-        let res = G2Projective::conditional_select(self, &G2Projective::from(rhs), f1);
-        let f2 = rhs.is_identity();
-
-        // If neither are the identity but x1 = x2 and y1 != y2, then return the identity
-        let u1 = self.x;
-        let s1 = self.y;
-        let z = self.z.square();
-        let u2 = rhs.x * z;
-        let z = z * self.z;
-        let s2 = rhs.y * z;
-        let f3 = u1.ct_eq(&u2) & (!s1.ct_eq(&s2));
-        let res =
-            G2Projective::conditional_select(&res, &G2Projective::identity(), (!f1) & (!f2) & f3);
-
-        let t = u1 + u2;
-        let m = s1 + s2;
-        let rr = t.square();
-        let m_alt = -u2;
-        let tt = u1 * m_alt;
-        let rr = rr + tt;
-
-        // Correct for x1 != x2 but y1 = -y2, which can occur because p - 1 is divisible by 3.
-        // libsecp256k1 does this by substituting in an alternative (defined) expression for lambda.
-        let degenerate = m.is_zero() & rr.is_zero();
-        let rr_alt = s1 + s1;
-        let m_alt = m_alt + u1;
-        let rr_alt = Fp2::conditional_select(&rr_alt, &rr, !degenerate);
-        let m_alt = Fp2::conditional_select(&m_alt, &m, !degenerate);
-
-        let n = m_alt.square();
-        let q = n * t;
-
-        let n = n.square();
-        let n = Fp2::conditional_select(&n, &m, degenerate);
-        let t = rr_alt.square();
-        let z3 = m_alt * self.z;
-        let z3 = z3 + z3;
-        let q = -q;
-        let t = t + q;
-        let x3 = t;
-        let t = t + t;
-        let t = t + q;
-        let t = t * rr_alt;
-        let t = t + n;
-        let y3 = -t;
-        let x3 = x3 + x3;
-        let x3 = x3 + x3;
-        let y3 = y3 + y3;
-        let y3 = y3 + y3;
+        let t0 = self.x * rhs.x;
+        let t1 = self.y * rhs.y;
+        let t3 = rhs.x + rhs.y;
+        let t4 = self.x + self.y;
+        let t3 = t3 * t4;
+        let t4 = t0 + t1;
+        let t3 = t3 - t4;
+        let t4 = rhs.y * self.z;
+        let t4 = t4 + self.y;
+        let y3 = rhs.x * self.z;
+        let y3 = y3 + self.x;
+        let x3 = t0 + t0;
+        let t0 = x3 + t0;
+        let t2 = mul_by_3b(self.z);
+        let z3 = t1 + t2;
+        let t1 = t1 - t2;
+        let y3 = mul_by_3b(y3);
+        let x3 = t4 * y3;
+        let t2 = t3 * t1;
+        let x3 = t2 - x3;
+        let y3 = y3 * t0;
+        let t1 = t1 * z3;
+        let y3 = t1 + y3;
+        let t0 = t0 * t3;
+        let z3 = z3 * t4;
+        let z3 = z3 + t0;
 
         let tmp = G2Projective {
             x: x3,
@@ -842,7 +793,7 @@ impl G2Projective {
             z: z3,
         };
 
-        G2Projective::conditional_select(&res, &tmp, (!f1) & (!f2) & (!f3))
+        G2Projective::conditional_select(&tmp, &self, rhs.is_identity())
     }
 
     fn multiply(&self, by: &[u8]) -> G2Projective {
@@ -1022,11 +973,8 @@ impl G2Projective {
             acc = Fp2::conditional_select(&(acc * p.z), &acc, skip);
 
             // Set the coordinates to the correct value
-            let tmp2 = tmp.square();
-            let tmp3 = tmp2 * tmp;
-
-            q.x = p.x * tmp2;
-            q.y = p.y * tmp3;
+            q.x = p.x * tmp;
+            q.y = p.y * tmp;
             q.infinity = Choice::from(0u8);
 
             *q = G2Affine::conditional_select(&q, &G2Affine::identity(), skip);
@@ -1042,10 +990,9 @@ impl G2Projective {
     /// Returns true if this point is on the curve. This should always return
     /// true unless an "unchecked" API was used.
     pub fn is_on_curve(&self) -> Choice {
-        // Y^2 - X^3 = 4(u + 1)(Z^6)
+        // Y^2 Z = X^3 + b Z^3
 
-        (self.y.square() - (self.x.square() * self.x))
-            .ct_eq(&((self.z.square() * self.z).square() * B))
+        (self.y.square() * self.z).ct_eq(&(self.x.square() * self.x + self.z.square() * self.z * B))
             | self.z.is_zero()
     }
 }
@@ -1277,8 +1224,8 @@ fn test_is_on_curve() {
 
     let gen = G2Affine::generator();
     let mut test = G2Projective {
-        x: gen.x * (z.square()),
-        y: gen.y * (z.square() * z),
+        x: gen.x * z,
+        y: gen.y * z,
         z,
     };
 
@@ -1331,8 +1278,8 @@ fn test_projective_point_equality() {
     };
 
     let mut c = G2Projective {
-        x: a.x * (z.square()),
-        y: a.y * (z.square() * z),
+        x: a.x * z,
+        y: a.y * z,
         z,
     };
     assert!(bool::from(c.is_on_curve()));
@@ -1412,8 +1359,8 @@ fn test_projective_to_affine() {
     };
 
     let c = G2Projective {
-        x: a.x * (z.square()),
-        y: a.y * (z.square() * z),
+        x: a.x * z,
+        y: a.y * z,
         z,
     };
 
@@ -1521,8 +1468,8 @@ fn test_projective_addition() {
             };
 
             b = G2Projective {
-                x: b.x * (z.square()),
-                y: b.y * (z.square() * z),
+                x: b.x * z,
+                y: b.y * z,
                 z,
             };
         }
@@ -1555,8 +1502,8 @@ fn test_projective_addition() {
             };
 
             b = G2Projective {
-                x: b.x * (z.square()),
-                y: b.y * (z.square() * z),
+                x: b.x * z,
+                y: b.y * z,
                 z,
             };
         }
@@ -1685,8 +1632,8 @@ fn test_mixed_addition() {
             };
 
             b = G2Projective {
-                x: b.x * (z.square()),
-                y: b.y * (z.square() * z),
+                x: b.x * z,
+                y: b.y * z,
                 z,
             };
         }
@@ -1719,8 +1666,8 @@ fn test_mixed_addition() {
             };
 
             b = G2Projective {
-                x: b.x * (z.square()),
-                y: b.y * (z.square() * z),
+                x: b.x * z,
+                y: b.y * z,
                 z,
             };
         }
@@ -1941,6 +1888,25 @@ fn test_mul_by_x() {
 fn test_psi() {
     let generator = G2Projective::generator();
 
+    let z = Fp2 {
+        c0: Fp::from_raw_unchecked([
+            0x0ef2ddffab187c0a,
+            0x2424522b7d5ecbfc,
+            0xc6f341a3398054f4,
+            0x5523ddf409502df0,
+            0xd55c0b5a88e0dd97,
+            0x066428d704923e52,
+        ]),
+        c1: Fp::from_raw_unchecked([
+            0x538bbe0c95b4878d,
+            0xad04a50379522881,
+            0x6d5c05bf5c12fb64,
+            0x4ce4a069a2d34787,
+            0x59ea6c8d0dffaeaf,
+            0x0d42a083a75bd6f3,
+        ]),
+    };
+
     // `point` is a random point in the curve
     let point = G2Projective {
         x: Fp2 {
@@ -1960,7 +1926,7 @@ fn test_psi() {
                 0x8613eafd9d81ffb1,
                 0x10fe54daa2d3d495,
             ]),
-        },
+        } * z,
         y: Fp2 {
             c0: Fp::from_raw_unchecked([
                 0x7de7edc43953b75c,
@@ -1979,24 +1945,7 @@ fn test_psi() {
                 0x1555b67fc7bbe73d,
             ]),
         },
-        z: Fp2 {
-            c0: Fp::from_raw_unchecked([
-                0x0ef2ddffab187c0a,
-                0x2424522b7d5ecbfc,
-                0xc6f341a3398054f4,
-                0x5523ddf409502df0,
-                0xd55c0b5a88e0dd97,
-                0x066428d704923e52,
-            ]),
-            c1: Fp::from_raw_unchecked([
-                0x538bbe0c95b4878d,
-                0xad04a50379522881,
-                0x6d5c05bf5c12fb64,
-                0x4ce4a069a2d34787,
-                0x59ea6c8d0dffaeaf,
-                0x0d42a083a75bd6f3,
-            ]),
-        },
+        z: z.square() * z,
     };
     assert!(bool::from(point.is_on_curve()));
 
@@ -2016,6 +1965,25 @@ fn test_psi() {
 
 #[test]
 fn test_clear_cofactor() {
+    let z = Fp2 {
+        c0: Fp::from_raw_unchecked([
+            0x0ef2ddffab187c0a,
+            0x2424522b7d5ecbfc,
+            0xc6f341a3398054f4,
+            0x5523ddf409502df0,
+            0xd55c0b5a88e0dd97,
+            0x066428d704923e52,
+        ]),
+        c1: Fp::from_raw_unchecked([
+            0x538bbe0c95b4878d,
+            0xad04a50379522881,
+            0x6d5c05bf5c12fb64,
+            0x4ce4a069a2d34787,
+            0x59ea6c8d0dffaeaf,
+            0x0d42a083a75bd6f3,
+        ]),
+    };
+
     // `point` is a random point in the curve
     let point = G2Projective {
         x: Fp2 {
@@ -2035,7 +2003,7 @@ fn test_clear_cofactor() {
                 0x8613eafd9d81ffb1,
                 0x10fe54daa2d3d495,
             ]),
-        },
+        } * z,
         y: Fp2 {
             c0: Fp::from_raw_unchecked([
                 0x7de7edc43953b75c,
@@ -2054,24 +2022,7 @@ fn test_clear_cofactor() {
                 0x1555b67fc7bbe73d,
             ]),
         },
-        z: Fp2 {
-            c0: Fp::from_raw_unchecked([
-                0x0ef2ddffab187c0a,
-                0x2424522b7d5ecbfc,
-                0xc6f341a3398054f4,
-                0x5523ddf409502df0,
-                0xd55c0b5a88e0dd97,
-                0x066428d704923e52,
-            ]),
-            c1: Fp::from_raw_unchecked([
-                0x538bbe0c95b4878d,
-                0xad04a50379522881,
-                0x6d5c05bf5c12fb64,
-                0x4ce4a069a2d34787,
-                0x59ea6c8d0dffaeaf,
-                0x0d42a083a75bd6f3,
-            ]),
-        },
+        z: z.square() * z,
     };
 
     assert!(bool::from(point.is_on_curve()));
