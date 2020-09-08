@@ -1,3 +1,10 @@
+# 0.3.0
+
+# Changed
+* Migrated to `ff 0.8`, `group 0.8`, and `pairing 0.18`.
+* MSRV is now 1.44.0.
+* Switched to complete addition formulas for G1/G2.
+
 # 0.2.0
 
 This release adds implementations of the `ff`, `group`, and `pairing` traits (with the
