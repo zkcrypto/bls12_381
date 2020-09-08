@@ -224,7 +224,7 @@ impl Fp {
         res
     }
 
-    pub(crate) fn random<R: RngCore + ?Sized>(rng: &mut R) -> Fp {
+    pub(crate) fn random(mut rng: impl RngCore) -> Fp {
         let mut bytes = [0u8; 96];
         rng.fill_bytes(&mut bytes);
 

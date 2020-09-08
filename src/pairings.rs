@@ -9,12 +9,14 @@ use core::fmt;
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use group::Group;
-use pairing::{Engine, MultiMillerLoop, PairingCurveAffine};
+use pairing::{Engine, PairingCurveAffine};
 use rand_core::RngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
+#[cfg(feature = "alloc")]
+use pairing::MultiMillerLoop;
 
 /// Represents results of a Miller loop, one of the most expensive portions
 /// of the pairing function. `MillerLoopResult`s cannot be compared with each
@@ -305,9 +307,9 @@ where
 impl Group for Gt {
     type Scalar = Scalar;
 
-    fn random<R: RngCore + ?Sized>(rng: &mut R) -> Self {
+    fn random(mut rng: impl RngCore) -> Self {
         loop {
-            let inner = Fp12::random(rng);
+            let inner = Fp12::random(&mut rng);
 
             // Not all elements of Fp12 are elements of the prime-order multiplicative
             // subgroup. We run the random element through final_exponentiation to obtain
@@ -779,6 +781,7 @@ impl pairing::MillerLoopResult for MillerLoopResult {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl MultiMillerLoop for Bls12 {
     type G2Prepared = G2Prepared;
     type Result = MillerLoopResult;

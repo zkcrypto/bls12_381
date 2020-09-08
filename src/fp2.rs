@@ -126,10 +126,10 @@ impl Fp2 {
         self.c0.is_zero() & self.c1.is_zero()
     }
 
-    pub(crate) fn random<R: RngCore + ?Sized>(rng: &mut R) -> Fp2 {
+    pub(crate) fn random(mut rng: impl RngCore) -> Fp2 {
         Fp2 {
-            c0: Fp::random(rng),
-            c1: Fp::random(rng),
+            c0: Fp::random(&mut rng),
+            c1: Fp::random(&mut rng),
         }
     }
 

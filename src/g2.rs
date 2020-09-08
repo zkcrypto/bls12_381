@@ -6,10 +6,13 @@ use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use group::{
     prime::{PrimeCurve, PrimeCurveAffine, PrimeGroup},
-    Curve, Group, GroupEncoding, UncompressedEncoding, WnafGroup,
+    Curve, Group, GroupEncoding, UncompressedEncoding,
 };
 use rand_core::RngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
+
+#[cfg(feature = "alloc")]
+use group::WnafGroup;
 
 use crate::fp::Fp;
 use crate::fp2::Fp2;
@@ -1052,9 +1055,9 @@ impl AsMut<[u8]> for G2Uncompressed {
 impl Group for G2Projective {
     type Scalar = Scalar;
 
-    fn random<R: RngCore + ?Sized>(rng: &mut R) -> Self {
+    fn random(mut rng: impl RngCore) -> Self {
         loop {
-            let x = Fp2::random(rng);
+            let x = Fp2::random(&mut rng);
             let flip_sign = rng.next_u32() % 2 != 0;
 
             // Obtain the corresponding y-coordinate given x as y = sqrt(x^3 + 4)
@@ -1092,6 +1095,7 @@ impl Group for G2Projective {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl WnafGroup for G2Projective {
     fn recommended_wnaf_for_num_scalars(num_scalars: usize) -> usize {
         const RECOMMENDATIONS: [usize; 11] = [1, 3, 8, 20, 47, 126, 260, 826, 1501, 4555, 84071];

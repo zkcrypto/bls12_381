@@ -4,8 +4,10 @@ use crate::fp6::*;
 
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use rand_core::RngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
+
+#[cfg(feature = "pairings")]
+use rand_core::RngCore;
 
 /// This represents an element $c_0 + c_1 w$ of $\mathbb{F}_{p^12} = \mathbb{F}_{p^6} / w^2 - v$.
 pub struct Fp12 {
@@ -100,10 +102,11 @@ impl Fp12 {
         }
     }
 
-    pub(crate) fn random<R: RngCore + ?Sized>(rng: &mut R) -> Self {
+    #[cfg(feature = "pairings")]
+    pub(crate) fn random(mut rng: impl RngCore) -> Self {
         Fp12 {
-            c0: Fp6::random(rng),
-            c1: Fp6::random(rng),
+            c0: Fp6::random(&mut rng),
+            c1: Fp6::random(&mut rng),
         }
     }
 
