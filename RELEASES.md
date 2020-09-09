@@ -1,3 +1,8 @@
+# 0.3.1
+
+# Fixed
+* The crate now compiles for non-64-bit targets, such as the `wasm32-*` targets.
+
 # 0.3.0
 
 # Changed
