@@ -1,3 +1,9 @@
+# Unreleased
+
+## Changed
+- The `endo` feature is on by default. The `endo` feature flag itself is deprecated, and
+  will be removed in a future minor release.
+
 # 0.3.1
 
 # Fixed

@@ -917,8 +917,7 @@ impl G2Projective {
     /// parameter of BLS12-381.
     ///
     /// The endomorphism is only actually used if the crate feature `endo` is
-    /// enabled, and it is disabled by default to mitigate potential patent
-    /// issues.
+    /// enabled, which it is by default.
     pub fn clear_cofactor(&self) -> G2Projective {
         #[cfg(feature = "endo")]
         fn clear_cofactor(this: &G2Projective) -> G2Projective {

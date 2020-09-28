@@ -49,11 +49,12 @@ version = "2.2.1"
 default-features = false
 
 [features]
-default = ["groups", "pairings", "alloc"]
+default = ["groups", "pairings", "alloc", "endo"]
 groups = ["group"]
 pairings = ["groups", "pairing"]
 alloc = ["group/alloc"]
 nightly = ["subtle/nightly"]
 
-# GLV patents US7110538B2 and US7995752B2 expire in September 2020.
+# Deprecated.
+# GLV patents US7110538B2 and US7995752B2 expired in September 2020.
 endo = []
