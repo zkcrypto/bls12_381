@@ -2,6 +2,8 @@
 //! where `q = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001`
 
 use crate::util::{adc, mac, sbb};
+use canonical::Canon;
+use canonical_derive::Canon;
 use core::convert::TryFrom;
 use core::fmt;
 use core::ops::{Add, AddAssign, BitAnd, BitXor, Mul, MulAssign, Neg, Sub, SubAssign};
@@ -17,7 +19,7 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 // The internal representation of this type is four 64-bit unsigned
 // integers in little-endian order. `Scalar` values are always in
 // Montgomery form; i.e., Scalar(a) = aR mod q, with R = 2^256.
-#[derive(Clone, Copy, Eq)]
+#[derive(Clone, Copy, Eq, Canon)]
 pub struct Scalar(pub [u64; 4]);
 
 impl fmt::Debug for Scalar {
