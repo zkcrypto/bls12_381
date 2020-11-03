@@ -1,3 +1,6 @@
+# v0.2.0
+- Add `Canon` behind a feature as well as it's deps.
+
 # v0.1.3
 
 - Implement `is_zero`, `is_one` & `pow_of_2` for `Scalar`.
