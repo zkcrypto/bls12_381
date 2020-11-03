@@ -1,4 +1,4 @@
-# v0.1.6
+# v0.2.0
 - Add `Canon` behind a feature as well as it's deps.
 
 # v0.1.3
