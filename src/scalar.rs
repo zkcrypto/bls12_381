@@ -6,14 +6,14 @@ use crate::util::{adc, mac, sbb};
 use canonical::Canon;
 #[cfg(feature = "canon")]
 use canonical_derive::Canon;
+use core::borrow::Borrow;
+use core::cmp::{Ord, Ordering, PartialOrd};
 use core::convert::TryFrom;
 use core::fmt;
+use core::iter::{Product, Sum};
 use core::ops::{Add, AddAssign, BitAnd, BitXor, Mul, MulAssign, Neg, Sub, SubAssign};
-use rand::{CryptoRng, Rng};
+use rand_core::{CryptoRng, RngCore};
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
-use std::borrow::Borrow;
-use std::cmp::{Ord, Ordering, PartialOrd};
-use std::iter::{Product, Sum};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 /// Represents an element of the scalar field $\mathbb{F}_q$ of the BLS12-381 elliptic
@@ -477,7 +477,7 @@ impl Scalar {
     /// By `rng` we mean any Rng that implements: `Rng` + `CryptoRng`.
     pub fn random<T>(rand: &mut T) -> Scalar
     where
-        T: Rng + CryptoRng,
+        T: RngCore + CryptoRng,
     {
         let mut bytes = [0u8; 32];
         rand.fill_bytes(&mut bytes);

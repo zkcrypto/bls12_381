@@ -23,9 +23,6 @@
 // involve various binary operators, and so this lint is triggered unnecessarily.
 #![allow(clippy::suspicious_arithmetic_impl)]
 
-extern crate rand;
-extern crate serde;
-
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
@@ -72,7 +69,9 @@ mod fp12;
 mod fp6;
 
 // The BLS parameter x for BLS12-381 is -0xd201000000010000
+#[cfg(feature = "std")]
 const BLS_X: u64 = 0xd201000000010000;
+#[cfg(feature = "std")]
 const BLS_X_IS_NEGATIVE: bool = true;
 
 #[cfg(feature = "pairings")]
