@@ -10,7 +10,7 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::fp::Fp;
 use crate::fp2::Fp2;
-use crate::Scalar;
+use crate::BlsScalar;
 
 /// This is an element of $\mathbb{G}_2$ represented in the affine coordinate space.
 /// It is ideal to keep elements in this representation to reduce memory usage and
@@ -633,25 +633,25 @@ impl<'a, 'b> Sub<&'b G2Projective> for &'a G2Projective {
     }
 }
 
-impl<'a, 'b> Mul<&'b Scalar> for &'a G2Projective {
+impl<'a, 'b> Mul<&'b BlsScalar> for &'a G2Projective {
     type Output = G2Projective;
 
-    fn mul(self, other: &'b Scalar) -> Self::Output {
+    fn mul(self, other: &'b BlsScalar) -> Self::Output {
         self.multiply(&other.to_bytes())
     }
 }
 
-impl<'a, 'b> Mul<&'b Scalar> for &'a G2Affine {
+impl<'a, 'b> Mul<&'b BlsScalar> for &'a G2Affine {
     type Output = G2Projective;
 
-    fn mul(self, other: &'b Scalar) -> Self::Output {
+    fn mul(self, other: &'b BlsScalar) -> Self::Output {
         G2Projective::from(self).multiply(&other.to_bytes())
     }
 }
 
 impl_binops_additive!(G2Projective, G2Projective);
-impl_binops_multiplicative!(G2Projective, Scalar);
-impl_binops_multiplicative_mixed!(G2Affine, Scalar, G2Projective);
+impl_binops_multiplicative!(G2Projective, BlsScalar);
+impl_binops_multiplicative_mixed!(G2Affine, BlsScalar, G2Projective);
 
 impl G2Projective {
     /// Returns the identity of the group: the point at infinity.
@@ -1663,13 +1663,13 @@ fn test_affine_negation_and_subtraction() {
 #[test]
 fn test_projective_scalar_multiplication() {
     let g = G2Projective::generator();
-    let a = Scalar::from_raw([
+    let a = BlsScalar::from_raw([
         0x2b568297a56da71c,
         0xd8c39ecb0ef375d1,
         0x435c38da67bfbf96,
         0x8088a05026b659b2,
     ]);
-    let b = Scalar::from_raw([
+    let b = BlsScalar::from_raw([
         0x785fdd9b26ef8b85,
         0xc997f25837695c18,
         0x4c8dbc39e7b756c1,
@@ -1683,13 +1683,13 @@ fn test_projective_scalar_multiplication() {
 #[test]
 fn test_affine_scalar_multiplication() {
     let g = G2Affine::generator();
-    let a = Scalar::from_raw([
+    let a = BlsScalar::from_raw([
         0x2b568297a56da71c,
         0xd8c39ecb0ef375d1,
         0x435c38da67bfbf96,
         0x8088a05026b659b2,
     ]);
-    let b = Scalar::from_raw([
+    let b = BlsScalar::from_raw([
         0x785fdd9b26ef8b85,
         0xc997f25837695c18,
         0x4c8dbc39e7b756c1,
@@ -1754,13 +1754,13 @@ fn test_mul_by_x() {
     // the equivalent scalar.
     let generator = G2Projective::generator();
     let x = if crate::BLS_X_IS_NEGATIVE {
-        -Scalar::from(crate::BLS_X)
+        -BlsScalar::from(crate::BLS_X)
     } else {
-        Scalar::from(crate::BLS_X)
+        BlsScalar::from(crate::BLS_X)
     };
     assert_eq!(generator.mul_by_x(), generator * x);
 
-    let point = G2Projective::generator() * Scalar::from(42);
+    let point = G2Projective::generator() * BlsScalar::from(42);
     assert_eq!(point.mul_by_x(), point * x);
 }
 
@@ -1916,7 +1916,7 @@ fn test_clear_cofactor() {
     let id = G2Projective::identity();
     assert!(bool::from(id.clear_cofactor().is_on_curve()));
 
-    // test the effect on q-torsion points multiplying by h_eff modulo |Scalar|
+    // test the effect on q-torsion points multiplying by h_eff modulo |BlsScalar|
     // h_eff % q = 0x2b116900400069009a40200040001ffff
     let h_eff_modq: [u8; 32] = [
         0xff, 0xff, 0x01, 0x00, 0x04, 0x00, 0x02, 0xa4, 0x09, 0x90, 0x06, 0x00, 0x04, 0x90, 0x16,

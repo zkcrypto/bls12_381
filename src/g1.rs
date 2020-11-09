@@ -7,7 +7,7 @@ use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::fp::Fp;
-use crate::Scalar;
+use crate::BlsScalar;
 
 /// This is an element of $\mathbb{G}_1$ represented in the affine coordinate space.
 /// It is ideal to keep elements in this representation to reduce memory usage and
@@ -559,25 +559,25 @@ impl<'a, 'b> Sub<&'b G1Projective> for &'a G1Projective {
     }
 }
 
-impl<'a, 'b> Mul<&'b Scalar> for &'a G1Projective {
+impl<'a, 'b> Mul<&'b BlsScalar> for &'a G1Projective {
     type Output = G1Projective;
 
-    fn mul(self, other: &'b Scalar) -> Self::Output {
+    fn mul(self, other: &'b BlsScalar) -> Self::Output {
         self.multiply(&other.to_bytes())
     }
 }
 
-impl<'a, 'b> Mul<&'b Scalar> for &'a G1Affine {
+impl<'a, 'b> Mul<&'b BlsScalar> for &'a G1Affine {
     type Output = G1Projective;
 
-    fn mul(self, other: &'b Scalar) -> Self::Output {
+    fn mul(self, other: &'b BlsScalar) -> Self::Output {
         G1Projective::from(self).multiply(&other.to_bytes())
     }
 }
 
 impl_binops_additive!(G1Projective, G1Projective);
-impl_binops_multiplicative!(G1Projective, Scalar);
-impl_binops_multiplicative_mixed!(G1Affine, Scalar, G1Projective);
+impl_binops_multiplicative!(G1Projective, BlsScalar);
+impl_binops_multiplicative_mixed!(G1Affine, BlsScalar, G1Projective);
 
 impl G1Projective {
     /// Returns the identity of the group: the point at infinity.
@@ -1335,13 +1335,13 @@ fn test_affine_negation_and_subtraction() {
 #[test]
 fn test_projective_scalar_multiplication() {
     let g = G1Projective::generator();
-    let a = Scalar::from_raw([
+    let a = BlsScalar::from_raw([
         0x2b568297a56da71c,
         0xd8c39ecb0ef375d1,
         0x435c38da67bfbf96,
         0x8088a05026b659b2,
     ]);
-    let b = Scalar::from_raw([
+    let b = BlsScalar::from_raw([
         0x785fdd9b26ef8b85,
         0xc997f25837695c18,
         0x4c8dbc39e7b756c1,
@@ -1355,13 +1355,13 @@ fn test_projective_scalar_multiplication() {
 #[test]
 fn test_affine_scalar_multiplication() {
     let g = G1Affine::generator();
-    let a = Scalar::from_raw([
+    let a = BlsScalar::from_raw([
         0x2b568297a56da71c,
         0xd8c39ecb0ef375d1,
         0x435c38da67bfbf96,
         0x8088a05026b659b2,
     ]);
-    let b = Scalar::from_raw([
+    let b = BlsScalar::from_raw([
         0x785fdd9b26ef8b85,
         0xc997f25837695c18,
         0x4c8dbc39e7b756c1,
@@ -1405,13 +1405,13 @@ fn test_mul_by_x() {
     // the equivalent scalar.
     let generator = G1Projective::generator();
     let x = if crate::BLS_X_IS_NEGATIVE {
-        -Scalar::from(crate::BLS_X)
+        -BlsScalar::from(crate::BLS_X)
     } else {
-        Scalar::from(crate::BLS_X)
+        BlsScalar::from(crate::BLS_X)
     };
     assert_eq!(generator.mul_by_x(), generator * x);
 
-    let point = G1Projective::generator() * Scalar::from(42);
+    let point = G1Projective::generator() * BlsScalar::from(42);
     assert_eq!(point.mul_by_x(), point * x);
 }
 
@@ -1459,7 +1459,7 @@ fn test_clear_cofactor() {
 
     // in BLS12-381 the cofactor in G1 can be
     // cleared multiplying by (1-x)
-    let h_eff = Scalar::from(1) + Scalar::from(crate::BLS_X);
+    let h_eff = BlsScalar::from(1) + BlsScalar::from(crate::BLS_X);
     assert_eq!(point.clear_cofactor(), point * h_eff);
 }
 

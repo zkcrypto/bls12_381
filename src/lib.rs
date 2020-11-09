@@ -46,7 +46,7 @@ pub mod notes {
 
 mod scalar;
 
-pub use scalar::Scalar;
+pub use scalar::Scalar as BlsScalar;
 pub use scalar::{GENERATOR, ROOT_OF_UNITY, TWO_ADACITY};
 
 #[cfg(feature = "groups")]
