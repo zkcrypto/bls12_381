@@ -1,7 +1,7 @@
 use crate::fp12::Fp12;
 use crate::fp2::Fp2;
 use crate::fp6::Fp6;
-use crate::{G1Affine, G2Affine, G2Projective, Scalar, BLS_X, BLS_X_IS_NEGATIVE};
+use crate::{BlsScalar, G1Affine, G2Affine, G2Projective, BLS_X, BLS_X_IS_NEGATIVE};
 
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use serde::{
@@ -248,10 +248,10 @@ impl<'a, 'b> Sub<&'b Gt> for &'a Gt {
     }
 }
 
-impl<'a, 'b> Mul<&'b Scalar> for &'a Gt {
+impl<'a, 'b> Mul<&'b BlsScalar> for &'a Gt {
     type Output = Gt;
 
-    fn mul(self, other: &'b Scalar) -> Self::Output {
+    fn mul(self, other: &'b BlsScalar) -> Self::Output {
         let mut acc = Gt::identity();
 
         // This is a simple double-and-add implementation of group element
@@ -276,7 +276,7 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a Gt {
 }
 
 impl_binops_additive!(Gt, Gt);
-impl_binops_multiplicative!(Gt, Scalar);
+impl_binops_multiplicative!(Gt, BlsScalar);
 
 #[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
@@ -658,10 +658,10 @@ fn addition_step(r: &mut G2Projective, q: &G2Affine) -> (Fp2, Fp2, Fp2) {
 
 #[test]
 fn test_bilinearity() {
-    use crate::Scalar;
+    use crate::BlsScalar;
 
-    let a = Scalar::from_raw([1, 2, 3, 4]).invert().unwrap().square();
-    let b = Scalar::from_raw([5, 6, 7, 8]).invert().unwrap().square();
+    let a = BlsScalar::from_raw([1, 2, 3, 4]).invert().unwrap().square();
+    let b = BlsScalar::from_raw([5, 6, 7, 8]).invert().unwrap().square();
     let c = a * b;
 
     let g = G1Affine::from(G1Affine::generator() * a);
@@ -698,27 +698,35 @@ fn test_multi_miller_loop() {
     let b1 = G2Affine::generator();
 
     let a2 = G1Affine::from(
-        G1Affine::generator() * Scalar::from_raw([1, 2, 3, 4]).invert().unwrap().square(),
+        G1Affine::generator() * BlsScalar::from_raw([1, 2, 3, 4]).invert().unwrap().square(),
     );
     let b2 = G2Affine::from(
-        G2Affine::generator() * Scalar::from_raw([4, 2, 2, 4]).invert().unwrap().square(),
+        G2Affine::generator() * BlsScalar::from_raw([4, 2, 2, 4]).invert().unwrap().square(),
     );
 
     let a3 = G1Affine::identity();
     let b3 = G2Affine::from(
-        G2Affine::generator() * Scalar::from_raw([9, 2, 2, 4]).invert().unwrap().square(),
+        G2Affine::generator() * BlsScalar::from_raw([9, 2, 2, 4]).invert().unwrap().square(),
     );
 
     let a4 = G1Affine::from(
-        G1Affine::generator() * Scalar::from_raw([5, 5, 5, 5]).invert().unwrap().square(),
+        G1Affine::generator() * BlsScalar::from_raw([5, 5, 5, 5]).invert().unwrap().square(),
     );
     let b4 = G2Affine::identity();
 
     let a5 = G1Affine::from(
-        G1Affine::generator() * Scalar::from_raw([323, 32, 3, 1]).invert().unwrap().square(),
+        G1Affine::generator()
+            * BlsScalar::from_raw([323, 32, 3, 1])
+                .invert()
+                .unwrap()
+                .square(),
     );
     let b5 = G2Affine::from(
-        G2Affine::generator() * Scalar::from_raw([4, 2, 2, 9099]).invert().unwrap().square(),
+        G2Affine::generator()
+            * BlsScalar::from_raw([4, 2, 2, 9099])
+                .invert()
+                .unwrap()
+                .square(),
     );
 
     let b1_prepared = G2Prepared::from(b1);

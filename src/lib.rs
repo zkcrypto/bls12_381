@@ -23,9 +23,6 @@
 // involve various binary operators, and so this lint is triggered unnecessarily.
 #![allow(clippy::suspicious_arithmetic_impl)]
 
-extern crate rand;
-extern crate serde;
-
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
@@ -49,7 +46,7 @@ pub mod notes {
 
 mod scalar;
 
-pub use scalar::Scalar;
+pub use scalar::Scalar as BlsScalar;
 pub use scalar::{GENERATOR, ROOT_OF_UNITY, TWO_ADACITY};
 
 #[cfg(feature = "groups")]
