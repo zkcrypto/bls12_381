@@ -1,7 +1,7 @@
 use crate::fp12::Fp12;
 use crate::fp2::Fp2;
 use crate::fp6::Fp6;
-use crate::{G1Affine, G2Affine, G2Projective, BlsScalar, BLS_X, BLS_X_IS_NEGATIVE};
+use crate::{BlsScalar, G1Affine, G2Affine, G2Projective, BLS_X, BLS_X_IS_NEGATIVE};
 
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use serde::{
@@ -715,10 +715,18 @@ fn test_multi_miller_loop() {
     let b4 = G2Affine::identity();
 
     let a5 = G1Affine::from(
-        G1Affine::generator() * BlsScalar::from_raw([323, 32, 3, 1]).invert().unwrap().square(),
+        G1Affine::generator()
+            * BlsScalar::from_raw([323, 32, 3, 1])
+                .invert()
+                .unwrap()
+                .square(),
     );
     let b5 = G2Affine::from(
-        G2Affine::generator() * BlsScalar::from_raw([4, 2, 2, 9099]).invert().unwrap().square(),
+        G2Affine::generator()
+            * BlsScalar::from_raw([4, 2, 2, 9099])
+                .invert()
+                .unwrap()
+                .square(),
     );
 
     let b1_prepared = G2Prepared::from(b1);
