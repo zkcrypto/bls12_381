@@ -17,7 +17,7 @@ use crate::util::{adc, mac, sbb};
 // The internal representation of this type is four 64-bit unsigned
 // integers in little-endian order. `Scalar` values are always in
 // Montgomery form; i.e., Scalar(a) = aR mod q, with R = 2^256.
-#[derive(Clone, Copy, Eq)]
+#[derive(Clone, Copy, Eq, Hash)]
 pub struct Scalar(pub(crate) [u64; 4]);
 
 impl fmt::Debug for Scalar {
@@ -34,6 +34,12 @@ impl fmt::Debug for Scalar {
 impl fmt::Display for Scalar {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
+    }
+}
+
+impl From<u32> for Scalar {
+    fn from(val: u32) -> Scalar {
+        Scalar([val as u64, 0, 0, 0]) * R2
     }
 }
 
@@ -56,6 +62,22 @@ impl PartialEq for Scalar {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         bool::from(self.ct_eq(other))
+    }
+}
+
+impl Ord for Scalar {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        let mut self_bytes = self.0;
+        let mut other_bytes = other.0;
+        &self_bytes.reverse();
+        &other_bytes.reverse();
+        self_bytes.cmp(&other_bytes)
+    }
+}
+
+impl PartialOrd for Scalar {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -1230,4 +1252,22 @@ fn test_double() {
     ]);
 
     assert_eq!(a.double(), a + a);
+}
+
+#[test]
+fn test_ord() {
+    assert!(Scalar::one() > Scalar::zero());
+    let x = Scalar::from_raw([
+        0x0000_0000_0000_0000,
+        0x0000_0000_0000_0000,
+        0x1111_1111_1111_1111,
+        0x1111_1111_1111_1111,
+    ]);
+    let y = Scalar::from_raw([
+        0x1111_1111_1111_1111,
+        0x0000_0000_0000_0000,
+        0x1111_1111_1111_1111,
+        0x0000_0000_0000_0000,
+    ]);
+    assert!(y < x);
 }
