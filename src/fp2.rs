@@ -2,10 +2,12 @@
 
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
+
+#[cfg(feature = "serde_req")]
 use serde::{
     self, de::Visitor, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer,
 };
-use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::fp::Fp;
 
@@ -50,6 +52,7 @@ impl PartialEq for Fp2 {
     }
 }
 
+#[cfg(feature = "serde_req")]
 impl Serialize for Fp2 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -62,6 +65,7 @@ impl Serialize for Fp2 {
     }
 }
 
+#[cfg(feature = "serde_req")]
 impl<'de> Deserialize<'de> for Fp2 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

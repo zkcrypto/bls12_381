@@ -3,10 +3,12 @@ use crate::fp2::*;
 
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
+
+#[cfg(feature = "serde_req")]
 use serde::{
     self, de::Visitor, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer,
 };
-use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 /// This represents an element $c_0 + c_1 v + c_2 v^2$ of $\mathbb{F}_{p^6} = \mathbb{F}_{p^2} / v^3 - u - 1$.
 pub struct Fp6 {
@@ -61,6 +63,7 @@ impl fmt::Debug for Fp6 {
     }
 }
 
+#[cfg(feature = "serde_req")]
 impl Serialize for Fp6 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -74,6 +77,7 @@ impl Serialize for Fp6 {
     }
 }
 
+#[cfg(feature = "serde_req")]
 impl<'de> Deserialize<'de> for Fp6 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

@@ -5,7 +5,6 @@ use crate::{
 };
 use byteorder;
 
-#[cfg(feature = "std")]
 /// Performs multiscalar multiplication reliying on Pippenger's algorithm.
 /// This method was taken from `curve25519-dalek` and was originally made by
 /// Oleg Andreev <oleganza@gmail.com>.
@@ -178,7 +177,6 @@ fn to_radix_2w(scalar: &Scalar, w: usize) -> [i8; 43] {
     digits
 }
 
-#[cfg(feature = "std")]
 /// Performs a Variable Base Multiscalar Multiplication.
 pub fn msm_variable_base(points: &[G1Affine], scalars: &[Scalar]) -> G1Projective {
     use rayon::prelude::*;
@@ -278,7 +276,6 @@ mod tests {
     #[allow(unused_imports)]
     use super::*;
 
-    #[cfg(feature = "std")]
     #[test]
     fn pippenger_test() {
         // Reuse points across different tests
@@ -309,7 +306,6 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "std")]
     #[test]
     fn msm_variable_base_test() {
         let points = vec![G1Affine::generator()];

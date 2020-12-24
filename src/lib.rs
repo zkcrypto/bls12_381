@@ -69,7 +69,9 @@ mod fp12;
 mod fp6;
 
 // The BLS parameter x for BLS12-381 is -0xd201000000010000
+#[allow(dead_code)]
 const BLS_X: u64 = 0xd201000000010000;
+#[allow(dead_code)]
 const BLS_X_IS_NEGATIVE: bool = true;
 
 #[cfg(feature = "pairings")]
@@ -81,5 +83,5 @@ pub use pairings::{pairing, Gt, MillerLoopResult};
 #[cfg(all(feature = "pairings", feature = "alloc"))]
 pub use pairings::{multi_miller_loop, G2Prepared};
 
-#[cfg(feature = "groups")]
+#[cfg(all(feature = "groups", feature = "std"))]
 pub mod multiscalar_mul;

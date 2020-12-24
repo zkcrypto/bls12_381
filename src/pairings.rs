@@ -4,10 +4,13 @@ use crate::fp6::Fp6;
 use crate::{BlsScalar, G1Affine, G2Affine, G2Projective, BLS_X, BLS_X_IS_NEGATIVE};
 
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+
+use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
+
+#[cfg(feature = "serde_req")]
 use serde::{
     self, de::Visitor, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer,
 };
-use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
@@ -293,6 +296,7 @@ pub struct G2Prepared {
     coeffs: Vec<(Fp2, Fp2, Fp2)>,
 }
 
+#[cfg(feature = "serde_req")]
 impl Serialize for G2Prepared {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -308,6 +312,7 @@ impl Serialize for G2Prepared {
     }
 }
 
+#[cfg(feature = "serde_req")]
 impl<'de> Deserialize<'de> for G2Prepared {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
