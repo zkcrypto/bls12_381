@@ -24,7 +24,7 @@ harness = false
 required-features = ["groups"]
 
 [dependencies.bitvec]
-version = "0.18"
+version = "0.20"
 default-features = false
 
 [dependencies.ff]
