@@ -1,5 +1,9 @@
 //! This module provides an implementation of the $\mathbb{G}_2$ group of BLS12-381.
 
+#[cfg(feature = "canon")]
+use canonical::{Canon, InvalidEncoding, Sink, Source, Store};
+#[cfg(feature = "canon")]
+use canonical_derive::Canon;
 use core::borrow::Borrow;
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
@@ -13,6 +17,8 @@ use crate::fp::Fp;
 use crate::fp2::Fp2;
 use crate::BlsScalar;
 
+const G2_COMPRESSED_SIZE: usize = 96;
+
 /// This is an element of $\mathbb{G}_2$ represented in the affine coordinate space.
 /// It is ideal to keep elements in this representation to reduce memory usage and
 /// improve performance through the use of mixed curve model arithmetic.
@@ -24,6 +30,27 @@ pub struct G2Affine {
     pub(crate) x: Fp2,
     pub(crate) y: Fp2,
     infinity: Choice,
+}
+
+#[cfg(feature = "canon")]
+impl<S: Store> Canon<S> for G2Affine {
+    fn write(&self, sink: &mut impl Sink<S>) -> Result<(), S::Error> {
+        sink.copy_bytes(&self.to_compressed());
+        Ok(())
+    }
+
+    fn read(source: &mut impl Source<S>) -> Result<Self, S::Error> {
+        let mut bytes = [0u8; G2_COMPRESSED_SIZE];
+        bytes.copy_from_slice(source.read_bytes(G2_COMPRESSED_SIZE));
+        match Option::from(G2Affine::from_compressed(&bytes)) {
+            Some(g2) => Ok(g2),
+            None => Err(InvalidEncoding.into()),
+        }
+    }
+
+    fn encoded_len(&self) -> usize {
+        G2_COMPRESSED_SIZE
+    }
 }
 
 impl Default for G2Affine {
@@ -534,6 +561,7 @@ impl G2Affine {
 
 /// This is an element of $\mathbb{G}_2$ represented in the projective coordinate space.
 #[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "canon", derive(Canon))]
 pub struct G2Projective {
     pub(crate) x: Fp2,
     pub(crate) y: Fp2,
