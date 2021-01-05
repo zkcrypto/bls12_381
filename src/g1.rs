@@ -3,8 +3,10 @@
 use core::borrow::Borrow;
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
+
+#[cfg(feature = "serde_req")]
+use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::fp::Fp;
 use crate::BlsScalar;
@@ -52,6 +54,7 @@ impl From<G1Projective> for G1Affine {
     }
 }
 
+#[cfg(feature = "serde_req")]
 impl Serialize for G1Affine {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -66,6 +69,7 @@ impl Serialize for G1Affine {
     }
 }
 
+#[cfg(feature = "serde_req")]
 impl<'de> Deserialize<'de> for G1Affine {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -1503,6 +1507,7 @@ fn test_batch_normalize() {
 }
 
 #[test]
+#[cfg(feature = "serde_req")]
 fn g1_affine_serde_roundtrip() {
     use bincode;
 

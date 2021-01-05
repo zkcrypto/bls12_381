@@ -4,6 +4,7 @@ use core::borrow::Borrow;
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
+#[cfg(feature = "serde_req")]
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
@@ -87,6 +88,7 @@ impl PartialEq for G2Affine {
     }
 }
 
+#[cfg(feature = "serde_req")]
 impl Serialize for G2Affine {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -101,6 +103,7 @@ impl Serialize for G2Affine {
     }
 }
 
+#[cfg(feature = "serde_req")]
 impl<'de> Deserialize<'de> for G2Affine {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -1970,6 +1973,7 @@ fn test_batch_normalize() {
 }
 
 #[test]
+#[cfg(feature = "serde_req")]
 fn g2_affine_serde_roundtrip() {
     use bincode;
 

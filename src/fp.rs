@@ -4,6 +4,8 @@
 use core::convert::TryFrom;
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+
+#[cfg(feature = "serde_req")]
 use serde::{
     self, de::Visitor, ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer,
 };
@@ -54,6 +56,7 @@ impl PartialEq for Fp {
     }
 }
 
+#[cfg(feature = "serde_req")]
 impl Serialize for Fp {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -68,6 +71,7 @@ impl Serialize for Fp {
     }
 }
 
+#[cfg(feature = "serde_req")]
 impl<'de> Deserialize<'de> for Fp {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -913,6 +917,7 @@ fn test_lexicographic_largest() {
 }
 
 #[test]
+#[cfg(feature = "serde_req")]
 fn fp_serde_roundtrip() {
     use bincode;
     let fp = Fp::one();

@@ -28,7 +28,7 @@ jobs:
             command: test
             args: --release
 
-  test_nightly:
+  test_nightly_no_std:
       name: Nightly tests
       runs-on: ubuntu-latest
       steps:
@@ -40,6 +40,19 @@ jobs:
           with:
             command: test
             args: --release --no-default-features
+
+  test_nightly_serde:
+      name: Nightly tests
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v2
+        - uses: actions-rs/toolchain@v1
+          with:
+            profile: minimal
+        - uses: actions-rs/cargo@v1
+          with:
+            command: test
+            args: --release --features serde_req
 
   fmt:
     name: Rustfmt
