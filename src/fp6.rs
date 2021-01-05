@@ -603,6 +603,7 @@ fn test_arithmetic() {
 }
 
 #[test]
+#[cfg(feature = "serde_req")]
 fn fp6_serde_roundtrip() {
     use bincode;
 

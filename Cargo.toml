@@ -28,7 +28,7 @@ rustdoc-args = [ "--html-in-header", "katex-header.html" ]
 [dev-dependencies]
 criterion = "0.2.11"
 bincode = "1"
-rand = "0.7.0"
+rand = "0.8"
 
 [[bench]]
 name = "groups"

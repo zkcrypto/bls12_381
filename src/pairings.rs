@@ -759,6 +759,7 @@ fn test_multi_miller_loop() {
 }
 
 #[test]
+#[cfg(feature = "serde_req")]
 fn g2_prepared_serde_roundtrip() {
     use bincode;
 

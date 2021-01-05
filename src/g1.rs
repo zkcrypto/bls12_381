@@ -1507,6 +1507,7 @@ fn test_batch_normalize() {
 }
 
 #[test]
+#[cfg(feature = "serde_req")]
 fn g1_affine_serde_roundtrip() {
     use bincode;
 

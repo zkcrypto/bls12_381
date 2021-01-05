@@ -957,6 +957,7 @@ fn test_lexicographic_largest() {
 }
 
 #[test]
+#[cfg(feature = "serde_req")]
 fn fp2_serde_roundtrip() {
     use bincode;
 

@@ -1378,6 +1378,7 @@ fn test_iter_prod() {
 }
 
 #[test]
+#[cfg(feature = "serde_req")]
 fn serde_bincode_scalar_roundtrip() {
     use bincode;
     let scalar = -Scalar::from(3u64);
