@@ -40,7 +40,7 @@ version = "2.3.0"
 default-features = false
 
 [features]
-default = ["groups", "pairings", "alloc", "std", "endo", "serde_req"]
+default = ["groups", "pairings", "alloc", "std", "endo"]
 groups = []
 pairings = ["groups"]
 alloc = []

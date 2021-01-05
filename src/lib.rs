@@ -69,9 +69,9 @@ mod fp12;
 mod fp6;
 
 // The BLS parameter x for BLS12-381 is -0xd201000000010000
-#[allow(dead_code)]
+#[cfg(feature = "groups")]
 const BLS_X: u64 = 0xd201000000010000;
-#[allow(dead_code)]
+#[cfg(feature = "groups")]
 const BLS_X_IS_NEGATIVE: bool = true;
 
 #[cfg(feature = "pairings")]
