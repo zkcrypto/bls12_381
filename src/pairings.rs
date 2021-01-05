@@ -321,7 +321,7 @@ impl<'de> Deserialize<'de> for G2Prepared {
         enum Field {
             Choice,
             Coeffs,
-        };
+        }
 
         impl<'de> Deserialize<'de> for Field {
             fn deserialize<D>(deserializer: D) -> Result<Field, D::Error>

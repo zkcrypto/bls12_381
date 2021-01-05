@@ -74,7 +74,7 @@ impl<'de> Deserialize<'de> for Fp2 {
         enum Field {
             C0,
             C1,
-        };
+        }
 
         impl<'de> Deserialize<'de> for Field {
             fn deserialize<D>(deserializer: D) -> Result<Field, D::Error>

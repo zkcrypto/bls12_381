@@ -87,7 +87,7 @@ impl<'de> Deserialize<'de> for Fp6 {
             C0,
             C1,
             C2,
-        };
+        }
 
         impl<'de> Deserialize<'de> for Field {
             fn deserialize<D>(deserializer: D) -> Result<Field, D::Error>
