@@ -808,6 +808,18 @@ where
     }
 }
 
+impl<T> core::iter::Product<T> for Scalar
+where
+    T: core::borrow::Borrow<Scalar>,
+{
+    fn product<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = T>,
+    {
+        iter.fold(Self::one(), |acc, item| acc * item.borrow())
+    }
+}
+
 #[test]
 fn test_inv() {
     // Compute -(q^{-1} mod 2^64) mod 2^64 by exponentiating
