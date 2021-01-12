@@ -28,27 +28,9 @@ macro_rules! test_vectors {
 }
 
 #[test]
-fn g1_uncompressed_valid_test_vectors() {
-    let bytes: &'static [u8] = include_bytes!("g1_uncompressed_valid_test_vectors.dat");
-    test_vectors!(
-        G1Projective,
-        G1Affine,
-        to_uncompressed,
-        from_uncompressed,
-        bytes
-    );
-}
-
-#[test]
 fn g1_compressed_valid_test_vectors() {
     let bytes: &'static [u8] = include_bytes!("g1_compressed_valid_test_vectors.dat");
-    test_vectors!(
-        G1Projective,
-        G1Affine,
-        to_compressed,
-        from_compressed,
-        bytes
-    );
+    test_vectors!(G1Projective, G1Affine, to_bytes, from_bytes, bytes);
 }
 
 #[test]

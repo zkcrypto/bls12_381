@@ -307,6 +307,11 @@ impl Fp {
         Fp(v)
     }
 
+    /// Internal representation of `Fp`
+    pub const fn internal_repr(&self) -> &[u64; 6] {
+        &self.0
+    }
+
     /// Although this is labeled "vartime", it is only
     /// variable time with respect to the exponent. It
     /// is also not exposed in the public API.
