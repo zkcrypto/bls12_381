@@ -62,7 +62,7 @@ impl Serialize for G1Affine {
     {
         use serde::ser::SerializeTuple;
         let mut tup = serializer.serialize_tuple(48)?;
-        for byte in self.to_compressed().iter() {
+        for byte in self.to_bytes().iter() {
             tup.serialize_element(byte)?;
         }
         tup.end()
@@ -94,8 +94,8 @@ impl<'de> Deserialize<'de> for G1Affine {
                         .next_element()?
                         .ok_or(serde::de::Error::invalid_length(i, &"expected 48 bytes"))?;
                 }
-                let res = G1Affine::from_compressed(&bytes);
-                if res.is_some().unwrap_u8() == 1u8 {
+                let res = G1Affine::from_bytes(&bytes);
+                if res.is_some() {
                     return Ok(res.unwrap());
                 } else {
                     return Err(serde::de::Error::custom(
@@ -263,8 +263,8 @@ impl G1Affine {
     /// critical. This way, the `infinity` internal attribute will not be stored and `x` and
     /// `y` will be stored without any check.
     ///
-    /// For secure serialization, check `to_compressed` and `to_uncompressed`
-    pub unsafe fn to_bytes_unchecked(&self) -> [u8; 96] {
+    /// For secure serialization, check `to_bytes`
+    pub fn to_bytes_unchecked(&self) -> [u8; 96] {
         let mut bytes = [0u8; 96];
         let chunks = bytes.chunks_mut(8);
 
@@ -284,7 +284,7 @@ impl G1Affine {
     /// lost. The expected usage of this function is for trusted bytes where performance is
     /// critical.
     ///
-    /// For secure serialization, check `to_bytes`
+    /// For secure serialization, check `from_bytes`
     pub unsafe fn from_slice_unchecked(bytes: &[u8]) -> Self {
         let mut x = [0u64; 6];
         let mut y = [0u64; 6];
@@ -332,7 +332,7 @@ impl G1Affine {
 
     /// Attempts to deserialize a compressed element. See [`notes::serialization`](crate::notes::serialization)
     /// for details about how group elements are serialized.
-    pub fn from_bytes(bytes: &[u8; 48]) -> CtOption<Self> {
+    pub fn from_bytes(bytes: &[u8; 48]) -> Option<Self> {
         // We already know the point is on the curve because this is established
         // by the y-coordinate recovery procedure in from_compressed_unchecked().
 
@@ -388,6 +388,7 @@ impl G1Affine {
             })
         })
         .and_then(|p| CtOption::new(p, p.is_torsion_free()))
+        .into()
     }
 
     /// Returns true if this element is the identity (the point at infinity).

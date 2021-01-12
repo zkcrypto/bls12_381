@@ -7,7 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.5.0] - 12-01-21
 ### Changed
 - G1Affine method rename to/from bytes
 ### Added
