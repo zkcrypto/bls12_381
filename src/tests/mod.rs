@@ -1,4 +1,5 @@
 use super::*;
+use dusk_bytes::Serializable;
 
 macro_rules! test_vectors {
     ($projective:ident, $affine:ident, $serialize:ident, $deserialize:ident, $expected:ident) => {
@@ -48,13 +49,7 @@ fn g2_uncompressed_valid_test_vectors() {
 #[test]
 fn g2_compressed_valid_test_vectors() {
     let bytes: &'static [u8] = include_bytes!("g2_compressed_valid_test_vectors.dat");
-    test_vectors!(
-        G2Projective,
-        G2Affine,
-        to_compressed,
-        from_compressed,
-        bytes
-    );
+    test_vectors!(G2Projective, G2Affine, to_bytes, from_bytes, bytes);
 }
 
 #[test]

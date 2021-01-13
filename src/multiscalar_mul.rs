@@ -4,6 +4,7 @@ use crate::{
     scalar::Scalar,
 };
 use byteorder;
+use dusk_bytes::Serializable;
 
 /// Performs multiscalar multiplication reliying on Pippenger's algorithm.
 /// This method was taken from `curve25519-dalek` and was originally made by

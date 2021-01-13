@@ -8,9 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- G1Affine method rename to/from bytes
+- to/from bytes methods of BlsScalar, G1Affine, G2Affine refactored in favor of dusk-bytes
 ### Added
-- Included `G1Affine::to_bytes_unchecked`
+- Included `G1Affine::to_raw_bytes` and `G1Affine::from_slice_unchecked`
+- Included `G2Affine::to_raw_bytes` and `G2Affine::from_slice_unchecked`
+- Included `G2Prepared::to_raw_bytes` and `G2Prepared::from_slice_unchecked`
 
 ## [0.4.0] - 24-12-20
 ### Changed

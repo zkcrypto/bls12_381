@@ -4,6 +4,8 @@ use core::borrow::Borrow;
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
+use dusk_bytes::{Error as BytesError, Serializable};
+
 #[cfg(feature = "serde_req")]
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -88,6 +90,53 @@ impl PartialEq for G2Affine {
     }
 }
 
+impl Serializable<96> for G2Affine {
+    type Error = BytesError;
+
+    /// Serializes this element into compressed form. See [`notes::serialization`](crate::notes::serialization)
+    /// for details about how group elements are serialized.
+    fn to_bytes(&self) -> [u8; 96] {
+        // Strictly speaking, self.x is zero already when self.infinity is true, but
+        // to guard against implementation mistakes we do not assume this.
+        let x = Fp2::conditional_select(&self.x, &Fp2::zero(), self.infinity);
+
+        let mut res = [0; 96];
+
+        (&mut res[0..48]).copy_from_slice(&x.c1.to_bytes()[..]);
+        (&mut res[48..96]).copy_from_slice(&x.c0.to_bytes()[..]);
+
+        // This point is in compressed form, so we set the most significant bit.
+        res[0] |= 1u8 << 7;
+
+        // Is this point at infinity? If so, set the second-most significant bit.
+        res[0] |= u8::conditional_select(&0u8, &(1u8 << 6), self.infinity);
+
+        // Is the y-coordinate the lexicographically largest of the two associated with the
+        // x-coordinate? If so, set the third-most significant bit so long as this is not
+        // the point at infinity.
+        res[0] |= u8::conditional_select(
+            &0u8,
+            &(1u8 << 5),
+            (!self.infinity) & self.y.lexicographically_largest(),
+        );
+
+        res
+    }
+
+    /// Attempts to deserialize a compressed element. See [`notes::serialization`](crate::notes::serialization)
+    /// for details about how group elements are serialized.
+    fn from_bytes(buf: &[u8; 96]) -> Result<Self, Self::Error> {
+        // We already know the point is on the curve because this is established
+        // by the y-coordinate recovery procedure in from_compressed_unchecked().
+
+        let x: Option<Self> = Self::from_compressed_unchecked(buf).into();
+        match x {
+            Some(x) if x.is_torsion_free().unwrap_u8() == 1 => Ok(x),
+            _ => Err(BytesError::InvalidData),
+        }
+    }
+}
+
 #[cfg(feature = "serde_req")]
 impl Serialize for G2Affine {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -96,7 +145,7 @@ impl Serialize for G2Affine {
     {
         use serde::ser::SerializeTuple;
         let mut tup = serializer.serialize_tuple(96)?;
-        for byte in self.to_compressed().iter() {
+        for byte in self.to_bytes().iter() {
             tup.serialize_element(byte)?;
         }
         tup.end()
@@ -128,14 +177,10 @@ impl<'de> Deserialize<'de> for G2Affine {
                         .next_element()?
                         .ok_or(serde::de::Error::invalid_length(i, &"expected 48 bytes"))?;
                 }
-                let res = G2Affine::from_compressed(&bytes);
-                if res.is_some().unwrap_u8() == 1u8 {
-                    return Ok(res.unwrap());
-                } else {
-                    return Err(serde::de::Error::custom(
-                        &"compressed G2Affine was not canonically encoded",
-                    ));
-                }
+
+                G2Affine::from_bytes(&bytes).map_err(|_| {
+                    serde::de::Error::custom(&"compressed G2Affine was not canonically encoded")
+                })
             }
         }
 
@@ -289,34 +334,65 @@ impl G2Affine {
         }
     }
 
-    /// Serializes this element into compressed form. See [`notes::serialization`](crate::notes::serialization)
-    /// for details about how group elements are serialized.
-    pub fn to_compressed(&self) -> [u8; 96] {
-        // Strictly speaking, self.x is zero already when self.infinity is true, but
-        // to guard against implementation mistakes we do not assume this.
-        let x = Fp2::conditional_select(&self.x, &Fp2::zero(), self.infinity);
+    /// Raw bytes representation
+    ///
+    /// The intended usage of this function is for trusted sets of data where performance is
+    /// critical. This way, the `infinity` internal attribute will not be stored and `x` and
+    /// `y` will be stored without any check.
+    ///
+    /// For secure serialization, check `to_bytes`
+    pub fn to_raw_bytes(&self) -> [u8; 192] {
+        let mut bytes = [0u8; 192];
+        let chunks = bytes.chunks_mut(8);
 
-        let mut res = [0; 96];
+        self.x
+            .c0
+            .internal_repr()
+            .iter()
+            .chain(self.x.c1.internal_repr().iter())
+            .chain(self.y.c0.internal_repr().iter())
+            .chain(self.y.c1.internal_repr().iter())
+            .zip(chunks)
+            .for_each(|(n, c)| c.copy_from_slice(&n.to_le_bytes()));
 
-        (&mut res[0..48]).copy_from_slice(&x.c1.to_bytes()[..]);
-        (&mut res[48..96]).copy_from_slice(&x.c0.to_bytes()[..]);
+        bytes
+    }
 
-        // This point is in compressed form, so we set the most significant bit.
-        res[0] |= 1u8 << 7;
+    /// Create a `G2Affine` from a set of bytes created by `G2Affine::to_raw_bytes`.
+    ///
+    /// No check is performed and no constant time is granted. The `infinity` attribute is also
+    /// lost. The expected usage of this function is for trusted bytes where performance is
+    /// critical.
+    ///
+    /// For secure serialization, check `from_bytes`
+    pub unsafe fn from_slice_unchecked(bytes: &[u8]) -> Self {
+        let mut xc0 = [0u64; 6];
+        let mut xc1 = [0u64; 6];
+        let mut yc0 = [0u64; 6];
+        let mut yc1 = [0u64; 6];
+        let mut z = [0u8; 8];
 
-        // Is this point at infinity? If so, set the second-most significant bit.
-        res[0] |= u8::conditional_select(&0u8, &(1u8 << 6), self.infinity);
+        xc0.iter_mut()
+            .chain(xc1.iter_mut())
+            .chain(yc0.iter_mut())
+            .chain(yc1.iter_mut())
+            .zip(bytes.chunks_exact(8))
+            .for_each(|(n, c)| {
+                z.copy_from_slice(c);
+                *n = u64::from_le_bytes(z);
+            });
 
-        // Is the y-coordinate the lexicographically largest of the two associated with the
-        // x-coordinate? If so, set the third-most significant bit so long as this is not
-        // the point at infinity.
-        res[0] |= u8::conditional_select(
-            &0u8,
-            &(1u8 << 5),
-            (!self.infinity) & self.y.lexicographically_largest(),
-        );
+        let c0 = Fp::from_raw_unchecked(xc0);
+        let c1 = Fp::from_raw_unchecked(xc1);
+        let x = Fp2 { c0, c1 };
 
-        res
+        let c0 = Fp::from_raw_unchecked(yc0);
+        let c1 = Fp::from_raw_unchecked(yc1);
+        let y = Fp2 { c0, c1 };
+
+        let infinity = 0u8.into();
+
+        Self { x, y, infinity }
     }
 
     /// Serializes this element into uncompressed form. See [`notes::serialization`](crate::notes::serialization)
@@ -423,15 +499,6 @@ impl G2Affine {
                 })
             })
         })
-    }
-
-    /// Attempts to deserialize a compressed element. See [`notes::serialization`](crate::notes::serialization)
-    /// for details about how group elements are serialized.
-    pub fn from_compressed(bytes: &[u8; 96]) -> CtOption<Self> {
-        // We already know the point is on the curve because this is established
-        // by the y-coordinate recovery procedure in from_compressed_unchecked().
-
-        Self::from_compressed_unchecked(bytes).and_then(|p| CtOption::new(p, p.is_torsion_free()))
     }
 
     /// Attempts to deserialize an uncompressed element, not checking if the
@@ -1982,4 +2049,14 @@ fn g2_affine_serde_roundtrip() {
     let deser: G2Affine = bincode::deserialize(&ser).unwrap();
 
     assert_eq!(gen, deser);
+}
+
+#[test]
+fn g2_affine_bytes_unchecked() {
+    let gen = G2Affine::generator();
+    let bytes = gen.to_raw_bytes();
+
+    let gen_p = unsafe { G2Affine::from_slice_unchecked(&bytes) };
+
+    assert_eq!(gen, gen_p);
 }
