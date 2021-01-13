@@ -18,7 +18,7 @@ exclude = [".github/workflows/ci.yml",
 byteorder = {version = "1.3.4", default-features = false}
 rayon = "1.3.0"
 serde = {version = "1.0.106", optional = true}
-rand_core = "0.6"
+rand_core = "0.5"
 canonical = {version = "0.4", optional = true}
 canonical_derive = {version = "0.4", optional = true}
 
@@ -28,7 +28,7 @@ rustdoc-args = [ "--html-in-header", "katex-header.html" ]
 [dev-dependencies]
 criterion = "0.2.11"
 bincode = "1"
-rand = "0.8"
+rand = "0.7"
 
 [[bench]]
 name = "groups"
