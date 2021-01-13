@@ -1,5 +1,9 @@
 //! This module implements arithmetic over the quadratic extension field Fp2.
 
+#[cfg(feature = "canon")]
+use canonical::Canon;
+#[cfg(feature = "canon")]
+use canonical_derive::Canon;
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
@@ -12,6 +16,7 @@ use serde::{
 use crate::fp::Fp;
 
 #[derive(Copy, Clone)]
+#[cfg_attr(feature = "canon", derive(Canon))]
 pub struct Fp2 {
     pub c0: Fp,
     pub c1: Fp,

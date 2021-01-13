@@ -1,6 +1,10 @@
 use crate::fp::*;
 use crate::fp2::*;
 
+#[cfg(feature = "canon")]
+use canonical::Canon;
+#[cfg(feature = "canon")]
+use canonical_derive::Canon;
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
@@ -11,6 +15,7 @@ use serde::{
 };
 
 /// This represents an element $c_0 + c_1 v + c_2 v^2$ of $\mathbb{F}_{p^6} = \mathbb{F}_{p^2} / v^3 - u - 1$.
+#[cfg_attr(feature = "canon", derive(Canon))]
 pub struct Fp6 {
     pub c0: Fp2,
     pub c1: Fp2,

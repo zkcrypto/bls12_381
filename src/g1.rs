@@ -1,5 +1,9 @@
 //! This module provides an implementation of the $\mathbb{G}_1$ group of BLS12-381.
 
+#[cfg(feature = "canon")]
+use canonical::{Canon, InvalidEncoding, Sink, Source, Store};
+#[cfg(feature = "canon")]
+use canonical_derive::Canon;
 use core::borrow::Borrow;
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
@@ -10,6 +14,8 @@ use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::fp::Fp;
 use crate::BlsScalar;
+
+const G1_COMPRESSED_SIZE: usize = 48;
 
 /// This is an element of $\mathbb{G}_1$ represented in the affine coordinate space.
 /// It is ideal to keep elements in this representation to reduce memory usage and
@@ -22,6 +28,27 @@ pub struct G1Affine {
     pub(crate) x: Fp,
     pub(crate) y: Fp,
     infinity: Choice,
+}
+
+#[cfg(feature = "canon")]
+impl<S: Store> Canon<S> for G1Affine {
+    fn write(&self, sink: &mut impl Sink<S>) -> Result<(), S::Error> {
+        sink.copy_bytes(&self.to_compressed());
+        Ok(())
+    }
+
+    fn read(source: &mut impl Source<S>) -> Result<Self, S::Error> {
+        let mut bytes = [0u8; G1_COMPRESSED_SIZE];
+        bytes.copy_from_slice(source.read_bytes(G1_COMPRESSED_SIZE));
+        match Option::from(G1Affine::from_compressed(&bytes)) {
+            Some(g1) => Ok(g1),
+            None => Err(InvalidEncoding.into()),
+        }
+    }
+
+    fn encoded_len(&self) -> usize {
+        G1_COMPRESSED_SIZE
+    }
 }
 
 impl Default for G1Affine {
@@ -461,6 +488,7 @@ impl G1Affine {
 
 /// This is an element of $\mathbb{G}_1$ represented in the projective coordinate space.
 #[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "canon", derive(Canon))]
 pub struct G1Projective {
     x: Fp,
     y: Fp,
