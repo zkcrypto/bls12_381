@@ -12,7 +12,7 @@ use core::convert::TryFrom;
 use core::fmt;
 use core::iter::{Product, Sum};
 use core::ops::{Add, AddAssign, BitAnd, BitXor, Mul, MulAssign, Neg, Sub, SubAssign};
-use dusk_bytes::{Error as BytesError, Serializable};
+use dusk_bytes::{DeserializableSlice, Error as BytesError, Serializable};
 use rand_core::{CryptoRng, RngCore};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
@@ -85,12 +85,12 @@ impl Serializable<32> for Scalar {
 
     /// Converts an element of `Scalar` into a byte representation in
     /// little-endian byte order.
-    fn to_bytes(&self) -> [u8; 32] {
+    fn to_bytes(&self) -> [u8; Self::SIZE] {
         // Turn into canonical form by computing
         // (a.R) / R = a
         let tmp = Scalar::montgomery_reduce(self.0[0], self.0[1], self.0[2], self.0[3], 0, 0, 0, 0);
 
-        let mut res = [0; 32];
+        let mut res = [0; Self::SIZE];
         res[0..8].copy_from_slice(&tmp.0[0].to_le_bytes());
         res[8..16].copy_from_slice(&tmp.0[1].to_le_bytes());
         res[16..24].copy_from_slice(&tmp.0[2].to_le_bytes());
@@ -101,7 +101,7 @@ impl Serializable<32> for Scalar {
 
     /// Attempts to convert a little-endian byte representation of
     /// a scalar into a `Scalar`, failing if the input is not canonical.
-    fn from_bytes(buf: &[u8; 32]) -> Result<Self, Self::Error> {
+    fn from_bytes(buf: &[u8; Self::SIZE]) -> Result<Self, Self::Error> {
         let mut s = [0u64; 4];
 
         s.iter_mut()
@@ -135,6 +135,8 @@ impl Serializable<32> for Scalar {
     }
 }
 
+impl DeserializableSlice<32> for Scalar {}
+
 impl ConditionallySelectable for Scalar {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
         Scalar([
@@ -153,7 +155,7 @@ impl Serialize for Scalar {
         S: Serializer,
     {
         use serde::ser::SerializeTuple;
-        let mut tup = serializer.serialize_tuple(32)?;
+        let mut tup = serializer.serialize_tuple(Self::SIZE)?;
         for byte in self.to_bytes().iter() {
             tup.serialize_element(byte)?;
         }
@@ -180,8 +182,9 @@ impl<'de> Deserialize<'de> for Scalar {
             where
                 A: serde::de::SeqAccess<'de>,
             {
-                let mut bytes = [0u8; 32];
-                for i in 0..32 {
+                let mut bytes = [0u8; Scalar::SIZE];
+
+                for i in 0..Scalar::SIZE {
                     bytes[i] = seq
                         .next_element()?
                         .ok_or(serde::de::Error::invalid_length(i, &"expected 32 bytes"))?;
@@ -192,7 +195,7 @@ impl<'de> Deserialize<'de> for Scalar {
             }
         }
 
-        deserializer.deserialize_tuple(32, ScalarVisitor)
+        deserializer.deserialize_tuple(Self::SIZE, ScalarVisitor)
     }
 }
 
@@ -490,13 +493,15 @@ impl Scalar {
     where
         T: RngCore + CryptoRng,
     {
-        let mut bytes = [0u8; 32];
+        let mut bytes = [0u8; Self::SIZE];
         rand.fill_bytes(&mut bytes);
+
         // Ensure that the value is lower than `MODULUS`.
         // Since modulus has 254-bits or less, we cut our bytes
         // to get cannonical Scalars.
         bytes[31] &= 0b0011_1111;
-        Scalar::from_bytes(&bytes).unwrap()
+
+        Scalar::from_bytes(&bytes).unwrap_or_default()
     }
 
     /// Reduces the scalar and returns it multiplied by the montgomery
@@ -886,8 +891,8 @@ impl Scalar {
     }
 }
 
-impl<'a> From<&'a Scalar> for [u8; 32] {
-    fn from(value: &'a Scalar) -> [u8; 32] {
+impl<'a> From<&'a Scalar> for [u8; Scalar::SIZE] {
+    fn from(value: &'a Scalar) -> [u8; Scalar::SIZE] {
         value.to_bytes()
     }
 }

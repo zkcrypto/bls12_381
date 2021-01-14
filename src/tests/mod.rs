@@ -35,18 +35,6 @@ fn g1_compressed_valid_test_vectors() {
 }
 
 #[test]
-fn g2_uncompressed_valid_test_vectors() {
-    let bytes: &'static [u8] = include_bytes!("g2_uncompressed_valid_test_vectors.dat");
-    test_vectors!(
-        G2Projective,
-        G2Affine,
-        to_uncompressed,
-        from_uncompressed,
-        bytes
-    );
-}
-
-#[test]
 fn g2_compressed_valid_test_vectors() {
     let bytes: &'static [u8] = include_bytes!("g2_compressed_valid_test_vectors.dat");
     test_vectors!(G2Projective, G2Affine, to_bytes, from_bytes, bytes);

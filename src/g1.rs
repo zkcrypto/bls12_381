@@ -1,16 +1,16 @@
 //! This module provides an implementation of the $\mathbb{G}_1$ group of BLS12-381.
 
+use crate::fp::Fp;
+use crate::BlsScalar;
+
 use core::borrow::Borrow;
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use dusk_bytes::{Error as BytesError, Serializable};
+use dusk_bytes::{DeserializableSlice, Error as BytesError, Serializable};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 #[cfg(feature = "serde_req")]
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
-
-use crate::fp::Fp;
-use crate::BlsScalar;
 
 /// This is an element of $\mathbb{G}_1$ represented in the affine coordinate space.
 /// It is ideal to keep elements in this representation to reduce memory usage and
@@ -60,7 +60,7 @@ impl Serializable<48> for G1Affine {
 
     /// Serializes this element into compressed form. See [`notes::serialization`](crate::notes::serialization)
     /// for details about how group elements are serialized.
-    fn to_bytes(&self) -> [u8; 48] {
+    fn to_bytes(&self) -> [u8; Self::SIZE] {
         // Strictly speaking, self.x is zero already when self.infinity is true, but
         // to guard against implementation mistakes we do not assume this.
         let mut res = Fp::conditional_select(&self.x, &Fp::zero(), self.infinity).to_bytes();
@@ -85,7 +85,7 @@ impl Serializable<48> for G1Affine {
 
     /// Attempts to deserialize a compressed element. See [`notes::serialization`](crate::notes::serialization)
     /// for details about how group elements are serialized.
-    fn from_bytes(buf: &[u8; 48]) -> Result<Self, Self::Error> {
+    fn from_bytes(buf: &[u8; Self::SIZE]) -> Result<Self, Self::Error> {
         // We already know the point is on the curve because this is established
         // by the y-coordinate recovery procedure in from_compressed_unchecked().
 
@@ -95,8 +95,8 @@ impl Serializable<48> for G1Affine {
 
         // Attempt to obtain the x-coordinate
         let x = {
-            let mut tmp = [0; 48];
-            tmp.copy_from_slice(&buf[0..48]);
+            let mut tmp = [0; Self::SIZE];
+            tmp.copy_from_slice(&buf[..Self::SIZE]);
 
             // Mask away the flag bits
             tmp[0] &= 0b0001_1111;
@@ -148,6 +148,8 @@ impl Serializable<48> for G1Affine {
     }
 }
 
+impl DeserializableSlice<48> for G1Affine {}
+
 #[cfg(feature = "serde_req")]
 impl Serialize for G1Affine {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -155,7 +157,7 @@ impl Serialize for G1Affine {
         S: Serializer,
     {
         use serde::ser::SerializeTuple;
-        let mut tup = serializer.serialize_tuple(48)?;
+        let mut tup = serializer.serialize_tuple(G1Affine::SIZE)?;
         for byte in self.to_bytes().iter() {
             tup.serialize_element(byte)?;
         }
@@ -182,8 +184,8 @@ impl<'de> Deserialize<'de> for G1Affine {
             where
                 A: serde::de::SeqAccess<'de>,
             {
-                let mut bytes = [0u8; 48];
-                for i in 0..48 {
+                let mut bytes = [0u8; G1Affine::SIZE];
+                for i in 0..G1Affine::SIZE {
                     bytes[i] = seq
                         .next_element()?
                         .ok_or(serde::de::Error::invalid_length(i, &"expected 48 bytes"))?;
@@ -195,7 +197,7 @@ impl<'de> Deserialize<'de> for G1Affine {
             }
         }
 
-        deserializer.deserialize_tuple(48, G1AffineVisitor)
+        deserializer.deserialize_tuple(G1Affine::SIZE, G1AffineVisitor)
     }
 }
 
@@ -314,6 +316,9 @@ const B: Fp = Fp::from_raw_unchecked([
 ]);
 
 impl G1Affine {
+    /// Bytes size of the raw representation
+    pub const RAW_SIZE: usize = 96;
+
     /// Returns the identity of the group: the point at infinity.
     pub fn identity() -> G1Affine {
         G1Affine {
@@ -350,12 +355,11 @@ impl G1Affine {
     /// Raw bytes representation
     ///
     /// The intended usage of this function is for trusted sets of data where performance is
-    /// critical. This way, the `infinity` internal attribute will not be stored and `x` and
-    /// `y` will be stored without any check.
+    /// critical.
     ///
     /// For secure serialization, check `to_bytes`
-    pub fn to_raw_bytes(&self) -> [u8; 96] {
-        let mut bytes = [0u8; 96];
+    pub fn to_raw_bytes(&self) -> [u8; Self::RAW_SIZE] {
+        let mut bytes = [0u8; Self::RAW_SIZE];
         let chunks = bytes.chunks_mut(8);
 
         self.x
@@ -365,20 +369,33 @@ impl G1Affine {
             .zip(chunks)
             .for_each(|(n, c)| c.copy_from_slice(&n.to_le_bytes()));
 
+        // If infinity, set the second-most significant bit.
+        if self.infinity.unwrap_u8() == 1 {
+            bytes[0] |= 1u8 << 6;
+        }
+
         bytes
     }
 
     /// Create a `G1Affine` from a set of bytes created by `G1Affine::to_raw_bytes`.
     ///
-    /// No check is performed and no constant time is granted. The `infinity` attribute is also
-    /// lost. The expected usage of this function is for trusted bytes where performance is
-    /// critical.
+    /// No check is performed and no constant time is granted. The expected usage of this function
+    /// is for trusted bytes where performance is critical.
     ///
     /// For secure serialization, check `from_bytes`
+    ///
+    /// After generating the point, you can check `is_on_curve` and `is_torsion_free` to grant its
+    /// security
     pub unsafe fn from_slice_unchecked(bytes: &[u8]) -> Self {
         let mut x = [0u64; 6];
         let mut y = [0u64; 6];
         let mut z = [0u8; 8];
+
+        let infinity = match bytes.first() {
+            Some(b) => (b & (1u8 << 6)) >> 6,
+            None => 0u8,
+        }
+        .into();
 
         bytes
             .chunks_exact(8)
@@ -388,9 +405,10 @@ impl G1Affine {
                 *n = u64::from_le_bytes(z);
             });
 
+        x[0] &= 0xffffffffffffff1fu64;
+
         let x = Fp::from_raw_unchecked(x);
         let y = Fp::from_raw_unchecked(y);
-        let infinity = 0u8.into();
 
         Self { x, y, infinity }
     }
@@ -1486,6 +1504,16 @@ fn g1_affine_serde_roundtrip() {
 #[test]
 fn g1_affine_bytes_unchecked() {
     let gen = G1Affine::generator();
+    let bytes = gen.to_raw_bytes();
+
+    let gen_p = unsafe { G1Affine::from_slice_unchecked(&bytes) };
+
+    assert_eq!(gen, gen_p);
+}
+
+#[test]
+fn g1_affine_bytes_unchecked_identity() {
+    let gen = G1Affine::identity();
     let bytes = gen.to_raw_bytes();
 
     let gen_p = unsafe { G1Affine::from_slice_unchecked(&bytes) };
