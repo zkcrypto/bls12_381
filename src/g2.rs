@@ -7,7 +7,7 @@ use crate::BlsScalar;
 use core::borrow::Borrow;
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use dusk_bytes::{DeserializableSlice, Error as BytesError, Serializable};
+use dusk_bytes::{DeserializableSlice, Error as BytesError, HexDebug, ParseHexStr, Serializable};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 #[cfg(feature = "serde_req")]
@@ -19,7 +19,7 @@ use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 ///
 /// Values of `G2Affine` are guaranteed to be in the $q$-order subgroup unless an
 /// "unchecked" API was misused.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, HexDebug)]
 pub struct G2Affine {
     pub(crate) x: Fp2,
     pub(crate) y: Fp2,
@@ -200,6 +200,7 @@ impl Serializable<96> for G2Affine {
 }
 
 impl DeserializableSlice<96> for G2Affine {}
+impl ParseHexStr<96> for G2Affine {}
 
 #[cfg(feature = "serde_req")]
 impl Serialize for G2Affine {
@@ -1958,19 +1959,29 @@ fn g2_affine_serde_roundtrip() {
 #[test]
 fn g2_affine_bytes_unchecked() {
     let gen = G2Affine::generator();
-    let bytes = gen.to_raw_bytes();
+    let ident = G2Affine::identity();
 
-    let gen_p = unsafe { G2Affine::from_slice_unchecked(&bytes) };
+    let gen_p = gen.to_raw_bytes();
+    let gen_p = unsafe { G2Affine::from_slice_unchecked(&gen_p) };
+
+    let ident_p = ident.to_raw_bytes();
+    let ident_p = unsafe { G2Affine::from_slice_unchecked(&ident_p) };
 
     assert_eq!(gen, gen_p);
+    assert_eq!(ident, ident_p);
 }
 
 #[test]
-fn g2_affine_bytes_identity_unchecked() {
-    let gen = G2Affine::identity();
-    let bytes = gen.to_raw_bytes();
+fn g2_affine_hex() {
+    let gen = G2Affine::generator();
+    let ident = G2Affine::identity();
 
-    let gen_p = unsafe { G2Affine::from_slice_unchecked(&bytes) };
+    let gen_p = format!("{:x}", gen);
+    let gen_p = G2Affine::from_hex_str(gen_p.as_str()).unwrap();
+
+    let ident_p = format!("{:x}", ident);
+    let ident_p = G2Affine::from_hex_str(ident_p.as_str()).unwrap();
 
     assert_eq!(gen, gen_p);
+    assert_eq!(ident, ident_p);
 }

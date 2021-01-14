@@ -9,10 +9,9 @@ use canonical_derive::Canon;
 use core::borrow::Borrow;
 use core::cmp::{Ord, Ordering, PartialOrd};
 use core::convert::TryFrom;
-use core::fmt;
 use core::iter::{Product, Sum};
 use core::ops::{Add, AddAssign, BitAnd, BitXor, Mul, MulAssign, Neg, Sub, SubAssign};
-use dusk_bytes::{DeserializableSlice, Error as BytesError, Serializable};
+use dusk_bytes::{DeserializableSlice, Error as BytesError, HexDebug, ParseHexStr, Serializable};
 use rand_core::{CryptoRng, RngCore};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
@@ -24,20 +23,9 @@ use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 // The internal representation of this type is four 64-bit unsigned
 // integers in little-endian order. `Scalar` values are always in
 // Montgomery form; i.e., Scalar(a) = aR mod q, with R = 2^256.
-#[derive(Clone, Copy, Eq)]
+#[derive(Clone, Copy, Eq, HexDebug)]
 #[cfg_attr(feature = "canon", derive(Canon))]
 pub struct Scalar(pub [u64; 4]);
-
-impl fmt::Debug for Scalar {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let tmp = self.to_bytes();
-        write!(f, "0x")?;
-        for &b in tmp.iter().rev() {
-            write!(f, "{:02x}", b)?;
-        }
-        Ok(())
-    }
-}
 
 impl From<u64> for Scalar {
     fn from(val: u64) -> Scalar {
@@ -136,6 +124,7 @@ impl Serializable<32> for Scalar {
 }
 
 impl DeserializableSlice<32> for Scalar {}
+impl ParseHexStr<32> for Scalar {}
 
 impl ConditionallySelectable for Scalar {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
@@ -917,15 +906,15 @@ fn test_inv() {
 fn test_debug() {
     assert_eq!(
         format!("{:?}", Scalar::zero()),
-        "0x0000000000000000000000000000000000000000000000000000000000000000"
+        "0000000000000000000000000000000000000000000000000000000000000000"
     );
     assert_eq!(
         format!("{:?}", Scalar::one()),
-        "0x0000000000000000000000000000000000000000000000000000000000000001"
+        "0100000000000000000000000000000000000000000000000000000000000000"
     );
     assert_eq!(
         format!("{:?}", R2),
-        "0x1824b159acc5056f998c4fefecbc4ff55884b7fa0003480200000001fffffffe"
+        "feffffff0100000002480300fab78458f54fbcecef4f8c996f05c5ac59b12418"
     );
 }
 
@@ -1428,4 +1417,17 @@ fn pow_of_two_test() {
     for i in 0..1000 {
         assert_eq!(Scalar::pow_of_2(i as u64), two.pow(&[i as u64, 0, 0, 0]));
     }
+}
+
+#[test]
+fn scalar_hex_serialization() {
+    let scalar = -Scalar::one();
+    let scalar_p = format!("{:x}", scalar);
+    let scalar_p = Scalar::from_hex_str(scalar_p.as_str()).unwrap();
+
+    assert_eq!(scalar, scalar_p);
+    assert!(Scalar::from_hex_str(
+        "00000000fffffffffe5bfeff02a4bd5305d8a10908d83933487d9d2953a7ed74"
+    )
+    .is_err());
 }

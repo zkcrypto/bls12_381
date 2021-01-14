@@ -6,7 +6,7 @@ use crate::BlsScalar;
 use core::borrow::Borrow;
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use dusk_bytes::{DeserializableSlice, Error as BytesError, Serializable};
+use dusk_bytes::{DeserializableSlice, Error as BytesError, HexDebug, ParseHexStr, Serializable};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 #[cfg(feature = "serde_req")]
@@ -18,7 +18,7 @@ use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 ///
 /// Values of `G1Affine` are guaranteed to be in the $q$-order subgroup unless an
 /// "unchecked" API was misused.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, HexDebug)]
 pub struct G1Affine {
     pub(crate) x: Fp,
     pub(crate) y: Fp,
@@ -149,6 +149,7 @@ impl Serializable<48> for G1Affine {
 }
 
 impl DeserializableSlice<48> for G1Affine {}
+impl ParseHexStr<48> for G1Affine {}
 
 #[cfg(feature = "serde_req")]
 impl Serialize for G1Affine {
@@ -1504,19 +1505,29 @@ fn g1_affine_serde_roundtrip() {
 #[test]
 fn g1_affine_bytes_unchecked() {
     let gen = G1Affine::generator();
-    let bytes = gen.to_raw_bytes();
+    let ident = G1Affine::identity();
 
-    let gen_p = unsafe { G1Affine::from_slice_unchecked(&bytes) };
+    let gen_p = gen.to_raw_bytes();
+    let gen_p = unsafe { G1Affine::from_slice_unchecked(&gen_p) };
+
+    let ident_p = ident.to_raw_bytes();
+    let ident_p = unsafe { G1Affine::from_slice_unchecked(&ident_p) };
 
     assert_eq!(gen, gen_p);
+    assert_eq!(ident, ident_p);
 }
 
 #[test]
-fn g1_affine_bytes_unchecked_identity() {
-    let gen = G1Affine::identity();
-    let bytes = gen.to_raw_bytes();
+fn g1_affine_hex() {
+    let gen = G1Affine::generator();
+    let ident = G1Affine::identity();
 
-    let gen_p = unsafe { G1Affine::from_slice_unchecked(&bytes) };
+    let gen_p = format!("{:x}", gen);
+    let gen_p = G1Affine::from_hex_str(gen_p.as_str()).unwrap();
+
+    let ident_p = format!("{:x}", ident);
+    let ident_p = G1Affine::from_hex_str(ident_p.as_str()).unwrap();
 
     assert_eq!(gen, gen_p);
+    assert_eq!(ident, ident_p);
 }
