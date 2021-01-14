@@ -9,6 +9,10 @@ use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use dusk_bytes::{DeserializableSlice, Error as BytesError, HexDebug, ParseHexStr, Serializable};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
+#[cfg(feature = "canon")]
+use canonical::{Canon, InvalidEncoding, Sink, Source, Store};
+#[cfg(feature = "canon")]
+use canonical_derive::Canon;
 #[cfg(feature = "serde_req")]
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -23,6 +27,27 @@ pub struct G1Affine {
     pub(crate) x: Fp,
     pub(crate) y: Fp,
     infinity: Choice,
+}
+
+#[cfg(feature = "canon")]
+impl<S: Store> Canon<S> for G1Affine {
+    fn write(&self, sink: &mut impl Sink<S>) -> Result<(), S::Error> {
+        sink.copy_bytes(&self.to_bytes());
+
+        Ok(())
+    }
+
+    fn read(source: &mut impl Source<S>) -> Result<Self, S::Error> {
+        let mut bytes = [0u8; Self::SIZE];
+
+        bytes.copy_from_slice(source.read_bytes(Self::SIZE));
+
+        Self::from_bytes(&bytes).map_err(|_| InvalidEncoding.into())
+    }
+
+    fn encoded_len(&self) -> usize {
+        Self::SIZE
+    }
 }
 
 impl Default for G1Affine {
@@ -445,6 +470,7 @@ impl G1Affine {
 
 /// This is an element of $\mathbb{G}_1$ represented in the projective coordinate space.
 #[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "canon", derive(Canon))]
 pub struct G1Projective {
     x: Fp,
     y: Fp,

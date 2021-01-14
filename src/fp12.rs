@@ -2,11 +2,16 @@ use crate::fp::*;
 use crate::fp2::*;
 use crate::fp6::*;
 
+#[cfg(feature = "canon")]
+use canonical::Canon;
+#[cfg(feature = "canon")]
+use canonical_derive::Canon;
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 /// This represents an element $c_0 + c_1 w$ of $\mathbb{F}_{p^12} = \mathbb{F}_{p^6} / w^2 - v$.
+#[cfg_attr(feature = "canon", derive(Canon))]
 pub struct Fp12 {
     pub c0: Fp6,
     pub c1: Fp6,
