@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 21-01-21
 ### Changed
 - to/from bytes methods of BlsScalar, G1Affine, G2Affine refactored in favor of dusk-bytes
 ### Added
