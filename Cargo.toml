@@ -21,10 +21,7 @@ serde = {version = "1.0.106", optional = true}
 rand_core = "0.5"
 canonical = {version = "0.4", optional = true}
 canonical_derive = {version = "0.4", optional = true}
-dusk-bytes = {git="https://github.com/dusk-network/dusk-bytes", tag="v0.1.0"}
-
-# Required to fix the different version canonical_derive and dusk-bytes use for syn
-syn = "1.0.58"
+dusk-bytes = "0.1"
 
 [package.metadata.docs.rs]
 rustdoc-args = [ "--html-in-header", "katex-header.html" ]
