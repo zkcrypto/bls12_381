@@ -9,9 +9,9 @@ use canonical_derive::Canon;
 use core::borrow::Borrow;
 use core::cmp::{Ord, Ordering, PartialOrd};
 use core::convert::TryFrom;
-use core::fmt;
 use core::iter::{Product, Sum};
 use core::ops::{Add, AddAssign, BitAnd, BitXor, Mul, MulAssign, Neg, Sub, SubAssign};
+use dusk_bytes::{DeserializableSlice, Error as BytesError, HexDebug, ParseHexStr, Serializable};
 use rand_core::{CryptoRng, RngCore};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
@@ -23,20 +23,9 @@ use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 // The internal representation of this type is four 64-bit unsigned
 // integers in little-endian order. `Scalar` values are always in
 // Montgomery form; i.e., Scalar(a) = aR mod q, with R = 2^256.
-#[derive(Clone, Copy, Eq)]
+#[derive(Clone, Copy, Eq, HexDebug)]
 #[cfg_attr(feature = "canon", derive(Canon))]
 pub struct Scalar(pub [u64; 4]);
-
-impl fmt::Debug for Scalar {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let tmp = self.to_bytes();
-        write!(f, "0x")?;
-        for &b in tmp.iter().rev() {
-            write!(f, "{:02x}", b)?;
-        }
-        Ok(())
-    }
-}
 
 impl From<u64> for Scalar {
     fn from(val: u64) -> Scalar {
@@ -79,6 +68,64 @@ impl Ord for Scalar {
     }
 }
 
+impl Serializable<32> for Scalar {
+    type Error = BytesError;
+
+    /// Converts an element of `Scalar` into a byte representation in
+    /// little-endian byte order.
+    fn to_bytes(&self) -> [u8; Self::SIZE] {
+        // Turn into canonical form by computing
+        // (a.R) / R = a
+        let tmp = Scalar::montgomery_reduce(self.0[0], self.0[1], self.0[2], self.0[3], 0, 0, 0, 0);
+
+        let mut res = [0; Self::SIZE];
+        res[0..8].copy_from_slice(&tmp.0[0].to_le_bytes());
+        res[8..16].copy_from_slice(&tmp.0[1].to_le_bytes());
+        res[16..24].copy_from_slice(&tmp.0[2].to_le_bytes());
+        res[24..32].copy_from_slice(&tmp.0[3].to_le_bytes());
+
+        res
+    }
+
+    /// Attempts to convert a little-endian byte representation of
+    /// a scalar into a `Scalar`, failing if the input is not canonical.
+    fn from_bytes(buf: &[u8; Self::SIZE]) -> Result<Self, Self::Error> {
+        let mut s = [0u64; 4];
+
+        s.iter_mut()
+            .zip(buf.chunks_exact(8))
+            .try_for_each(|(s, b)| {
+                <[u8; 8]>::try_from(b)
+                    .map(|b| *s = u64::from_le_bytes(b))
+                    .map_err(|_| BytesError::InvalidData)
+            })?;
+
+        // Try to subtract the modulus
+        let (_, borrow) = sbb(s[0], MODULUS.0[0], 0);
+        let (_, borrow) = sbb(s[1], MODULUS.0[1], borrow);
+        let (_, borrow) = sbb(s[2], MODULUS.0[2], borrow);
+        let (_, borrow) = sbb(s[3], MODULUS.0[3], borrow);
+
+        // If the element is smaller than MODULUS then the
+        // subtraction will underflow, producing a borrow value
+        // of 0xffff...ffff. Otherwise, it'll be zero.
+        if (borrow as u8) & 1 != 1 {
+            return Err(BytesError::InvalidData);
+        }
+
+        let mut s = Scalar(s);
+
+        // Convert to Montgomery form by computing
+        // (a.R^0 * R^2) / R = a.R
+        s *= &R2;
+
+        Ok(s)
+    }
+}
+
+impl DeserializableSlice<32> for Scalar {}
+impl ParseHexStr<32> for Scalar {}
+
 impl ConditionallySelectable for Scalar {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
         Scalar([
@@ -97,7 +144,7 @@ impl Serialize for Scalar {
         S: Serializer,
     {
         use serde::ser::SerializeTuple;
-        let mut tup = serializer.serialize_tuple(32)?;
+        let mut tup = serializer.serialize_tuple(Self::SIZE)?;
         for byte in self.to_bytes().iter() {
             tup.serialize_element(byte)?;
         }
@@ -124,24 +171,20 @@ impl<'de> Deserialize<'de> for Scalar {
             where
                 A: serde::de::SeqAccess<'de>,
             {
-                let mut bytes = [0u8; 32];
-                for i in 0..32 {
+                let mut bytes = [0u8; Scalar::SIZE];
+
+                for i in 0..Scalar::SIZE {
                     bytes[i] = seq
                         .next_element()?
                         .ok_or(serde::de::Error::invalid_length(i, &"expected 32 bytes"))?;
                 }
-                let res = Scalar::from_bytes(&bytes);
-                if res.is_some().unwrap_u8() == 1u8 {
-                    return Ok(res.unwrap());
-                } else {
-                    return Err(serde::de::Error::custom(
-                        &"scalar was not canonically encoded",
-                    ));
-                }
+
+                Scalar::from_bytes(&bytes)
+                    .map_err(|_| serde::de::Error::custom(&"scalar was not canonically encoded"))
             }
         }
 
-        deserializer.deserialize_tuple(32, ScalarVisitor)
+        deserializer.deserialize_tuple(Self::SIZE, ScalarVisitor)
     }
 }
 
@@ -377,50 +420,6 @@ impl Scalar {
         self.add(self)
     }
 
-    /// Attempts to convert a little-endian byte representation of
-    /// a scalar into a `Scalar`, failing if the input is not canonical.
-    pub fn from_bytes(bytes: &[u8; 32]) -> CtOption<Scalar> {
-        let mut tmp = Scalar([0, 0, 0, 0]);
-
-        tmp.0[0] = u64::from_le_bytes(<[u8; 8]>::try_from(&bytes[0..8]).unwrap());
-        tmp.0[1] = u64::from_le_bytes(<[u8; 8]>::try_from(&bytes[8..16]).unwrap());
-        tmp.0[2] = u64::from_le_bytes(<[u8; 8]>::try_from(&bytes[16..24]).unwrap());
-        tmp.0[3] = u64::from_le_bytes(<[u8; 8]>::try_from(&bytes[24..32]).unwrap());
-
-        // Try to subtract the modulus
-        let (_, borrow) = sbb(tmp.0[0], MODULUS.0[0], 0);
-        let (_, borrow) = sbb(tmp.0[1], MODULUS.0[1], borrow);
-        let (_, borrow) = sbb(tmp.0[2], MODULUS.0[2], borrow);
-        let (_, borrow) = sbb(tmp.0[3], MODULUS.0[3], borrow);
-
-        // If the element is smaller than MODULUS then the
-        // subtraction will underflow, producing a borrow value
-        // of 0xffff...ffff. Otherwise, it'll be zero.
-        let is_some = (borrow as u8) & 1;
-
-        // Convert to Montgomery form by computing
-        // (a.R^0 * R^2) / R = a.R
-        tmp *= &R2;
-
-        CtOption::new(tmp, Choice::from(is_some))
-    }
-
-    /// Converts an element of `Scalar` into a byte representation in
-    /// little-endian byte order.
-    pub fn to_bytes(&self) -> [u8; 32] {
-        // Turn into canonical form by computing
-        // (a.R) / R = a
-        let tmp = Scalar::montgomery_reduce(self.0[0], self.0[1], self.0[2], self.0[3], 0, 0, 0, 0);
-
-        let mut res = [0; 32];
-        res[0..8].copy_from_slice(&tmp.0[0].to_le_bytes());
-        res[8..16].copy_from_slice(&tmp.0[1].to_le_bytes());
-        res[16..24].copy_from_slice(&tmp.0[2].to_le_bytes());
-        res[24..32].copy_from_slice(&tmp.0[3].to_le_bytes());
-
-        res
-    }
-
     /// Returns the bit representation of the given `Scalar` as
     /// an array of 256 bits represented as `u8`.
     pub fn to_bits(&self) -> [u8; 256] {
@@ -483,13 +482,15 @@ impl Scalar {
     where
         T: RngCore + CryptoRng,
     {
-        let mut bytes = [0u8; 32];
+        let mut bytes = [0u8; Self::SIZE];
         rand.fill_bytes(&mut bytes);
+
         // Ensure that the value is lower than `MODULUS`.
         // Since modulus has 254-bits or less, we cut our bytes
         // to get cannonical Scalars.
         bytes[31] &= 0b0011_1111;
-        Scalar::from_bytes(&bytes).unwrap()
+
+        Scalar::from_bytes(&bytes).unwrap_or_default()
     }
 
     /// Reduces the scalar and returns it multiplied by the montgomery
@@ -879,8 +880,8 @@ impl Scalar {
     }
 }
 
-impl<'a> From<&'a Scalar> for [u8; 32] {
-    fn from(value: &'a Scalar) -> [u8; 32] {
+impl<'a> From<&'a Scalar> for [u8; Scalar::SIZE] {
+    fn from(value: &'a Scalar) -> [u8; Scalar::SIZE] {
         value.to_bytes()
     }
 }
@@ -905,15 +906,15 @@ fn test_inv() {
 fn test_debug() {
     assert_eq!(
         format!("{:?}", Scalar::zero()),
-        "0x0000000000000000000000000000000000000000000000000000000000000000"
+        "0000000000000000000000000000000000000000000000000000000000000000"
     );
     assert_eq!(
         format!("{:?}", Scalar::one()),
-        "0x0000000000000000000000000000000000000000000000000000000000000001"
+        "0100000000000000000000000000000000000000000000000000000000000000"
     );
     assert_eq!(
         format!("{:?}", R2),
-        "0x1824b159acc5056f998c4fefecbc4ff55884b7fa0003480200000001fffffffe"
+        "feffffff0100000002480300fab78458f54fbcecef4f8c996f05c5ac59b12418"
     );
 }
 
@@ -992,55 +993,35 @@ fn test_from_bytes() {
     );
 
     // -1 should work
-    assert!(
-        Scalar::from_bytes(&[
-            0, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
-            216, 57, 51, 72, 125, 157, 41, 83, 167, 237, 115
-        ])
-        .is_some()
-        .unwrap_u8()
-            == 1
-    );
+    assert!(Scalar::from_bytes(&[
+        0, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8, 216,
+        57, 51, 72, 125, 157, 41, 83, 167, 237, 115
+    ])
+    .is_ok());
 
     // modulus is invalid
-    assert!(
-        Scalar::from_bytes(&[
-            1, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
-            216, 57, 51, 72, 125, 157, 41, 83, 167, 237, 115
-        ])
-        .is_none()
-        .unwrap_u8()
-            == 1
-    );
+    assert!(Scalar::from_bytes(&[
+        1, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8, 216,
+        57, 51, 72, 125, 157, 41, 83, 167, 237, 115
+    ])
+    .is_err());
 
     // Anything larger than the modulus is invalid
-    assert!(
-        Scalar::from_bytes(&[
-            2, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
-            216, 57, 51, 72, 125, 157, 41, 83, 167, 237, 115
-        ])
-        .is_none()
-        .unwrap_u8()
-            == 1
-    );
-    assert!(
-        Scalar::from_bytes(&[
-            1, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
-            216, 58, 51, 72, 125, 157, 41, 83, 167, 237, 115
-        ])
-        .is_none()
-        .unwrap_u8()
-            == 1
-    );
-    assert!(
-        Scalar::from_bytes(&[
-            1, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
-            216, 57, 51, 72, 125, 157, 41, 83, 167, 237, 116
-        ])
-        .is_none()
-        .unwrap_u8()
-            == 1
-    );
+    assert!(Scalar::from_bytes(&[
+        2, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8, 216,
+        57, 51, 72, 125, 157, 41, 83, 167, 237, 115
+    ])
+    .is_err());
+    assert!(Scalar::from_bytes(&[
+        1, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8, 216,
+        58, 51, 72, 125, 157, 41, 83, 167, 237, 115
+    ])
+    .is_err());
+    assert!(Scalar::from_bytes(&[
+        1, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8, 216,
+        57, 51, 72, 125, 157, 41, 83, 167, 237, 116
+    ])
+    .is_err());
 }
 
 #[test]
@@ -1436,4 +1417,17 @@ fn pow_of_two_test() {
     for i in 0..1000 {
         assert_eq!(Scalar::pow_of_2(i as u64), two.pow(&[i as u64, 0, 0, 0]));
     }
+}
+
+#[test]
+fn scalar_hex_serialization() {
+    let scalar = -Scalar::one();
+    let scalar_p = format!("{:x}", scalar);
+    let scalar_p = Scalar::from_hex_str(scalar_p.as_str()).unwrap();
+
+    assert_eq!(scalar, scalar_p);
+    assert!(Scalar::from_hex_str(
+        "00000000fffffffffe5bfeff02a4bd5305d8a10908d83933487d9d2953a7ed74"
+    )
+    .is_err());
 }

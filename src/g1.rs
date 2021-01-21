@@ -1,21 +1,20 @@
 //! This module provides an implementation of the $\mathbb{G}_1$ group of BLS12-381.
 
+use crate::fp::Fp;
+use crate::BlsScalar;
+
+use core::borrow::Borrow;
+use core::iter::Sum;
+use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use dusk_bytes::{DeserializableSlice, Error as BytesError, HexDebug, ParseHexStr, Serializable};
+use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
+
 #[cfg(feature = "canon")]
 use canonical::{Canon, InvalidEncoding, Sink, Source, Store};
 #[cfg(feature = "canon")]
 use canonical_derive::Canon;
-use core::borrow::Borrow;
-use core::iter::Sum;
-use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
-
 #[cfg(feature = "serde_req")]
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
-
-use crate::fp::Fp;
-use crate::BlsScalar;
-
-const G1_COMPRESSED_SIZE: usize = 48;
 
 /// This is an element of $\mathbb{G}_1$ represented in the affine coordinate space.
 /// It is ideal to keep elements in this representation to reduce memory usage and
@@ -23,7 +22,7 @@ const G1_COMPRESSED_SIZE: usize = 48;
 ///
 /// Values of `G1Affine` are guaranteed to be in the $q$-order subgroup unless an
 /// "unchecked" API was misused.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, HexDebug)]
 pub struct G1Affine {
     pub(crate) x: Fp,
     pub(crate) y: Fp,
@@ -33,21 +32,21 @@ pub struct G1Affine {
 #[cfg(feature = "canon")]
 impl<S: Store> Canon<S> for G1Affine {
     fn write(&self, sink: &mut impl Sink<S>) -> Result<(), S::Error> {
-        sink.copy_bytes(&self.to_compressed());
+        sink.copy_bytes(&self.to_bytes());
+
         Ok(())
     }
 
     fn read(source: &mut impl Source<S>) -> Result<Self, S::Error> {
-        let mut bytes = [0u8; G1_COMPRESSED_SIZE];
-        bytes.copy_from_slice(source.read_bytes(G1_COMPRESSED_SIZE));
-        match Option::from(G1Affine::from_compressed(&bytes)) {
-            Some(g1) => Ok(g1),
-            None => Err(InvalidEncoding.into()),
-        }
+        let mut bytes = [0u8; Self::SIZE];
+
+        bytes.copy_from_slice(source.read_bytes(Self::SIZE));
+
+        Self::from_bytes(&bytes).map_err(|_| InvalidEncoding.into())
     }
 
     fn encoded_len(&self) -> usize {
-        G1_COMPRESSED_SIZE
+        Self::SIZE
     }
 }
 
@@ -81,6 +80,102 @@ impl From<G1Projective> for G1Affine {
     }
 }
 
+impl Serializable<48> for G1Affine {
+    type Error = BytesError;
+
+    /// Serializes this element into compressed form. See [`notes::serialization`](crate::notes::serialization)
+    /// for details about how group elements are serialized.
+    fn to_bytes(&self) -> [u8; Self::SIZE] {
+        // Strictly speaking, self.x is zero already when self.infinity is true, but
+        // to guard against implementation mistakes we do not assume this.
+        let mut res = Fp::conditional_select(&self.x, &Fp::zero(), self.infinity).to_bytes();
+
+        // This point is in compressed form, so we set the most significant bit.
+        res[0] |= 1u8 << 7;
+
+        // Is this point at infinity? If so, set the second-most significant bit.
+        res[0] |= u8::conditional_select(&0u8, &(1u8 << 6), self.infinity);
+
+        // Is the y-coordinate the lexicographically largest of the two associated with the
+        // x-coordinate? If so, set the third-most significant bit so long as this is not
+        // the point at infinity.
+        res[0] |= u8::conditional_select(
+            &0u8,
+            &(1u8 << 5),
+            (!self.infinity) & self.y.lexicographically_largest(),
+        );
+
+        res
+    }
+
+    /// Attempts to deserialize a compressed element. See [`notes::serialization`](crate::notes::serialization)
+    /// for details about how group elements are serialized.
+    fn from_bytes(buf: &[u8; Self::SIZE]) -> Result<Self, Self::Error> {
+        // We already know the point is on the curve because this is established
+        // by the y-coordinate recovery procedure in from_compressed_unchecked().
+
+        let compression_flag_set = Choice::from((buf[0] >> 7) & 1);
+        let infinity_flag_set = Choice::from((buf[0] >> 6) & 1);
+        let sort_flag_set = Choice::from((buf[0] >> 5) & 1);
+
+        // Attempt to obtain the x-coordinate
+        let x = {
+            let mut tmp = [0; Self::SIZE];
+            tmp.copy_from_slice(&buf[..Self::SIZE]);
+
+            // Mask away the flag bits
+            tmp[0] &= 0b0001_1111;
+
+            Fp::from_bytes(&tmp)
+        };
+
+        let x: Option<Self> = x
+            .and_then(|x| {
+                // If the infinity flag is set, return the value assuming
+                // the x-coordinate is zero and the sort bit is not set.
+                //
+                // Otherwise, return a recovered point (assuming the correct
+                // y-coordinate can be found) so long as the infinity flag
+                // was not set.
+                CtOption::new(
+                    G1Affine::identity(),
+                    infinity_flag_set & // Infinity flag should be set
+                compression_flag_set & // Compression flag should be set
+                (!sort_flag_set) & // Sort flag should not be set
+                x.is_zero(), // The x-coordinate should be zero
+                )
+                .or_else(|| {
+                    // Recover a y-coordinate given x by y = sqrt(x^3 + 4)
+                    ((x.square() * x) + B).sqrt().and_then(|y| {
+                        // Switch to the correct y-coordinate if necessary.
+                        let y = Fp::conditional_select(
+                            &y,
+                            &-y,
+                            y.lexicographically_largest() ^ sort_flag_set,
+                        );
+
+                        CtOption::new(
+                            G1Affine {
+                                x,
+                                y,
+                                infinity: infinity_flag_set,
+                            },
+                            (!infinity_flag_set) & // Infinity flag should not be set
+                        compression_flag_set, // Compression flag should be set
+                        )
+                    })
+                })
+            })
+            .and_then(|p| CtOption::new(p, p.is_torsion_free()))
+            .into();
+
+        x.ok_or(BytesError::InvalidData)
+    }
+}
+
+impl DeserializableSlice<48> for G1Affine {}
+impl ParseHexStr<48> for G1Affine {}
+
 #[cfg(feature = "serde_req")]
 impl Serialize for G1Affine {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -88,8 +183,8 @@ impl Serialize for G1Affine {
         S: Serializer,
     {
         use serde::ser::SerializeTuple;
-        let mut tup = serializer.serialize_tuple(48)?;
-        for byte in self.to_compressed().iter() {
+        let mut tup = serializer.serialize_tuple(G1Affine::SIZE)?;
+        for byte in self.to_bytes().iter() {
             tup.serialize_element(byte)?;
         }
         tup.end()
@@ -115,24 +210,20 @@ impl<'de> Deserialize<'de> for G1Affine {
             where
                 A: serde::de::SeqAccess<'de>,
             {
-                let mut bytes = [0u8; 48];
-                for i in 0..48 {
+                let mut bytes = [0u8; G1Affine::SIZE];
+                for i in 0..G1Affine::SIZE {
                     bytes[i] = seq
                         .next_element()?
                         .ok_or(serde::de::Error::invalid_length(i, &"expected 48 bytes"))?;
                 }
-                let res = G1Affine::from_compressed(&bytes);
-                if res.is_some().unwrap_u8() == 1u8 {
-                    return Ok(res.unwrap());
-                } else {
-                    return Err(serde::de::Error::custom(
-                        &"compressed G1Affine was not canonically encoded",
-                    ));
-                }
+
+                G1Affine::from_bytes(&bytes).map_err(|_| {
+                    serde::de::Error::custom(&"compressed G1Affine was not canonically encoded")
+                })
             }
         }
 
-        deserializer.deserialize_tuple(48, G1AffineVisitor)
+        deserializer.deserialize_tuple(G1Affine::SIZE, G1AffineVisitor)
     }
 }
 
@@ -251,6 +342,9 @@ const B: Fp = Fp::from_raw_unchecked([
 ]);
 
 impl G1Affine {
+    /// Bytes size of the raw representation
+    pub const RAW_SIZE: usize = 96;
+
     /// Returns the identity of the group: the point at infinity.
     pub fn identity() -> G1Affine {
         G1Affine {
@@ -284,177 +378,65 @@ impl G1Affine {
         }
     }
 
-    /// Serializes this element into compressed form. See [`notes::serialization`](crate::notes::serialization)
-    /// for details about how group elements are serialized.
-    pub fn to_compressed(&self) -> [u8; 48] {
-        // Strictly speaking, self.x is zero already when self.infinity is true, but
-        // to guard against implementation mistakes we do not assume this.
-        let mut res = Fp::conditional_select(&self.x, &Fp::zero(), self.infinity).to_bytes();
+    /// Raw bytes representation
+    ///
+    /// The intended usage of this function is for trusted sets of data where performance is
+    /// critical.
+    ///
+    /// For secure serialization, check `to_bytes`
+    pub fn to_raw_bytes(&self) -> [u8; Self::RAW_SIZE] {
+        let mut bytes = [0u8; Self::RAW_SIZE];
+        let chunks = bytes.chunks_mut(8);
 
-        // This point is in compressed form, so we set the most significant bit.
-        res[0] |= 1u8 << 7;
+        self.x
+            .internal_repr()
+            .iter()
+            .chain(self.y.internal_repr().iter())
+            .zip(chunks)
+            .for_each(|(n, c)| c.copy_from_slice(&n.to_le_bytes()));
 
-        // Is this point at infinity? If so, set the second-most significant bit.
-        res[0] |= u8::conditional_select(&0u8, &(1u8 << 6), self.infinity);
+        // If infinity, set the second-most significant bit.
+        if self.infinity.unwrap_u8() == 1 {
+            bytes[0] |= 1u8 << 6;
+        }
 
-        // Is the y-coordinate the lexicographically largest of the two associated with the
-        // x-coordinate? If so, set the third-most significant bit so long as this is not
-        // the point at infinity.
-        res[0] |= u8::conditional_select(
-            &0u8,
-            &(1u8 << 5),
-            (!self.infinity) & self.y.lexicographically_largest(),
-        );
-
-        res
+        bytes
     }
 
-    /// Serializes this element into uncompressed form. See [`notes::serialization`](crate::notes::serialization)
-    /// for details about how group elements are serialized.
-    pub fn to_uncompressed(&self) -> [u8; 96] {
-        let mut res = [0; 96];
+    /// Create a `G1Affine` from a set of bytes created by `G1Affine::to_raw_bytes`.
+    ///
+    /// No check is performed and no constant time is granted. The expected usage of this function
+    /// is for trusted bytes where performance is critical.
+    ///
+    /// For secure serialization, check `from_bytes`
+    ///
+    /// After generating the point, you can check `is_on_curve` and `is_torsion_free` to grant its
+    /// security
+    pub unsafe fn from_slice_unchecked(bytes: &[u8]) -> Self {
+        let mut x = [0u64; 6];
+        let mut y = [0u64; 6];
+        let mut z = [0u8; 8];
 
-        res[0..48].copy_from_slice(
-            &Fp::conditional_select(&self.x, &Fp::zero(), self.infinity).to_bytes()[..],
-        );
-        res[48..96].copy_from_slice(
-            &Fp::conditional_select(&self.y, &Fp::zero(), self.infinity).to_bytes()[..],
-        );
+        let infinity = match bytes.first() {
+            Some(b) => (b & (1u8 << 6)) >> 6,
+            None => 0u8,
+        }
+        .into();
 
-        // Is this point at infinity? If so, set the second-most significant bit.
-        res[0] |= u8::conditional_select(&0u8, &(1u8 << 6), self.infinity);
+        bytes
+            .chunks_exact(8)
+            .zip(x.iter_mut().chain(y.iter_mut()))
+            .for_each(|(c, n)| {
+                z.copy_from_slice(c);
+                *n = u64::from_le_bytes(z);
+            });
 
-        res
-    }
+        x[0] &= 0xffffffffffffff1fu64;
 
-    /// Attempts to deserialize an uncompressed element. See [`notes::serialization`](crate::notes::serialization)
-    /// for details about how group elements are serialized.
-    pub fn from_uncompressed(bytes: &[u8; 96]) -> CtOption<Self> {
-        Self::from_uncompressed_unchecked(bytes)
-            .and_then(|p| CtOption::new(p, p.is_on_curve() & p.is_torsion_free()))
-    }
+        let x = Fp::from_raw_unchecked(x);
+        let y = Fp::from_raw_unchecked(y);
 
-    /// Attempts to deserialize an uncompressed element, not checking if the
-    /// element is on the curve and not checking if it is in the correct subgroup.
-    /// **This is dangerous to call unless you trust the bytes you are reading; otherwise,
-    /// API invariants may be broken.** Please consider using `from_uncompressed()` instead.
-    pub fn from_uncompressed_unchecked(bytes: &[u8; 96]) -> CtOption<Self> {
-        // Obtain the three flags from the start of the byte sequence
-        let compression_flag_set = Choice::from((bytes[0] >> 7) & 1);
-        let infinity_flag_set = Choice::from((bytes[0] >> 6) & 1);
-        let sort_flag_set = Choice::from((bytes[0] >> 5) & 1);
-
-        // Attempt to obtain the x-coordinate
-        let x = {
-            let mut tmp = [0; 48];
-            tmp.copy_from_slice(&bytes[0..48]);
-
-            // Mask away the flag bits
-            tmp[0] &= 0b0001_1111;
-
-            Fp::from_bytes(&tmp)
-        };
-
-        // Attempt to obtain the y-coordinate
-        let y = {
-            let mut tmp = [0; 48];
-            tmp.copy_from_slice(&bytes[48..96]);
-
-            Fp::from_bytes(&tmp)
-        };
-
-        x.and_then(|x| {
-            y.and_then(|y| {
-                // Create a point representing this value
-                let p = G1Affine::conditional_select(
-                    &G1Affine {
-                        x,
-                        y,
-                        infinity: infinity_flag_set,
-                    },
-                    &G1Affine::identity(),
-                    infinity_flag_set,
-                );
-
-                CtOption::new(
-                    p,
-                    // If the infinity flag is set, the x and y coordinates should have been zero.
-                    ((!infinity_flag_set) | (infinity_flag_set & x.is_zero() & y.is_zero())) &
-                    // The compression flag should not have been set, as this is an uncompressed element
-                    (!compression_flag_set) &
-                    // The sort flag should not have been set, as this is an uncompressed element
-                    (!sort_flag_set),
-                )
-            })
-        })
-    }
-
-    /// Attempts to deserialize a compressed element. See [`notes::serialization`](crate::notes::serialization)
-    /// for details about how group elements are serialized.
-    pub fn from_compressed(bytes: &[u8; 48]) -> CtOption<Self> {
-        // We already know the point is on the curve because this is established
-        // by the y-coordinate recovery procedure in from_compressed_unchecked().
-
-        Self::from_compressed_unchecked(bytes).and_then(|p| CtOption::new(p, p.is_torsion_free()))
-    }
-
-    /// Attempts to deserialize an uncompressed element, not checking if the
-    /// element is in the correct subgroup.
-    /// **This is dangerous to call unless you trust the bytes you are reading; otherwise,
-    /// API invariants may be broken.** Please consider using `from_compressed()` instead.
-    pub fn from_compressed_unchecked(bytes: &[u8; 48]) -> CtOption<Self> {
-        // Obtain the three flags from the start of the byte sequence
-        let compression_flag_set = Choice::from((bytes[0] >> 7) & 1);
-        let infinity_flag_set = Choice::from((bytes[0] >> 6) & 1);
-        let sort_flag_set = Choice::from((bytes[0] >> 5) & 1);
-
-        // Attempt to obtain the x-coordinate
-        let x = {
-            let mut tmp = [0; 48];
-            tmp.copy_from_slice(&bytes[0..48]);
-
-            // Mask away the flag bits
-            tmp[0] &= 0b0001_1111;
-
-            Fp::from_bytes(&tmp)
-        };
-
-        x.and_then(|x| {
-            // If the infinity flag is set, return the value assuming
-            // the x-coordinate is zero and the sort bit is not set.
-            //
-            // Otherwise, return a recovered point (assuming the correct
-            // y-coordinate can be found) so long as the infinity flag
-            // was not set.
-            CtOption::new(
-                G1Affine::identity(),
-                infinity_flag_set & // Infinity flag should be set
-                compression_flag_set & // Compression flag should be set
-                (!sort_flag_set) & // Sort flag should not be set
-                x.is_zero(), // The x-coordinate should be zero
-            )
-            .or_else(|| {
-                // Recover a y-coordinate given x by y = sqrt(x^3 + 4)
-                ((x.square() * x) + B).sqrt().and_then(|y| {
-                    // Switch to the correct y-coordinate if necessary.
-                    let y = Fp::conditional_select(
-                        &y,
-                        &-y,
-                        y.lexicographically_largest() ^ sort_flag_set,
-                    );
-
-                    CtOption::new(
-                        G1Affine {
-                            x,
-                            y,
-                            infinity: infinity_flag_set,
-                        },
-                        (!infinity_flag_set) & // Infinity flag should not be set
-                        compression_flag_set, // Compression flag should be set
-                    )
-                })
-            })
-        })
+        Self { x, y, infinity }
     }
 
     /// Returns true if this element is the identity (the point at infinity).
@@ -1544,4 +1526,34 @@ fn g1_affine_serde_roundtrip() {
     let deser: G1Affine = bincode::deserialize(&ser).unwrap();
 
     assert_eq!(gen, deser);
+}
+
+#[test]
+fn g1_affine_bytes_unchecked() {
+    let gen = G1Affine::generator();
+    let ident = G1Affine::identity();
+
+    let gen_p = gen.to_raw_bytes();
+    let gen_p = unsafe { G1Affine::from_slice_unchecked(&gen_p) };
+
+    let ident_p = ident.to_raw_bytes();
+    let ident_p = unsafe { G1Affine::from_slice_unchecked(&ident_p) };
+
+    assert_eq!(gen, gen_p);
+    assert_eq!(ident, ident_p);
+}
+
+#[test]
+fn g1_affine_hex() {
+    let gen = G1Affine::generator();
+    let ident = G1Affine::identity();
+
+    let gen_p = format!("{:x}", gen);
+    let gen_p = G1Affine::from_hex_str(gen_p.as_str()).unwrap();
+
+    let ident_p = format!("{:x}", ident);
+    let ident_p = G1Affine::from_hex_str(ident_p.as_str()).unwrap();
+
+    assert_eq!(gen, gen_p);
+    assert_eq!(ident, ident_p);
 }
