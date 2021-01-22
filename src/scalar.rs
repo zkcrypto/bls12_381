@@ -11,7 +11,7 @@ use core::cmp::{Ord, Ordering, PartialOrd};
 use core::convert::TryFrom;
 use core::iter::{Product, Sum};
 use core::ops::{Add, AddAssign, BitAnd, BitXor, Mul, MulAssign, Neg, Sub, SubAssign};
-use dusk_bytes::{DeserializableSlice, Error as BytesError, HexDebug, ParseHexStr, Serializable};
+use dusk_bytes::{Error as BytesError, HexDebug, Serializable};
 use rand_core::{CryptoRng, RngCore};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
@@ -122,9 +122,6 @@ impl Serializable<32> for Scalar {
         Ok(s)
     }
 }
-
-impl DeserializableSlice<32> for Scalar {}
-impl ParseHexStr<32> for Scalar {}
 
 impl ConditionallySelectable for Scalar {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
@@ -916,6 +913,10 @@ fn test_debug() {
         format!("{:?}", R2),
         "feffffff0100000002480300fab78458f54fbcecef4f8c996f05c5ac59b12418"
     );
+    assert_eq!(
+        format!("{:#x}", R2),
+        "0xfeffffff0100000002480300fab78458f54fbcecef4f8c996f05c5ac59b12418"
+    );
 }
 
 #[test]
@@ -1421,6 +1422,8 @@ fn pow_of_two_test() {
 
 #[test]
 fn scalar_hex_serialization() {
+    use dusk_bytes::ParseHexStr;
+
     let scalar = -Scalar::one();
     let scalar_p = format!("{:x}", scalar);
     let scalar_p = Scalar::from_hex_str(scalar_p.as_str()).unwrap();

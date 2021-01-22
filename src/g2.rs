@@ -7,7 +7,7 @@ use crate::BlsScalar;
 use core::borrow::Borrow;
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use dusk_bytes::{DeserializableSlice, Error as BytesError, HexDebug, ParseHexStr, Serializable};
+use dusk_bytes::{Error as BytesError, HexDebug, Serializable};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 #[cfg(feature = "canon")]
@@ -223,9 +223,6 @@ impl Serializable<96> for G2Affine {
         }
     }
 }
-
-impl DeserializableSlice<96> for G2Affine {}
-impl ParseHexStr<96> for G2Affine {}
 
 #[cfg(feature = "serde_req")]
 impl Serialize for G2Affine {
@@ -1999,6 +1996,8 @@ fn g2_affine_bytes_unchecked() {
 
 #[test]
 fn g2_affine_hex() {
+    use dusk_bytes::ParseHexStr;
+
     let gen = G2Affine::generator();
     let ident = G2Affine::identity();
 
