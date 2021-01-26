@@ -369,7 +369,7 @@ const B: Fp2 = Fp2 {
 
 impl G2Affine {
     /// Bytes size of the raw representation
-    pub const RAW_SIZE: usize = 192;
+    pub const RAW_SIZE: usize = 193;
 
     /// Returns the identity of the group: the point at infinity.
     pub fn identity() -> G2Affine {
@@ -444,10 +444,7 @@ impl G2Affine {
             .zip(chunks)
             .for_each(|(n, c)| c.copy_from_slice(&n.to_le_bytes()));
 
-        // If infinity, set the second-most significant bit.
-        if self.infinity.unwrap_u8() == 1 {
-            bytes[0] |= 1u8 << 6;
-        }
+        bytes[Self::RAW_SIZE - 1] = self.infinity.unwrap_u8();
 
         bytes
     }
@@ -468,12 +465,6 @@ impl G2Affine {
         let mut yc1 = [0u64; 6];
         let mut z = [0u8; 8];
 
-        let infinity = match bytes.first() {
-            Some(b) => (b & (1u8 << 6)) >> 6,
-            None => 0u8,
-        }
-        .into();
-
         xc0.iter_mut()
             .chain(xc1.iter_mut())
             .chain(yc0.iter_mut())
@@ -484,8 +475,6 @@ impl G2Affine {
                 *n = u64::from_le_bytes(z);
             });
 
-        xc0[0] &= 0xffffffffffffff1fu64;
-
         let c0 = Fp::from_raw_unchecked(xc0);
         let c1 = Fp::from_raw_unchecked(xc1);
         let x = Fp2 { c0, c1 };
@@ -493,6 +482,12 @@ impl G2Affine {
         let c0 = Fp::from_raw_unchecked(yc0);
         let c1 = Fp::from_raw_unchecked(yc1);
         let y = Fp2 { c0, c1 };
+
+        let infinity = if bytes.len() >= Self::RAW_SIZE {
+            bytes[Self::RAW_SIZE - 1].into()
+        } else {
+            0u8.into()
+        };
 
         Self { x, y, infinity }
     }

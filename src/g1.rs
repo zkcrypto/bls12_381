@@ -340,7 +340,7 @@ const B: Fp = Fp::from_raw_unchecked([
 
 impl G1Affine {
     /// Bytes size of the raw representation
-    pub const RAW_SIZE: usize = 96;
+    pub const RAW_SIZE: usize = 97;
 
     /// Returns the identity of the group: the point at infinity.
     pub fn identity() -> G1Affine {
@@ -392,10 +392,7 @@ impl G1Affine {
             .zip(chunks)
             .for_each(|(n, c)| c.copy_from_slice(&n.to_le_bytes()));
 
-        // If infinity, set the second-most significant bit.
-        if self.infinity.unwrap_u8() == 1 {
-            bytes[0] |= 1u8 << 6;
-        }
+        bytes[Self::RAW_SIZE - 1] = self.infinity.unwrap_u8();
 
         bytes
     }
@@ -414,12 +411,6 @@ impl G1Affine {
         let mut y = [0u64; 6];
         let mut z = [0u8; 8];
 
-        let infinity = match bytes.first() {
-            Some(b) => (b & (1u8 << 6)) >> 6,
-            None => 0u8,
-        }
-        .into();
-
         bytes
             .chunks_exact(8)
             .zip(x.iter_mut().chain(y.iter_mut()))
@@ -428,10 +419,14 @@ impl G1Affine {
                 *n = u64::from_le_bytes(z);
             });
 
-        x[0] &= 0xffffffffffffff1fu64;
-
         let x = Fp::from_raw_unchecked(x);
         let y = Fp::from_raw_unchecked(y);
+
+        let infinity = if bytes.len() >= Self::RAW_SIZE {
+            bytes[Self::RAW_SIZE - 1].into()
+        } else {
+            0u8.into()
+        };
 
         Self { x, y, infinity }
     }
@@ -1538,6 +1533,35 @@ fn g1_affine_bytes_unchecked() {
 
     assert_eq!(gen, gen_p);
     assert_eq!(ident, ident_p);
+}
+
+#[test]
+fn g1_affine_bytes_unchecked_field() {
+    let x = Fp::from_raw_unchecked([
+        0x9af1f35780fffb82,
+        0x557416ceeea5a52f,
+        0x1e4403e4911a2d97,
+        0xb85bfb438316bf2,
+        0xa3b716c69a9e5a7b,
+        0x1fe9b8ad976dd39,
+    ]);
+
+    let y = Fp::from_raw_unchecked([
+        0xb4f1cc806acfb4e2,
+        0x38c28cba4cf600ed,
+        0x3af1c2f54a01a366,
+        0x96a75ac708a9eb72,
+        0x4253bd59228e50d,
+        0x120114fae4294c21,
+    ]);
+
+    let infinity = 0u8.into();
+    let g = G1Affine { x, y, infinity };
+
+    let g_p = g.to_raw_bytes();
+    let g_p = unsafe { G1Affine::from_slice_unchecked(&g_p) };
+
+    assert_eq!(g, g_p);
 }
 
 #[test]
