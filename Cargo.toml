@@ -9,7 +9,7 @@ homepage = "https://github.com/zkcrypto/bls12_381"
 license = "MIT/Apache-2.0"
 name = "bls12_381"
 repository = "https://github.com/zkcrypto/bls12_381"
-version = "0.3.1"
+version = "0.4.0"
 edition = "2018"
 
 [package.metadata.docs.rs]
