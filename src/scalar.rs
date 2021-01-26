@@ -1,13 +1,12 @@
 //! This module provides an implementation of the BLS12-381 scalar field $\mathbb{F}_q$
 //! where `q = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001`
 
-use bitvec::{array::BitArray, order::Lsb0};
 use core::convert::{TryFrom, TryInto};
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand_core::RngCore;
 
-use ff::{Field, PrimeField};
+use ff::{Field, FieldBits, PrimeField};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::util::{adc, mac, sbb};
@@ -720,7 +719,7 @@ impl PrimeField for Scalar {
         self.to_bytes()
     }
 
-    fn to_le_bits(&self) -> BitArray<Lsb0, Self::ReprBits> {
+    fn to_le_bits(&self) -> FieldBits<Self::ReprBits> {
         let bytes = self.to_bytes();
 
         #[cfg(not(target_pointer_width = "64"))]
@@ -743,21 +742,21 @@ impl PrimeField for Scalar {
             u64::from_le_bytes(bytes[24..32].try_into().unwrap()),
         ];
 
-        BitArray::new(limbs)
+        FieldBits::new(limbs)
     }
 
     fn is_odd(&self) -> bool {
         self.to_bytes()[0] & 1 == 1
     }
 
-    fn char_le_bits() -> BitArray<Lsb0, Self::ReprBits> {
+    fn char_le_bits() -> FieldBits<Self::ReprBits> {
         #[cfg(not(target_pointer_width = "64"))]
         {
-            BitArray::new(MODULUS_LIMBS_32)
+            FieldBits::new(MODULUS_LIMBS_32)
         }
 
         #[cfg(target_pointer_width = "64")]
-        BitArray::new(MODULUS.0)
+        FieldBits::new(MODULUS.0)
     }
 
     const NUM_BITS: u32 = MODULUS_BITS;
