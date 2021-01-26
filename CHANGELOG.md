@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.5.1] - 25-01-21
+## [0.5.2] - 25-01-21
 ### Fixed
 - Incorrect encoding for unchecked bytes serialization [#50](https://github.com/dusk-network/bls12_381/issues/50)
 
