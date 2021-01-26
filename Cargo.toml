@@ -23,25 +23,21 @@ name = "groups"
 harness = false
 required-features = ["groups"]
 
-[dependencies.bitvec]
-version = "0.18"
-default-features = false
-
 [dependencies.ff]
-version = "0.8"
+version = "0.9"
 default-features = false
 
 [dependencies.group]
-version = "0.8"
+version = "0.9"
 default-features = false
 optional = true
 
 [dependencies.pairing]
-version = "0.18"
+version = "0.19"
 optional = true
 
 [dependencies.rand_core]
-version = "0.5"
+version = "0.6"
 default-features = false
 
 [dependencies.subtle]

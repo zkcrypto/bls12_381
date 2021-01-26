@@ -1,6 +1,7 @@
 # Unreleased
 
 ## Changed
+- Bumped dependencies to `ff 0.9`, `group 0.9`, `pairing 0.19`, `rand_core 0.6`.
 - The `endo` feature is on by default. The `endo` feature flag itself is deprecated, and
   will be removed in a future minor release.
 
