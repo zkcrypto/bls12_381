@@ -67,8 +67,8 @@ impl PartialEq for Scalar {
 
 impl Ord for Scalar {
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-        let mut self_bytes = self.0;
-        let mut other_bytes = other.0;
+        let mut self_bytes = self.to_bytes();
+        let mut other_bytes = other.to_bytes();
         &self_bytes.reverse();
         &other_bytes.reverse();
         self_bytes.cmp(&other_bytes)
@@ -1282,4 +1282,14 @@ fn test_ord() {
         0x0000_0000_0000_0000,
     ]);
     assert!(y < x);
+}
+
+// Check that Ord is not comparing the Montgomery representations
+#[test]
+fn test_ord_montgomery() {
+    /* 4R mod q =
+      0x6092c566b31415be66313fbfb2f13fd56212dfe8000d200800000007fffffff8
+    5R mod q =
+      0x04c9cf6d363b9de5cc83b7a7960bb7c566d9f3df00120c0b0000000afffffff5 */
+    assert!(Scalar::from(5u32) > Scalar::from(4u32));
 }
