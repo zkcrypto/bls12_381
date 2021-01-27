@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 27-01-21
+### Changed
+- Canonical updated to v0.5 [#52](https://github.com/dusk-network/bls12_381/issues/52)
+
 ## [0.5.2] - 25-01-21
 ### Fixed
 - Incorrect encoding for unchecked bytes serialization [#50](https://github.com/dusk-network/bls12_381/issues/50)
