@@ -785,6 +785,65 @@ where
     }
 }
 
+#[cfg(feature = "serde")]
+use serde::de::Visitor;
+#[cfg(feature = "serde")]
+use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+
+impl Serialize for Scalar {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeTuple;
+        let mut tup = serializer.serialize_tuple(32)?;
+        for byte in self.to_bytes().iter() {
+            tup.serialize_element(byte)?;
+        }
+        tup.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for Scalar {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct ScalarVisitor;
+
+        impl<'de> Visitor<'de> for ScalarVisitor {
+            type Value = Scalar;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a 32-byte canonical bls12_381 scalar")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Scalar, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                let mut bytes = [0u8; 32];
+                for i in 0..32 {
+                    bytes[i] = seq
+                        .next_element()?
+                        .ok_or_else(|| serde::de::Error::invalid_length(i, &"expected 32 bytes"))?;
+                }
+
+                let res = Scalar::from_bytes(&bytes);
+                if res.is_some().into() {
+                    Ok(res.unwrap())
+                } else {
+                    Err(serde::de::Error::custom(
+                        &"scalar was not canonically encoded",
+                    ))
+                }
+            }
+        }
+
+        deserializer.deserialize_tuple(32, ScalarVisitor)
+    }
+}
+
 #[test]
 fn test_inv() {
     // Compute -(q^{-1} mod 2^64) mod 2^64 by exponentiating
@@ -1229,4 +1288,20 @@ fn test_double() {
     ]);
 
     assert_eq!(a.double(), a + a);
+}
+
+#[test]
+#[cfg(feature = "serde")]
+fn test_serde_serialization() {
+    use serde_test::{assert_tokens, Token};
+
+    let s = R;
+    let raw_bytes = s.to_bytes();
+
+    let expected_tokens = std::iter::once(Token::Tuple { len: 32 })
+        .chain(raw_bytes.iter().map(|&b| Token::U8(b)))
+        .chain(std::iter::once(Token::TupleEnd))
+        .collect::<alloc::vec::Vec<_>>();
+
+    assert_tokens(&s, &expected_tokens)
 }
