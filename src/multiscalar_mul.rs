@@ -6,6 +6,8 @@ use crate::{
 use byteorder;
 use dusk_bytes::Serializable;
 
+use alloc::vec::*;
+
 /// Performs multiscalar multiplication reliying on Pippenger's algorithm.
 /// This method was taken from `curve25519-dalek` and was originally made by
 /// Oleg Andreev <oleganza@gmail.com>.
@@ -180,6 +182,7 @@ fn to_radix_2w(scalar: &Scalar, w: usize) -> [i8; 43] {
 
 /// Performs a Variable Base Multiscalar Multiplication.
 pub fn msm_variable_base(points: &[G1Affine], scalars: &[Scalar]) -> G1Projective {
+    #[cfg(feature = "parallel")]
     use rayon::prelude::*;
 
     let c = if scalars.len() < 32 {
@@ -194,7 +197,10 @@ pub fn msm_variable_base(points: &[G1Affine], scalars: &[Scalar]) -> G1Projectiv
     let zero = G1Projective::identity();
     let window_starts: Vec<_> = (0..num_bits).step_by(c).collect();
 
+    #[cfg(feature = "parallel")]
     let window_starts_iter = window_starts.into_par_iter();
+    #[cfg(not(feature = "parallel"))]
+    let window_starts_iter = window_starts.into_iter();
 
     // Each window is of size `c`.
     // We divide up the bits 0..num_bits into windows of size `c`, and
@@ -203,7 +209,7 @@ pub fn msm_variable_base(points: &[G1Affine], scalars: &[Scalar]) -> G1Projectiv
         .map(|w_start| {
             let mut res = zero;
             // We don't need the "zero" bucket, so we only have 2^c - 1 buckets
-            let mut buckets = vec![zero; (1 << c) - 1];
+            let mut buckets = alloc::vec![zero; (1 << c) - 1];
             scalars
                 .iter()
                 .zip(points)
@@ -309,8 +315,8 @@ mod tests {
 
     #[test]
     fn msm_variable_base_test() {
-        let points = vec![G1Affine::generator()];
-        let scalars = vec![Scalar::from(100u64)];
+        let points = alloc::vec![G1Affine::generator()];
+        let scalars = alloc::vec![Scalar::from(100u64)];
         let premultiplied = G1Projective::generator() * Scalar::from(100u64);
         let subject = msm_variable_base(&points, &scalars);
         assert_eq!(subject, premultiplied);

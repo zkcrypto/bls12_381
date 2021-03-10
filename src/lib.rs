@@ -82,5 +82,5 @@ pub use pairings::{pairing, Gt, MillerLoopResult};
 #[cfg(all(feature = "pairings", feature = "alloc"))]
 pub use pairings::{multi_miller_loop, G2Prepared};
 
-#[cfg(all(feature = "groups", feature = "std"))]
+#[cfg(all(feature = "groups", feature = "alloc"))]
 pub mod multiscalar_mul;

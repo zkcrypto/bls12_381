@@ -299,6 +299,7 @@ pub struct G2Prepared {
     coeffs: Vec<(Fp2, Fp2, Fp2)>,
 }
 
+#[cfg(feature = "alloc")]
 impl G2Prepared {
     /// Raw bytes representation
     ///
@@ -306,7 +307,7 @@ impl G2Prepared {
     /// critical. This way, the `infinity` internal attribute will not be stored and the
     /// coefficients will be stored without any check.
     pub fn to_raw_bytes(&self) -> Vec<u8> {
-        let mut bytes = vec![0u8; 288 * self.coeffs.len()];
+        let mut bytes = alloc::vec![0u8; 288 * self.coeffs.len()];
         let mut chunks = bytes.chunks_exact_mut(8);
 
         self.coeffs.iter().for_each(|(a, b, c)| {
