@@ -10,7 +10,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // Catch documentation errors caused by code changes.
-#![deny(broken_intra_doc_links)]
+#![deny(rustdoc::broken_intra_doc_links)]
 #![deny(missing_debug_implementations)]
 #![deny(missing_docs)]
 #![allow(clippy::too_many_arguments)]
