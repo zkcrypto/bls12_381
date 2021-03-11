@@ -3,11 +3,11 @@ use crate::{
     g1::{G1Affine, G1Projective},
     scalar::Scalar,
 };
-use byteorder;
 use dusk_bytes::Serializable;
 
 use alloc::vec::*;
 
+#[cfg(feature = "std")]
 /// Performs multiscalar multiplication reliying on Pippenger's algorithm.
 /// This method was taken from `curve25519-dalek` and was originally made by
 /// Oleg Andreev <oleganza@gmail.com>.
@@ -91,6 +91,7 @@ where
     columns.fold(hi_column, |total, p| mul_by_pow_2(&total, w as u32) + p)
 }
 
+#[cfg(feature = "std")]
 /// Compute \\([2\^k] P \\) by successive doublings. Requires \\( k > 0 \\).
 pub(crate) fn mul_by_pow_2(point: &G1Projective, k: u32) -> G1Projective {
     debug_assert!(k > 0);
@@ -104,6 +105,7 @@ pub(crate) fn mul_by_pow_2(point: &G1Projective, k: u32) -> G1Projective {
     s.double()
 }
 
+#[cfg(feature = "std")]
 /// Returns a size hint indicating how many entries of the return
 /// value of `to_radix_2w` are nonzero.
 fn to_radix_2w_size_hint(w: usize) -> usize {
@@ -122,6 +124,7 @@ fn to_radix_2w_size_hint(w: usize) -> usize {
     digits_count
 }
 
+#[cfg(feature = "std")]
 fn to_radix_2w(scalar: &Scalar, w: usize) -> [i8; 43] {
     debug_assert!(w >= 6);
     debug_assert!(w <= 8);

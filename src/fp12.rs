@@ -252,392 +252,397 @@ impl<'a, 'b> Sub<&'b Fp12> for &'a Fp12 {
 impl_binops_additive!(Fp12, Fp12);
 impl_binops_multiplicative!(Fp12, Fp12);
 
-#[test]
-fn test_arithmetic() {
-    use crate::fp::*;
-    use crate::fp2::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    let a = Fp12 {
-        c0: Fp6 {
-            c0: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0x47f9cb98b1b82d58,
-                    0x5fe911eba3aa1d9d,
-                    0x96bf1b5f4dd81db3,
-                    0x8100d27cc9259f5b,
-                    0xafa20b9674640eab,
-                    0x9bbcea7d8d9497d,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0x303cb98b1662daa,
-                    0xd93110aa0a621d5a,
-                    0xbfa9820c5be4a468,
-                    0xba3643ecb05a348,
-                    0xdc3534bb1f1c25a6,
-                    0x6c305bb19c0e1c1,
-                ]),
-            },
-            c1: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0x46f9cb98b162d858,
-                    0xbe9109cf7aa1d57,
-                    0xc791bc55fece41d2,
-                    0xf84c57704e385ec2,
-                    0xcb49c1d9c010e60f,
-                    0xacdb8e158bfe3c8,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0x8aefcb98b15f8306,
-                    0x3ea1108fe4f21d54,
-                    0xcf79f69fa1b7df3b,
-                    0xe4f54aa1d16b1a3c,
-                    0xba5e4ef86105a679,
-                    0xed86c0797bee5cf,
-                ]),
-            },
-            c2: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0xcee5cb98b15c2db4,
-                    0x71591082d23a1d51,
-                    0xd76230e944a17ca4,
-                    0xd19e3dd3549dd5b6,
-                    0xa972dc1701fa66e3,
-                    0x12e31f2dd6bde7d6,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0xad2acb98b1732d9d,
-                    0x2cfd10dd06961d64,
-                    0x7396b86c6ef24e8,
-                    0xbd76e2fdb1bfc820,
-                    0x6afea7f6de94d0d5,
-                    0x10994b0c5744c040,
-                ]),
-            },
-        },
-        c1: Fp6 {
-            c0: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0x47f9cb98b1b82d58,
-                    0x5fe911eba3aa1d9d,
-                    0x96bf1b5f4dd81db3,
-                    0x8100d27cc9259f5b,
-                    0xafa20b9674640eab,
-                    0x9bbcea7d8d9497d,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0x303cb98b1662daa,
-                    0xd93110aa0a621d5a,
-                    0xbfa9820c5be4a468,
-                    0xba3643ecb05a348,
-                    0xdc3534bb1f1c25a6,
-                    0x6c305bb19c0e1c1,
-                ]),
-            },
-            c1: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0x46f9cb98b162d858,
-                    0xbe9109cf7aa1d57,
-                    0xc791bc55fece41d2,
-                    0xf84c57704e385ec2,
-                    0xcb49c1d9c010e60f,
-                    0xacdb8e158bfe3c8,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0x8aefcb98b15f8306,
-                    0x3ea1108fe4f21d54,
-                    0xcf79f69fa1b7df3b,
-                    0xe4f54aa1d16b1a3c,
-                    0xba5e4ef86105a679,
-                    0xed86c0797bee5cf,
-                ]),
-            },
-            c2: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0xcee5cb98b15c2db4,
-                    0x71591082d23a1d51,
-                    0xd76230e944a17ca4,
-                    0xd19e3dd3549dd5b6,
-                    0xa972dc1701fa66e3,
-                    0x12e31f2dd6bde7d6,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0xad2acb98b1732d9d,
-                    0x2cfd10dd06961d64,
-                    0x7396b86c6ef24e8,
-                    0xbd76e2fdb1bfc820,
-                    0x6afea7f6de94d0d5,
-                    0x10994b0c5744c040,
-                ]),
-            },
-        },
-    };
+    #[test]
+    fn test_arithmetic() {
+        use crate::fp::*;
+        use crate::fp2::*;
 
-    let b = Fp12 {
-        c0: Fp6 {
-            c0: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0x47f9cb98b1b82d58,
-                    0x5fe911eba3aa1d9d,
-                    0x96bf1b5f4dd81db3,
-                    0x8100d272c9259f5b,
-                    0xafa20b9674640eab,
-                    0x9bbcea7d8d9497d,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0x303cb98b1662daa,
-                    0xd93110aa0a621d5a,
-                    0xbfa9820c5be4a468,
-                    0xba3643ecb05a348,
-                    0xdc3534bb1f1c25a6,
-                    0x6c305bb19c0e1c1,
-                ]),
+        let a = Fp12 {
+            c0: Fp6 {
+                c0: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0x47f9cb98b1b82d58,
+                        0x5fe911eba3aa1d9d,
+                        0x96bf1b5f4dd81db3,
+                        0x8100d27cc9259f5b,
+                        0xafa20b9674640eab,
+                        0x9bbcea7d8d9497d,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0x303cb98b1662daa,
+                        0xd93110aa0a621d5a,
+                        0xbfa9820c5be4a468,
+                        0xba3643ecb05a348,
+                        0xdc3534bb1f1c25a6,
+                        0x6c305bb19c0e1c1,
+                    ]),
+                },
+                c1: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0x46f9cb98b162d858,
+                        0xbe9109cf7aa1d57,
+                        0xc791bc55fece41d2,
+                        0xf84c57704e385ec2,
+                        0xcb49c1d9c010e60f,
+                        0xacdb8e158bfe3c8,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0x8aefcb98b15f8306,
+                        0x3ea1108fe4f21d54,
+                        0xcf79f69fa1b7df3b,
+                        0xe4f54aa1d16b1a3c,
+                        0xba5e4ef86105a679,
+                        0xed86c0797bee5cf,
+                    ]),
+                },
+                c2: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0xcee5cb98b15c2db4,
+                        0x71591082d23a1d51,
+                        0xd76230e944a17ca4,
+                        0xd19e3dd3549dd5b6,
+                        0xa972dc1701fa66e3,
+                        0x12e31f2dd6bde7d6,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0xad2acb98b1732d9d,
+                        0x2cfd10dd06961d64,
+                        0x7396b86c6ef24e8,
+                        0xbd76e2fdb1bfc820,
+                        0x6afea7f6de94d0d5,
+                        0x10994b0c5744c040,
+                    ]),
+                },
             },
-            c1: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0x46f9cb98b162d858,
-                    0xbe9109cf7aa1d57,
-                    0xc791bc55fece41d2,
-                    0xf84c57704e385ec2,
-                    0xcb49c1d9c010e60f,
-                    0xacdb8e158bfe348,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0x8aefcb98b15f8306,
-                    0x3ea1108fe4f21d54,
-                    0xcf79f69fa1b7df3b,
-                    0xe4f54aa1d16b1a3c,
-                    0xba5e4ef86105a679,
-                    0xed86c0797bee5cf,
-                ]),
+            c1: Fp6 {
+                c0: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0x47f9cb98b1b82d58,
+                        0x5fe911eba3aa1d9d,
+                        0x96bf1b5f4dd81db3,
+                        0x8100d27cc9259f5b,
+                        0xafa20b9674640eab,
+                        0x9bbcea7d8d9497d,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0x303cb98b1662daa,
+                        0xd93110aa0a621d5a,
+                        0xbfa9820c5be4a468,
+                        0xba3643ecb05a348,
+                        0xdc3534bb1f1c25a6,
+                        0x6c305bb19c0e1c1,
+                    ]),
+                },
+                c1: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0x46f9cb98b162d858,
+                        0xbe9109cf7aa1d57,
+                        0xc791bc55fece41d2,
+                        0xf84c57704e385ec2,
+                        0xcb49c1d9c010e60f,
+                        0xacdb8e158bfe3c8,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0x8aefcb98b15f8306,
+                        0x3ea1108fe4f21d54,
+                        0xcf79f69fa1b7df3b,
+                        0xe4f54aa1d16b1a3c,
+                        0xba5e4ef86105a679,
+                        0xed86c0797bee5cf,
+                    ]),
+                },
+                c2: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0xcee5cb98b15c2db4,
+                        0x71591082d23a1d51,
+                        0xd76230e944a17ca4,
+                        0xd19e3dd3549dd5b6,
+                        0xa972dc1701fa66e3,
+                        0x12e31f2dd6bde7d6,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0xad2acb98b1732d9d,
+                        0x2cfd10dd06961d64,
+                        0x7396b86c6ef24e8,
+                        0xbd76e2fdb1bfc820,
+                        0x6afea7f6de94d0d5,
+                        0x10994b0c5744c040,
+                    ]),
+                },
             },
-            c2: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0xcee5cb98b15c2db4,
-                    0x71591082d23a1d51,
-                    0xd76230e944a17ca4,
-                    0xd19e3dd3549dd5b6,
-                    0xa972dc1701fa66e3,
-                    0x12e31f2dd6bde7d6,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0xad2acb98b1732d9d,
-                    0x2cfd10dd06961d64,
-                    0x7396b86c6ef24e8,
-                    0xbd76e2fdb1bfc820,
-                    0x6afea7f6de94d0d5,
-                    0x10994b0c5744c040,
-                ]),
-            },
-        },
-        c1: Fp6 {
-            c0: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0x47f9cb98b1b82d58,
-                    0x5fe911eba3aa1d9d,
-                    0x96bf1b5f4dd21db3,
-                    0x8100d27cc9259f5b,
-                    0xafa20b9674640eab,
-                    0x9bbcea7d8d9497d,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0x303cb98b1662daa,
-                    0xd93110aa0a621d5a,
-                    0xbfa9820c5be4a468,
-                    0xba3643ecb05a348,
-                    0xdc3534bb1f1c25a6,
-                    0x6c305bb19c0e1c1,
-                ]),
-            },
-            c1: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0x46f9cb98b162d858,
-                    0xbe9109cf7aa1d57,
-                    0xc791bc55fece41d2,
-                    0xf84c57704e385ec2,
-                    0xcb49c1d9c010e60f,
-                    0xacdb8e158bfe3c8,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0x8aefcb98b15f8306,
-                    0x3ea1108fe4f21d54,
-                    0xcf79f69fa117df3b,
-                    0xe4f54aa1d16b1a3c,
-                    0xba5e4ef86105a679,
-                    0xed86c0797bee5cf,
-                ]),
-            },
-            c2: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0xcee5cb98b15c2db4,
-                    0x71591082d23a1d51,
-                    0xd76230e944a17ca4,
-                    0xd19e3dd3549dd5b6,
-                    0xa972dc1701fa66e3,
-                    0x12e31f2dd6bde7d6,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0xad2acb98b1732d9d,
-                    0x2cfd10dd06961d64,
-                    0x7396b86c6ef24e8,
-                    0xbd76e2fdb1bfc820,
-                    0x6afea7f6de94d0d5,
-                    0x10994b0c5744c040,
-                ]),
-            },
-        },
-    };
+        };
 
-    let c = Fp12 {
-        c0: Fp6 {
-            c0: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0x47f9cb9871b82d58,
-                    0x5fe911eba3aa1d9d,
-                    0x96bf1b5f4dd81db3,
-                    0x8100d27cc9259f5b,
-                    0xafa20b9674640eab,
-                    0x9bbcea7d8d9497d,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0x303cb98b1662daa,
-                    0xd93110aa0a621d5a,
-                    0xbfa9820c5be4a468,
-                    0xba3643ecb05a348,
-                    0xdc3534bb1f1c25a6,
-                    0x6c305bb19c0e1c1,
-                ]),
+        let b = Fp12 {
+            c0: Fp6 {
+                c0: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0x47f9cb98b1b82d58,
+                        0x5fe911eba3aa1d9d,
+                        0x96bf1b5f4dd81db3,
+                        0x8100d272c9259f5b,
+                        0xafa20b9674640eab,
+                        0x9bbcea7d8d9497d,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0x303cb98b1662daa,
+                        0xd93110aa0a621d5a,
+                        0xbfa9820c5be4a468,
+                        0xba3643ecb05a348,
+                        0xdc3534bb1f1c25a6,
+                        0x6c305bb19c0e1c1,
+                    ]),
+                },
+                c1: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0x46f9cb98b162d858,
+                        0xbe9109cf7aa1d57,
+                        0xc791bc55fece41d2,
+                        0xf84c57704e385ec2,
+                        0xcb49c1d9c010e60f,
+                        0xacdb8e158bfe348,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0x8aefcb98b15f8306,
+                        0x3ea1108fe4f21d54,
+                        0xcf79f69fa1b7df3b,
+                        0xe4f54aa1d16b1a3c,
+                        0xba5e4ef86105a679,
+                        0xed86c0797bee5cf,
+                    ]),
+                },
+                c2: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0xcee5cb98b15c2db4,
+                        0x71591082d23a1d51,
+                        0xd76230e944a17ca4,
+                        0xd19e3dd3549dd5b6,
+                        0xa972dc1701fa66e3,
+                        0x12e31f2dd6bde7d6,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0xad2acb98b1732d9d,
+                        0x2cfd10dd06961d64,
+                        0x7396b86c6ef24e8,
+                        0xbd76e2fdb1bfc820,
+                        0x6afea7f6de94d0d5,
+                        0x10994b0c5744c040,
+                    ]),
+                },
             },
-            c1: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0x46f9cb98b162d858,
-                    0xbe9109cf7aa1d57,
-                    0x7791bc55fece41d2,
-                    0xf84c57704e385ec2,
-                    0xcb49c1d9c010e60f,
-                    0xacdb8e158bfe3c8,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0x8aefcb98b15f8306,
-                    0x3ea1108fe4f21d54,
-                    0xcf79f69fa1b7df3b,
-                    0xe4f54aa1d16b133c,
-                    0xba5e4ef86105a679,
-                    0xed86c0797bee5cf,
-                ]),
+            c1: Fp6 {
+                c0: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0x47f9cb98b1b82d58,
+                        0x5fe911eba3aa1d9d,
+                        0x96bf1b5f4dd21db3,
+                        0x8100d27cc9259f5b,
+                        0xafa20b9674640eab,
+                        0x9bbcea7d8d9497d,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0x303cb98b1662daa,
+                        0xd93110aa0a621d5a,
+                        0xbfa9820c5be4a468,
+                        0xba3643ecb05a348,
+                        0xdc3534bb1f1c25a6,
+                        0x6c305bb19c0e1c1,
+                    ]),
+                },
+                c1: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0x46f9cb98b162d858,
+                        0xbe9109cf7aa1d57,
+                        0xc791bc55fece41d2,
+                        0xf84c57704e385ec2,
+                        0xcb49c1d9c010e60f,
+                        0xacdb8e158bfe3c8,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0x8aefcb98b15f8306,
+                        0x3ea1108fe4f21d54,
+                        0xcf79f69fa117df3b,
+                        0xe4f54aa1d16b1a3c,
+                        0xba5e4ef86105a679,
+                        0xed86c0797bee5cf,
+                    ]),
+                },
+                c2: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0xcee5cb98b15c2db4,
+                        0x71591082d23a1d51,
+                        0xd76230e944a17ca4,
+                        0xd19e3dd3549dd5b6,
+                        0xa972dc1701fa66e3,
+                        0x12e31f2dd6bde7d6,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0xad2acb98b1732d9d,
+                        0x2cfd10dd06961d64,
+                        0x7396b86c6ef24e8,
+                        0xbd76e2fdb1bfc820,
+                        0x6afea7f6de94d0d5,
+                        0x10994b0c5744c040,
+                    ]),
+                },
             },
-            c2: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0xcee5cb98b15c2db4,
-                    0x71591082d23a1d51,
-                    0xd76240e944a17ca4,
-                    0xd19e3dd3549dd5b6,
-                    0xa972dc1701fa66e3,
-                    0x12e31f2dd6bde7d6,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0xad2acb98b1732d9d,
-                    0x2cfd10dd06961d64,
-                    0x7396b86c6ef24e8,
-                    0xbd76e2fdb1bfc820,
-                    0x6afea7f6de94d0d5,
-                    0x10994b0c1744c040,
-                ]),
-            },
-        },
-        c1: Fp6 {
-            c0: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0x47f9cb98b1b82d58,
-                    0x5fe911eba3aa1d9d,
-                    0x96bf1b5f4dd81db3,
-                    0x8100d27cc9259f5b,
-                    0xafa20b9674640eab,
-                    0x9bbcea7d8d9497d,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0x303cb98b1662daa,
-                    0xd93110aa0a621d5a,
-                    0xbfa9820c5be4a468,
-                    0xba3643ecb05a348,
-                    0xdc3534bb1f1c25a6,
-                    0x6c305bb19c0e1c1,
-                ]),
-            },
-            c1: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0x46f9cb98b162d858,
-                    0xbe9109cf7aa1d57,
-                    0xc791bc55fece41d2,
-                    0xf84c57704e385ec2,
-                    0xcb49c1d3c010e60f,
-                    0xacdb8e158bfe3c8,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0x8aefcb98b15f8306,
-                    0x3ea1108fe4f21d54,
-                    0xcf79f69fa1b7df3b,
-                    0xe4f54aa1d16b1a3c,
-                    0xba5e4ef86105a679,
-                    0xed86c0797bee5cf,
-                ]),
-            },
-            c2: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0xcee5cb98b15c2db4,
-                    0x71591082d23a1d51,
-                    0xd76230e944a17ca4,
-                    0xd19e3dd3549dd5b6,
-                    0xa972dc1701fa66e3,
-                    0x12e31f2dd6bde7d6,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0xad2acb98b1732d9d,
-                    0x2cfd10dd06961d64,
-                    0x7396b86c6ef24e8,
-                    0xbd76e2fdb1bfc820,
-                    0x6afea7f6de94d0d5,
-                    0x10994b0c57441040,
-                ]),
-            },
-        },
-    };
+        };
 
-    // because a and b and c are similar to each other and
-    // I was lazy, this is just some arbitrary way to make
-    // them a little more different
-    let a = &a.square().invert().unwrap().square() + &c;
-    let b = &b.square().invert().unwrap().square() + &a;
-    let c = &c.square().invert().unwrap().square() + &b;
+        let c = Fp12 {
+            c0: Fp6 {
+                c0: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0x47f9cb9871b82d58,
+                        0x5fe911eba3aa1d9d,
+                        0x96bf1b5f4dd81db3,
+                        0x8100d27cc9259f5b,
+                        0xafa20b9674640eab,
+                        0x9bbcea7d8d9497d,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0x303cb98b1662daa,
+                        0xd93110aa0a621d5a,
+                        0xbfa9820c5be4a468,
+                        0xba3643ecb05a348,
+                        0xdc3534bb1f1c25a6,
+                        0x6c305bb19c0e1c1,
+                    ]),
+                },
+                c1: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0x46f9cb98b162d858,
+                        0xbe9109cf7aa1d57,
+                        0x7791bc55fece41d2,
+                        0xf84c57704e385ec2,
+                        0xcb49c1d9c010e60f,
+                        0xacdb8e158bfe3c8,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0x8aefcb98b15f8306,
+                        0x3ea1108fe4f21d54,
+                        0xcf79f69fa1b7df3b,
+                        0xe4f54aa1d16b133c,
+                        0xba5e4ef86105a679,
+                        0xed86c0797bee5cf,
+                    ]),
+                },
+                c2: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0xcee5cb98b15c2db4,
+                        0x71591082d23a1d51,
+                        0xd76240e944a17ca4,
+                        0xd19e3dd3549dd5b6,
+                        0xa972dc1701fa66e3,
+                        0x12e31f2dd6bde7d6,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0xad2acb98b1732d9d,
+                        0x2cfd10dd06961d64,
+                        0x7396b86c6ef24e8,
+                        0xbd76e2fdb1bfc820,
+                        0x6afea7f6de94d0d5,
+                        0x10994b0c1744c040,
+                    ]),
+                },
+            },
+            c1: Fp6 {
+                c0: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0x47f9cb98b1b82d58,
+                        0x5fe911eba3aa1d9d,
+                        0x96bf1b5f4dd81db3,
+                        0x8100d27cc9259f5b,
+                        0xafa20b9674640eab,
+                        0x9bbcea7d8d9497d,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0x303cb98b1662daa,
+                        0xd93110aa0a621d5a,
+                        0xbfa9820c5be4a468,
+                        0xba3643ecb05a348,
+                        0xdc3534bb1f1c25a6,
+                        0x6c305bb19c0e1c1,
+                    ]),
+                },
+                c1: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0x46f9cb98b162d858,
+                        0xbe9109cf7aa1d57,
+                        0xc791bc55fece41d2,
+                        0xf84c57704e385ec2,
+                        0xcb49c1d3c010e60f,
+                        0xacdb8e158bfe3c8,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0x8aefcb98b15f8306,
+                        0x3ea1108fe4f21d54,
+                        0xcf79f69fa1b7df3b,
+                        0xe4f54aa1d16b1a3c,
+                        0xba5e4ef86105a679,
+                        0xed86c0797bee5cf,
+                    ]),
+                },
+                c2: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0xcee5cb98b15c2db4,
+                        0x71591082d23a1d51,
+                        0xd76230e944a17ca4,
+                        0xd19e3dd3549dd5b6,
+                        0xa972dc1701fa66e3,
+                        0x12e31f2dd6bde7d6,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0xad2acb98b1732d9d,
+                        0x2cfd10dd06961d64,
+                        0x7396b86c6ef24e8,
+                        0xbd76e2fdb1bfc820,
+                        0x6afea7f6de94d0d5,
+                        0x10994b0c57441040,
+                    ]),
+                },
+            },
+        };
 
-    assert_eq!(a.square(), &a * &a);
-    assert_eq!(b.square(), &b * &b);
-    assert_eq!(c.square(), &c * &c);
+        // because a and b and c are similar to each other and
+        // I was lazy, this is just some arbitrary way to make
+        // them a little more different
+        let a = &a.square().invert().unwrap().square() + &c;
+        let b = &b.square().invert().unwrap().square() + &a;
+        let c = &c.square().invert().unwrap().square() + &b;
 
-    assert_eq!(
-        (a + b) * c.square(),
-        &(&(&c * &c) * &a) + &(&(&c * &c) * &b)
-    );
+        assert_eq!(a.square(), &a * &a);
+        assert_eq!(b.square(), &b * &b);
+        assert_eq!(c.square(), &c * &c);
 
-    assert_eq!(
-        &a.invert().unwrap() * &b.invert().unwrap(),
-        (&a * &b).invert().unwrap()
-    );
-    assert_eq!(&a.invert().unwrap() * &a, Fp12::one());
+        assert_eq!(
+            (a + b) * c.square(),
+            &(&(&c * &c) * &a) + &(&(&c * &c) * &b)
+        );
 
-    assert!(a != a.frobenius_map());
-    assert_eq!(
-        a,
-        a.frobenius_map()
-            .frobenius_map()
-            .frobenius_map()
-            .frobenius_map()
-            .frobenius_map()
-            .frobenius_map()
-            .frobenius_map()
-            .frobenius_map()
-            .frobenius_map()
-            .frobenius_map()
-            .frobenius_map()
-            .frobenius_map()
-    );
+        assert_eq!(
+            &a.invert().unwrap() * &b.invert().unwrap(),
+            (&a * &b).invert().unwrap()
+        );
+        assert_eq!(&a.invert().unwrap() * &a, Fp12::one());
+
+        assert!(a != a.frobenius_map());
+        assert_eq!(
+            a,
+            a.frobenius_map()
+                .frobenius_map()
+                .frobenius_map()
+                .frobenius_map()
+                .frobenius_map()
+                .frobenius_map()
+                .frobenius_map()
+                .frobenius_map()
+                .frobenius_map()
+                .frobenius_map()
+                .frobenius_map()
+                .frobenius_map()
+        );
+    }
 }

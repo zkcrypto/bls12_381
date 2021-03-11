@@ -743,122 +743,126 @@ fn addition_step(r: &mut G2Projective, q: &G2Affine) -> (Fp2, Fp2, Fp2) {
     (t10, t1, t9)
 }
 
-#[test]
-fn test_bilinearity() {
-    use crate::BlsScalar;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_bilinearity() {
+        use crate::BlsScalar;
 
-    let a = BlsScalar::from_raw([1, 2, 3, 4]).invert().unwrap().square();
-    let b = BlsScalar::from_raw([5, 6, 7, 8]).invert().unwrap().square();
-    let c = a * b;
+        let a = BlsScalar::from_raw([1, 2, 3, 4]).invert().unwrap().square();
+        let b = BlsScalar::from_raw([5, 6, 7, 8]).invert().unwrap().square();
+        let c = a * b;
 
-    let g = G1Affine::from(G1Affine::generator() * a);
-    let h = G2Affine::from(G2Affine::generator() * b);
-    let p = pairing(&g, &h);
+        let g = G1Affine::from(G1Affine::generator() * a);
+        let h = G2Affine::from(G2Affine::generator() * b);
+        let p = pairing(&g, &h);
 
-    assert!(p != Gt::identity());
+        assert!(p != Gt::identity());
 
-    let expected = G1Affine::from(G1Affine::generator() * c);
+        let expected = G1Affine::from(G1Affine::generator() * c);
 
-    assert_eq!(p, pairing(&expected, &G2Affine::generator()));
-    assert_eq!(
-        p,
-        pairing(&G1Affine::generator(), &G2Affine::generator()) * c
-    );
-}
+        assert_eq!(p, pairing(&expected, &G2Affine::generator()));
+        assert_eq!(
+            p,
+            pairing(&G1Affine::generator(), &G2Affine::generator()) * c
+        );
+    }
 
-#[test]
-fn test_unitary() {
-    let g = G1Affine::generator();
-    let h = G2Affine::generator();
-    let p = -pairing(&g, &h);
-    let q = pairing(&g, &-h);
-    let r = pairing(&-g, &h);
+    #[test]
+    fn test_unitary() {
+        let g = G1Affine::generator();
+        let h = G2Affine::generator();
+        let p = -pairing(&g, &h);
+        let q = pairing(&g, &-h);
+        let r = pairing(&-g, &h);
 
-    assert_eq!(p, q);
-    assert_eq!(q, r);
-}
+        assert_eq!(p, q);
+        assert_eq!(q, r);
+    }
 
-#[cfg(feature = "alloc")]
-#[test]
-fn test_multi_miller_loop() {
-    let a1 = G1Affine::generator();
-    let b1 = G2Affine::generator();
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_multi_miller_loop() {
+        let a1 = G1Affine::generator();
+        let b1 = G2Affine::generator();
 
-    let a2 = G1Affine::from(
-        G1Affine::generator() * BlsScalar::from_raw([1, 2, 3, 4]).invert().unwrap().square(),
-    );
-    let b2 = G2Affine::from(
-        G2Affine::generator() * BlsScalar::from_raw([4, 2, 2, 4]).invert().unwrap().square(),
-    );
+        let a2 = G1Affine::from(
+            G1Affine::generator() * BlsScalar::from_raw([1, 2, 3, 4]).invert().unwrap().square(),
+        );
+        let b2 = G2Affine::from(
+            G2Affine::generator() * BlsScalar::from_raw([4, 2, 2, 4]).invert().unwrap().square(),
+        );
 
-    let a3 = G1Affine::identity();
-    let b3 = G2Affine::from(
-        G2Affine::generator() * BlsScalar::from_raw([9, 2, 2, 4]).invert().unwrap().square(),
-    );
+        let a3 = G1Affine::identity();
+        let b3 = G2Affine::from(
+            G2Affine::generator() * BlsScalar::from_raw([9, 2, 2, 4]).invert().unwrap().square(),
+        );
 
-    let a4 = G1Affine::from(
-        G1Affine::generator() * BlsScalar::from_raw([5, 5, 5, 5]).invert().unwrap().square(),
-    );
-    let b4 = G2Affine::identity();
+        let a4 = G1Affine::from(
+            G1Affine::generator() * BlsScalar::from_raw([5, 5, 5, 5]).invert().unwrap().square(),
+        );
+        let b4 = G2Affine::identity();
 
-    let a5 = G1Affine::from(
-        G1Affine::generator()
-            * BlsScalar::from_raw([323, 32, 3, 1])
-                .invert()
-                .unwrap()
-                .square(),
-    );
-    let b5 = G2Affine::from(
-        G2Affine::generator()
-            * BlsScalar::from_raw([4, 2, 2, 9099])
-                .invert()
-                .unwrap()
-                .square(),
-    );
+        let a5 = G1Affine::from(
+            G1Affine::generator()
+                * BlsScalar::from_raw([323, 32, 3, 1])
+                    .invert()
+                    .unwrap()
+                    .square(),
+        );
+        let b5 = G2Affine::from(
+            G2Affine::generator()
+                * BlsScalar::from_raw([4, 2, 2, 9099])
+                    .invert()
+                    .unwrap()
+                    .square(),
+        );
 
-    let b1_prepared = G2Prepared::from(b1);
-    let b2_prepared = G2Prepared::from(b2);
-    let b3_prepared = G2Prepared::from(b3);
-    let b4_prepared = G2Prepared::from(b4);
-    let b5_prepared = G2Prepared::from(b5);
+        let b1_prepared = G2Prepared::from(b1);
+        let b2_prepared = G2Prepared::from(b2);
+        let b3_prepared = G2Prepared::from(b3);
+        let b4_prepared = G2Prepared::from(b4);
+        let b5_prepared = G2Prepared::from(b5);
 
-    let expected = pairing(&a1, &b1)
-        + pairing(&a2, &b2)
-        + pairing(&a3, &b3)
-        + pairing(&a4, &b4)
-        + pairing(&a5, &b5);
+        let expected = pairing(&a1, &b1)
+            + pairing(&a2, &b2)
+            + pairing(&a3, &b3)
+            + pairing(&a4, &b4)
+            + pairing(&a5, &b5);
 
-    let test = multi_miller_loop(&[
-        (&a1, &b1_prepared),
-        (&a2, &b2_prepared),
-        (&a3, &b3_prepared),
-        (&a4, &b4_prepared),
-        (&a5, &b5_prepared),
-    ])
-    .final_exponentiation();
+        let test = multi_miller_loop(&[
+            (&a1, &b1_prepared),
+            (&a2, &b2_prepared),
+            (&a3, &b3_prepared),
+            (&a4, &b4_prepared),
+            (&a5, &b5_prepared),
+        ])
+        .final_exponentiation();
 
-    assert_eq!(expected, test);
-}
+        assert_eq!(expected, test);
+    }
 
-#[test]
-#[cfg(feature = "serde_req")]
-fn g2_prepared_serde_roundtrip() {
-    use bincode;
+    #[test]
+    #[cfg(feature = "serde_req")]
+    fn g2_prepared_serde_roundtrip() {
+        use bincode;
 
-    let g2_prepared = G2Prepared::from(G2Affine::generator());
-    let ser = bincode::serialize(&g2_prepared).unwrap();
-    let deser: G2Prepared = bincode::deserialize(&ser).unwrap();
+        let g2_prepared = G2Prepared::from(G2Affine::generator());
+        let ser = bincode::serialize(&g2_prepared).unwrap();
+        let deser: G2Prepared = bincode::deserialize(&ser).unwrap();
 
-    assert_eq!(g2_prepared.coeffs, deser.coeffs);
-    assert_eq!(g2_prepared.infinity.unwrap_u8(), deser.infinity.unwrap_u8())
-}
+        assert_eq!(g2_prepared.coeffs, deser.coeffs);
+        assert_eq!(g2_prepared.infinity.unwrap_u8(), deser.infinity.unwrap_u8())
+    }
 
-#[test]
-fn g2_prepared_bytes_unchecked() {
-    let g2_prepared = G2Prepared::from(G2Affine::generator());
-    let bytes = g2_prepared.to_raw_bytes();
+    #[test]
+    fn g2_prepared_bytes_unchecked() {
+        let g2_prepared = G2Prepared::from(G2Affine::generator());
+        let bytes = g2_prepared.to_raw_bytes();
 
-    let g2_prepared_p = unsafe { G2Prepared::from_slice_unchecked(&bytes) };
+        let g2_prepared_p = unsafe { G2Prepared::from_slice_unchecked(&bytes) };
 
-    assert_eq!(g2_prepared.coeffs, g2_prepared_p.coeffs);
+        assert_eq!(g2_prepared.coeffs, g2_prepared_p.coeffs);
+    }
 }

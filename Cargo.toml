@@ -15,7 +15,7 @@ exclude = [".github/workflows/ci.yml",
 ]
 
 [dependencies]
-byteorder = {version = "1.3.4", default-features = false}
+byteorder = {version = "1.0", default-features = false, optional = true}
 rayon = {version = "1.3", optional = true}
 serde = {version = "1", optional = true}
 rand_core = {version = "0.6", default-features = false}
@@ -29,7 +29,6 @@ rustdoc-args = [ "--html-in-header", "katex-header.html" ]
 [dev-dependencies]
 criterion = "0.2.11"
 bincode = "1"
-rand = "0.7"
 
 [[bench]]
 name = "groups"
@@ -37,17 +36,25 @@ harness = false
 required-features = ["groups"]
 
 [dependencies.subtle]
-version = "2.3.0"
+version = "2.0"
 default-features = false
 
 [features]
-default = ["groups", "pairings", "alloc", "std", "endo"]
+default = ["std"]
+std = [
+    "alloc", 
+    "parallel", 
+    "groups", 
+    "pairings", 
+    "endo", 
+    "byteorder", 
+    "rand_core/std"
+]
 groups = []
 parallel = ["rayon"]
 pairings = ["groups"]
 alloc = []
 nightly = ["subtle/nightly"]
-std = ["alloc", "parallel"]
 canon = ["canonical", "canonical_derive"]
 serde_req = ["serde", "std"]
 endo = []

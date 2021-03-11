@@ -428,469 +428,425 @@ impl Fp2 {
     }
 }
 
-#[test]
-fn test_conditional_selection() {
-    let a = Fp2 {
-        c0: Fp::from_raw_unchecked([1, 2, 3, 4, 5, 6]),
-        c1: Fp::from_raw_unchecked([7, 8, 9, 10, 11, 12]),
-    };
-    let b = Fp2 {
-        c0: Fp::from_raw_unchecked([13, 14, 15, 16, 17, 18]),
-        c1: Fp::from_raw_unchecked([19, 20, 21, 22, 23, 24]),
-    };
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    assert_eq!(
-        ConditionallySelectable::conditional_select(&a, &b, Choice::from(0u8)),
-        a
-    );
-    assert_eq!(
-        ConditionallySelectable::conditional_select(&a, &b, Choice::from(1u8)),
-        b
-    );
-}
+    #[test]
+    fn test_conditional_selection() {
+        let a = Fp2 {
+            c0: Fp::from_raw_unchecked([1, 2, 3, 4, 5, 6]),
+            c1: Fp::from_raw_unchecked([7, 8, 9, 10, 11, 12]),
+        };
+        let b = Fp2 {
+            c0: Fp::from_raw_unchecked([13, 14, 15, 16, 17, 18]),
+            c1: Fp::from_raw_unchecked([19, 20, 21, 22, 23, 24]),
+        };
 
-#[test]
-fn test_equality() {
-    fn is_equal(a: &Fp2, b: &Fp2) -> bool {
-        let eq = a == b;
-        let ct_eq = a.ct_eq(&b);
-
-        assert_eq!(eq, ct_eq.unwrap_u8() == 1);
-
-        eq
+        assert_eq!(
+            ConditionallySelectable::conditional_select(&a, &b, Choice::from(0u8)),
+            a
+        );
+        assert_eq!(
+            ConditionallySelectable::conditional_select(&a, &b, Choice::from(1u8)),
+            b
+        );
     }
 
-    assert!(is_equal(
-        &Fp2 {
-            c0: Fp::from_raw_unchecked([1, 2, 3, 4, 5, 6]),
-            c1: Fp::from_raw_unchecked([7, 8, 9, 10, 11, 12]),
-        },
-        &Fp2 {
-            c0: Fp::from_raw_unchecked([1, 2, 3, 4, 5, 6]),
-            c1: Fp::from_raw_unchecked([7, 8, 9, 10, 11, 12]),
+    #[test]
+    fn test_equality() {
+        fn is_equal(a: &Fp2, b: &Fp2) -> bool {
+            let eq = a == b;
+            let ct_eq = a.ct_eq(&b);
+
+            assert_eq!(eq, ct_eq.unwrap_u8() == 1);
+
+            eq
         }
-    ));
 
-    assert!(!is_equal(
-        &Fp2 {
-            c0: Fp::from_raw_unchecked([2, 2, 3, 4, 5, 6]),
-            c1: Fp::from_raw_unchecked([7, 8, 9, 10, 11, 12]),
-        },
-        &Fp2 {
-            c0: Fp::from_raw_unchecked([1, 2, 3, 4, 5, 6]),
-            c1: Fp::from_raw_unchecked([7, 8, 9, 10, 11, 12]),
-        }
-    ));
+        assert!(is_equal(
+            &Fp2 {
+                c0: Fp::from_raw_unchecked([1, 2, 3, 4, 5, 6]),
+                c1: Fp::from_raw_unchecked([7, 8, 9, 10, 11, 12]),
+            },
+            &Fp2 {
+                c0: Fp::from_raw_unchecked([1, 2, 3, 4, 5, 6]),
+                c1: Fp::from_raw_unchecked([7, 8, 9, 10, 11, 12]),
+            }
+        ));
 
-    assert!(!is_equal(
-        &Fp2 {
-            c0: Fp::from_raw_unchecked([1, 2, 3, 4, 5, 6]),
-            c1: Fp::from_raw_unchecked([2, 8, 9, 10, 11, 12]),
-        },
-        &Fp2 {
-            c0: Fp::from_raw_unchecked([1, 2, 3, 4, 5, 6]),
-            c1: Fp::from_raw_unchecked([7, 8, 9, 10, 11, 12]),
-        }
-    ));
-}
+        assert!(!is_equal(
+            &Fp2 {
+                c0: Fp::from_raw_unchecked([2, 2, 3, 4, 5, 6]),
+                c1: Fp::from_raw_unchecked([7, 8, 9, 10, 11, 12]),
+            },
+            &Fp2 {
+                c0: Fp::from_raw_unchecked([1, 2, 3, 4, 5, 6]),
+                c1: Fp::from_raw_unchecked([7, 8, 9, 10, 11, 12]),
+            }
+        ));
 
-#[test]
-fn test_squaring() {
-    let a = Fp2 {
-        c0: Fp::from_raw_unchecked([
-            0xc9a2183163ee70d4,
-            0xbc3770a7196b5c91,
-            0xa247f8c1304c5f44,
-            0xb01fc2a3726c80b5,
-            0xe1d293e5bbd919c9,
-            0x4b78e80020ef2ca,
-        ]),
-        c1: Fp::from_raw_unchecked([
-            0x952ea4460462618f,
-            0x238d5eddf025c62f,
-            0xf6c94b012ea92e72,
-            0x3ce24eac1c93808,
-            0x55950f945da483c,
-            0x10a768d0df4eabc,
-        ]),
-    };
-    let b = Fp2 {
-        c0: Fp::from_raw_unchecked([
-            0xa1e09175a4d2c1fe,
-            0x8b33acfc204eff12,
-            0xe24415a11b456e42,
-            0x61d996b1b6ee1936,
-            0x1164dbe8667c853c,
-            0x788557acc7d9c79,
-        ]),
-        c1: Fp::from_raw_unchecked([
-            0xda6a87cc6f48fa36,
-            0xfc7b488277c1903,
-            0x9445ac4adc448187,
-            0x2616d5bc9099209,
-            0xdbed46772db58d48,
-            0x11b94d5076c7b7b1,
-        ]),
-    };
+        assert!(!is_equal(
+            &Fp2 {
+                c0: Fp::from_raw_unchecked([1, 2, 3, 4, 5, 6]),
+                c1: Fp::from_raw_unchecked([2, 8, 9, 10, 11, 12]),
+            },
+            &Fp2 {
+                c0: Fp::from_raw_unchecked([1, 2, 3, 4, 5, 6]),
+                c1: Fp::from_raw_unchecked([7, 8, 9, 10, 11, 12]),
+            }
+        ));
+    }
 
-    assert_eq!(a.square(), b);
-}
-
-#[test]
-fn test_multiplication() {
-    let a = Fp2 {
-        c0: Fp::from_raw_unchecked([
-            0xc9a2183163ee70d4,
-            0xbc3770a7196b5c91,
-            0xa247f8c1304c5f44,
-            0xb01fc2a3726c80b5,
-            0xe1d293e5bbd919c9,
-            0x4b78e80020ef2ca,
-        ]),
-        c1: Fp::from_raw_unchecked([
-            0x952ea4460462618f,
-            0x238d5eddf025c62f,
-            0xf6c94b012ea92e72,
-            0x3ce24eac1c93808,
-            0x55950f945da483c,
-            0x10a768d0df4eabc,
-        ]),
-    };
-    let b = Fp2 {
-        c0: Fp::from_raw_unchecked([
-            0xa1e09175a4d2c1fe,
-            0x8b33acfc204eff12,
-            0xe24415a11b456e42,
-            0x61d996b1b6ee1936,
-            0x1164dbe8667c853c,
-            0x788557acc7d9c79,
-        ]),
-        c1: Fp::from_raw_unchecked([
-            0xda6a87cc6f48fa36,
-            0xfc7b488277c1903,
-            0x9445ac4adc448187,
-            0x2616d5bc9099209,
-            0xdbed46772db58d48,
-            0x11b94d5076c7b7b1,
-        ]),
-    };
-    let c = Fp2 {
-        c0: Fp::from_raw_unchecked([
-            0xf597483e27b4e0f7,
-            0x610fbadf811dae5f,
-            0x8432af917714327a,
-            0x6a9a9603cf88f09e,
-            0xf05a7bf8bad0eb01,
-            0x9549131c003ffae,
-        ]),
-        c1: Fp::from_raw_unchecked([
-            0x963b02d0f93d37cd,
-            0xc95ce1cdb30a73d4,
-            0x308725fa3126f9b8,
-            0x56da3c167fab0d50,
-            0x6b5086b5f4b6d6af,
-            0x9c39f062f18e9f2,
-        ]),
-    };
-
-    assert_eq!(a * b, c);
-}
-
-#[test]
-fn test_addition() {
-    let a = Fp2 {
-        c0: Fp::from_raw_unchecked([
-            0xc9a2183163ee70d4,
-            0xbc3770a7196b5c91,
-            0xa247f8c1304c5f44,
-            0xb01fc2a3726c80b5,
-            0xe1d293e5bbd919c9,
-            0x4b78e80020ef2ca,
-        ]),
-        c1: Fp::from_raw_unchecked([
-            0x952ea4460462618f,
-            0x238d5eddf025c62f,
-            0xf6c94b012ea92e72,
-            0x3ce24eac1c93808,
-            0x55950f945da483c,
-            0x10a768d0df4eabc,
-        ]),
-    };
-    let b = Fp2 {
-        c0: Fp::from_raw_unchecked([
-            0xa1e09175a4d2c1fe,
-            0x8b33acfc204eff12,
-            0xe24415a11b456e42,
-            0x61d996b1b6ee1936,
-            0x1164dbe8667c853c,
-            0x788557acc7d9c79,
-        ]),
-        c1: Fp::from_raw_unchecked([
-            0xda6a87cc6f48fa36,
-            0xfc7b488277c1903,
-            0x9445ac4adc448187,
-            0x2616d5bc9099209,
-            0xdbed46772db58d48,
-            0x11b94d5076c7b7b1,
-        ]),
-    };
-    let c = Fp2 {
-        c0: Fp::from_raw_unchecked([
-            0x6b82a9a708c132d2,
-            0x476b1da339ba5ba4,
-            0x848c0e624b91cd87,
-            0x11f95955295a99ec,
-            0xf3376fce22559f06,
-            0xc3fe3face8c8f43,
-        ]),
-        c1: Fp::from_raw_unchecked([
-            0x6f992c1273ab5bc5,
-            0x3355136617a1df33,
-            0x8b0ef74c0aedaff9,
-            0x62f92468ad2ca12,
-            0xe1469770738fd584,
-            0x12c3c3dd84bca26d,
-        ]),
-    };
-
-    assert_eq!(a + b, c);
-}
-
-#[test]
-fn test_subtraction() {
-    let a = Fp2 {
-        c0: Fp::from_raw_unchecked([
-            0xc9a2183163ee70d4,
-            0xbc3770a7196b5c91,
-            0xa247f8c1304c5f44,
-            0xb01fc2a3726c80b5,
-            0xe1d293e5bbd919c9,
-            0x4b78e80020ef2ca,
-        ]),
-        c1: Fp::from_raw_unchecked([
-            0x952ea4460462618f,
-            0x238d5eddf025c62f,
-            0xf6c94b012ea92e72,
-            0x3ce24eac1c93808,
-            0x55950f945da483c,
-            0x10a768d0df4eabc,
-        ]),
-    };
-    let b = Fp2 {
-        c0: Fp::from_raw_unchecked([
-            0xa1e09175a4d2c1fe,
-            0x8b33acfc204eff12,
-            0xe24415a11b456e42,
-            0x61d996b1b6ee1936,
-            0x1164dbe8667c853c,
-            0x788557acc7d9c79,
-        ]),
-        c1: Fp::from_raw_unchecked([
-            0xda6a87cc6f48fa36,
-            0xfc7b488277c1903,
-            0x9445ac4adc448187,
-            0x2616d5bc9099209,
-            0xdbed46772db58d48,
-            0x11b94d5076c7b7b1,
-        ]),
-    };
-    let c = Fp2 {
-        c0: Fp::from_raw_unchecked([
-            0xe1c086bbbf1b5981,
-            0x4fafc3a9aa705d7e,
-            0x2734b5c10bb7e726,
-            0xb2bd7776af037a3e,
-            0x1b895fb398a84164,
-            0x17304aef6f113cec,
-        ]),
-        c1: Fp::from_raw_unchecked([
-            0x74c31c7995191204,
-            0x3271aa5479fdad2b,
-            0xc9b471574915a30f,
-            0x65e40313ec44b8be,
-            0x7487b2385b7067cb,
-            0x9523b26d0ad19a4,
-        ]),
-    };
-
-    assert_eq!(a - b, c);
-}
-
-#[test]
-fn test_negation() {
-    let a = Fp2 {
-        c0: Fp::from_raw_unchecked([
-            0xc9a2183163ee70d4,
-            0xbc3770a7196b5c91,
-            0xa247f8c1304c5f44,
-            0xb01fc2a3726c80b5,
-            0xe1d293e5bbd919c9,
-            0x4b78e80020ef2ca,
-        ]),
-        c1: Fp::from_raw_unchecked([
-            0x952ea4460462618f,
-            0x238d5eddf025c62f,
-            0xf6c94b012ea92e72,
-            0x3ce24eac1c93808,
-            0x55950f945da483c,
-            0x10a768d0df4eabc,
-        ]),
-    };
-    let b = Fp2 {
-        c0: Fp::from_raw_unchecked([
-            0xf05ce7ce9c1139d7,
-            0x62748f5797e8a36d,
-            0xc4e8d9dfc66496df,
-            0xb45788e181189209,
-            0x694913d08772930d,
-            0x1549836a3770f3cf,
-        ]),
-        c1: Fp::from_raw_unchecked([
-            0x24d05bb9fb9d491c,
-            0xfb1ea120c12e39d0,
-            0x7067879fc807c7b1,
-            0x60a9269a31bbdab6,
-            0x45c256bcfd71649b,
-            0x18f69b5d2b8afbde,
-        ]),
-    };
-
-    assert_eq!(-a, b);
-}
-
-#[test]
-fn test_sqrt() {
-    // a = 1488924004771393321054797166853618474668089414631333405711627789629391903630694737978065425271543178763948256226639*u + 784063022264861764559335808165825052288770346101304131934508881646553551234697082295473567906267937225174620141295
-    let a = Fp2 {
-        c0: Fp::from_raw_unchecked([
-            0x2beed14627d7f9e9,
-            0xb6614e06660e5dce,
-            0x6c4cc7c2f91d42c,
-            0x996d78474b7a63cc,
-            0xebaebc4c820d574e,
-            0x18865e12d93fd845,
-        ]),
-        c1: Fp::from_raw_unchecked([
-            0x7d828664baf4f566,
-            0xd17e663996ec7339,
-            0x679ead55cb4078d0,
-            0xfe3b2260e001ec28,
-            0x305993d043d91b68,
-            0x626f03c0489b72d,
-        ]),
-    };
-
-    assert_eq!(a.sqrt().unwrap().square(), a);
-
-    // b = 5, which is a generator of the p - 1 order
-    // multiplicative subgroup
-    let b = Fp2 {
-        c0: Fp::from_raw_unchecked([
-            0x6631000000105545,
-            0x211400400eec000d,
-            0x3fa7af30c820e316,
-            0xc52a8b8d6387695d,
-            0x9fb4e61d1e83eac5,
-            0x5cb922afe84dc7,
-        ]),
-        c1: Fp::zero(),
-    };
-
-    assert_eq!(b.sqrt().unwrap().square(), b);
-
-    // c = 25, which is a generator of the (p - 1) / 2 order
-    // multiplicative subgroup
-    let c = Fp2 {
-        c0: Fp::from_raw_unchecked([
-            0x44f600000051ffae,
-            0x86b8014199480043,
-            0xd7159952f1f3794a,
-            0x755d6e3dfe1ffc12,
-            0xd36cd6db5547e905,
-            0x2f8c8ecbf1867bb,
-        ]),
-        c1: Fp::zero(),
-    };
-
-    assert_eq!(c.sqrt().unwrap().square(), c);
-
-    // 2155129644831861015726826462986972654175647013268275306775721078997042729172900466542651176384766902407257452753362*u + 2796889544896299244102912275102369318775038861758288697415827248356648685135290329705805931514906495247464901062529
-    // is nonsquare.
-    assert!(bool::from(
-        Fp2 {
+    #[test]
+    fn test_squaring() {
+        let a = Fp2 {
             c0: Fp::from_raw_unchecked([
-                0xc5fa1bc8fd00d7f6,
-                0x3830ca454606003b,
-                0x2b287f1104b102da,
-                0xa7fb30f28230f23e,
-                0x339cdb9ee953dbf0,
-                0xd78ec51d989fc57
+                0xc9a2183163ee70d4,
+                0xbc3770a7196b5c91,
+                0xa247f8c1304c5f44,
+                0xb01fc2a3726c80b5,
+                0xe1d293e5bbd919c9,
+                0x4b78e80020ef2ca,
             ]),
             c1: Fp::from_raw_unchecked([
-                0x27ec4898cf87f613,
-                0x9de1394e1abb05a5,
-                0x947f85dc170fc14,
-                0x586fbc696b6114b7,
-                0x2b3475a4077d7169,
-                0x13e1c895cc4b6c22
-            ])
-        }
-        .sqrt()
-        .is_none()
-    ));
-}
+                0x952ea4460462618f,
+                0x238d5eddf025c62f,
+                0xf6c94b012ea92e72,
+                0x3ce24eac1c93808,
+                0x55950f945da483c,
+                0x10a768d0df4eabc,
+            ]),
+        };
+        let b = Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xa1e09175a4d2c1fe,
+                0x8b33acfc204eff12,
+                0xe24415a11b456e42,
+                0x61d996b1b6ee1936,
+                0x1164dbe8667c853c,
+                0x788557acc7d9c79,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0xda6a87cc6f48fa36,
+                0xfc7b488277c1903,
+                0x9445ac4adc448187,
+                0x2616d5bc9099209,
+                0xdbed46772db58d48,
+                0x11b94d5076c7b7b1,
+            ]),
+        };
 
-#[test]
-fn test_inversion() {
-    let a = Fp2 {
-        c0: Fp::from_raw_unchecked([
-            0x1128ecad67549455,
-            0x9e7a1cff3a4ea1a8,
-            0xeb208d51e08bcf27,
-            0xe98ad40811f5fc2b,
-            0x736c3a59232d511d,
-            0x10acd42d29cfcbb6,
-        ]),
-        c1: Fp::from_raw_unchecked([
-            0xd328e37cc2f58d41,
-            0x948df0858a605869,
-            0x6032f9d56f93a573,
-            0x2be483ef3fffdc87,
-            0x30ef61f88f483c2a,
-            0x1333f55a35725be0,
-        ]),
-    };
+        assert_eq!(a.square(), b);
+    }
 
-    let b = Fp2 {
-        c0: Fp::from_raw_unchecked([
-            0x581a1333d4f48a6,
-            0x58242f6ef0748500,
-            0x292c955349e6da5,
-            0xba37721ddd95fcd0,
-            0x70d167903aa5dfc5,
-            0x11895e118b58a9d5,
-        ]),
-        c1: Fp::from_raw_unchecked([
-            0xeda09d2d7a85d17,
-            0x8808e137a7d1a2cf,
-            0x43ae2625c1ff21db,
-            0xf85ac9fdf7a74c64,
-            0x8fccdda5b8da9738,
-            0x8e84f0cb32cd17d,
-        ]),
-    };
+    #[test]
+    fn test_multiplication() {
+        let a = Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xc9a2183163ee70d4,
+                0xbc3770a7196b5c91,
+                0xa247f8c1304c5f44,
+                0xb01fc2a3726c80b5,
+                0xe1d293e5bbd919c9,
+                0x4b78e80020ef2ca,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x952ea4460462618f,
+                0x238d5eddf025c62f,
+                0xf6c94b012ea92e72,
+                0x3ce24eac1c93808,
+                0x55950f945da483c,
+                0x10a768d0df4eabc,
+            ]),
+        };
+        let b = Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xa1e09175a4d2c1fe,
+                0x8b33acfc204eff12,
+                0xe24415a11b456e42,
+                0x61d996b1b6ee1936,
+                0x1164dbe8667c853c,
+                0x788557acc7d9c79,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0xda6a87cc6f48fa36,
+                0xfc7b488277c1903,
+                0x9445ac4adc448187,
+                0x2616d5bc9099209,
+                0xdbed46772db58d48,
+                0x11b94d5076c7b7b1,
+            ]),
+        };
+        let c = Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xf597483e27b4e0f7,
+                0x610fbadf811dae5f,
+                0x8432af917714327a,
+                0x6a9a9603cf88f09e,
+                0xf05a7bf8bad0eb01,
+                0x9549131c003ffae,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x963b02d0f93d37cd,
+                0xc95ce1cdb30a73d4,
+                0x308725fa3126f9b8,
+                0x56da3c167fab0d50,
+                0x6b5086b5f4b6d6af,
+                0x9c39f062f18e9f2,
+            ]),
+        };
 
-    assert_eq!(a.invert().unwrap(), b);
+        assert_eq!(a * b, c);
+    }
 
-    assert!(Fp2::zero().invert().is_none().unwrap_u8() == 1);
-}
+    #[test]
+    fn test_addition() {
+        let a = Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xc9a2183163ee70d4,
+                0xbc3770a7196b5c91,
+                0xa247f8c1304c5f44,
+                0xb01fc2a3726c80b5,
+                0xe1d293e5bbd919c9,
+                0x4b78e80020ef2ca,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x952ea4460462618f,
+                0x238d5eddf025c62f,
+                0xf6c94b012ea92e72,
+                0x3ce24eac1c93808,
+                0x55950f945da483c,
+                0x10a768d0df4eabc,
+            ]),
+        };
+        let b = Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xa1e09175a4d2c1fe,
+                0x8b33acfc204eff12,
+                0xe24415a11b456e42,
+                0x61d996b1b6ee1936,
+                0x1164dbe8667c853c,
+                0x788557acc7d9c79,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0xda6a87cc6f48fa36,
+                0xfc7b488277c1903,
+                0x9445ac4adc448187,
+                0x2616d5bc9099209,
+                0xdbed46772db58d48,
+                0x11b94d5076c7b7b1,
+            ]),
+        };
+        let c = Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0x6b82a9a708c132d2,
+                0x476b1da339ba5ba4,
+                0x848c0e624b91cd87,
+                0x11f95955295a99ec,
+                0xf3376fce22559f06,
+                0xc3fe3face8c8f43,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x6f992c1273ab5bc5,
+                0x3355136617a1df33,
+                0x8b0ef74c0aedaff9,
+                0x62f92468ad2ca12,
+                0xe1469770738fd584,
+                0x12c3c3dd84bca26d,
+            ]),
+        };
 
-#[test]
-fn test_lexicographic_largest() {
-    assert!(!bool::from(Fp2::zero().lexicographically_largest()));
-    assert!(!bool::from(Fp2::one().lexicographically_largest()));
-    assert!(bool::from(
-        Fp2 {
+        assert_eq!(a + b, c);
+    }
+
+    #[test]
+    fn test_subtraction() {
+        let a = Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xc9a2183163ee70d4,
+                0xbc3770a7196b5c91,
+                0xa247f8c1304c5f44,
+                0xb01fc2a3726c80b5,
+                0xe1d293e5bbd919c9,
+                0x4b78e80020ef2ca,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x952ea4460462618f,
+                0x238d5eddf025c62f,
+                0xf6c94b012ea92e72,
+                0x3ce24eac1c93808,
+                0x55950f945da483c,
+                0x10a768d0df4eabc,
+            ]),
+        };
+        let b = Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xa1e09175a4d2c1fe,
+                0x8b33acfc204eff12,
+                0xe24415a11b456e42,
+                0x61d996b1b6ee1936,
+                0x1164dbe8667c853c,
+                0x788557acc7d9c79,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0xda6a87cc6f48fa36,
+                0xfc7b488277c1903,
+                0x9445ac4adc448187,
+                0x2616d5bc9099209,
+                0xdbed46772db58d48,
+                0x11b94d5076c7b7b1,
+            ]),
+        };
+        let c = Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xe1c086bbbf1b5981,
+                0x4fafc3a9aa705d7e,
+                0x2734b5c10bb7e726,
+                0xb2bd7776af037a3e,
+                0x1b895fb398a84164,
+                0x17304aef6f113cec,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x74c31c7995191204,
+                0x3271aa5479fdad2b,
+                0xc9b471574915a30f,
+                0x65e40313ec44b8be,
+                0x7487b2385b7067cb,
+                0x9523b26d0ad19a4,
+            ]),
+        };
+
+        assert_eq!(a - b, c);
+    }
+
+    #[test]
+    fn test_negation() {
+        let a = Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xc9a2183163ee70d4,
+                0xbc3770a7196b5c91,
+                0xa247f8c1304c5f44,
+                0xb01fc2a3726c80b5,
+                0xe1d293e5bbd919c9,
+                0x4b78e80020ef2ca,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x952ea4460462618f,
+                0x238d5eddf025c62f,
+                0xf6c94b012ea92e72,
+                0x3ce24eac1c93808,
+                0x55950f945da483c,
+                0x10a768d0df4eabc,
+            ]),
+        };
+        let b = Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xf05ce7ce9c1139d7,
+                0x62748f5797e8a36d,
+                0xc4e8d9dfc66496df,
+                0xb45788e181189209,
+                0x694913d08772930d,
+                0x1549836a3770f3cf,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x24d05bb9fb9d491c,
+                0xfb1ea120c12e39d0,
+                0x7067879fc807c7b1,
+                0x60a9269a31bbdab6,
+                0x45c256bcfd71649b,
+                0x18f69b5d2b8afbde,
+            ]),
+        };
+
+        assert_eq!(-a, b);
+    }
+
+    #[test]
+    fn test_sqrt() {
+        // a = 1488924004771393321054797166853618474668089414631333405711627789629391903630694737978065425271543178763948256226639*u + 784063022264861764559335808165825052288770346101304131934508881646553551234697082295473567906267937225174620141295
+        let a = Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0x2beed14627d7f9e9,
+                0xb6614e06660e5dce,
+                0x6c4cc7c2f91d42c,
+                0x996d78474b7a63cc,
+                0xebaebc4c820d574e,
+                0x18865e12d93fd845,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x7d828664baf4f566,
+                0xd17e663996ec7339,
+                0x679ead55cb4078d0,
+                0xfe3b2260e001ec28,
+                0x305993d043d91b68,
+                0x626f03c0489b72d,
+            ]),
+        };
+
+        assert_eq!(a.sqrt().unwrap().square(), a);
+
+        // b = 5, which is a generator of the p - 1 order
+        // multiplicative subgroup
+        let b = Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0x6631000000105545,
+                0x211400400eec000d,
+                0x3fa7af30c820e316,
+                0xc52a8b8d6387695d,
+                0x9fb4e61d1e83eac5,
+                0x5cb922afe84dc7,
+            ]),
+            c1: Fp::zero(),
+        };
+
+        assert_eq!(b.sqrt().unwrap().square(), b);
+
+        // c = 25, which is a generator of the (p - 1) / 2 order
+        // multiplicative subgroup
+        let c = Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0x44f600000051ffae,
+                0x86b8014199480043,
+                0xd7159952f1f3794a,
+                0x755d6e3dfe1ffc12,
+                0xd36cd6db5547e905,
+                0x2f8c8ecbf1867bb,
+            ]),
+            c1: Fp::zero(),
+        };
+
+        assert_eq!(c.sqrt().unwrap().square(), c);
+
+        // 2155129644831861015726826462986972654175647013268275306775721078997042729172900466542651176384766902407257452753362*u + 2796889544896299244102912275102369318775038861758288697415827248356648685135290329705805931514906495247464901062529
+        // is nonsquare.
+        assert!(bool::from(
+            Fp2 {
+                c0: Fp::from_raw_unchecked([
+                    0xc5fa1bc8fd00d7f6,
+                    0x3830ca454606003b,
+                    0x2b287f1104b102da,
+                    0xa7fb30f28230f23e,
+                    0x339cdb9ee953dbf0,
+                    0xd78ec51d989fc57
+                ]),
+                c1: Fp::from_raw_unchecked([
+                    0x27ec4898cf87f613,
+                    0x9de1394e1abb05a5,
+                    0x947f85dc170fc14,
+                    0x586fbc696b6114b7,
+                    0x2b3475a4077d7169,
+                    0x13e1c895cc4b6c22
+                ])
+            }
+            .sqrt()
+            .is_none()
+        ));
+    }
+
+    #[test]
+    fn test_inversion() {
+        let a = Fp2 {
             c0: Fp::from_raw_unchecked([
                 0x1128ecad67549455,
                 0x9e7a1cff3a4ea1a8,
@@ -907,72 +863,121 @@ fn test_lexicographic_largest() {
                 0x30ef61f88f483c2a,
                 0x1333f55a35725be0,
             ]),
-        }
-        .lexicographically_largest()
-    ));
-    assert!(!bool::from(
-        Fp2 {
-            c0: -Fp::from_raw_unchecked([
-                0x1128ecad67549455,
-                0x9e7a1cff3a4ea1a8,
-                0xeb208d51e08bcf27,
-                0xe98ad40811f5fc2b,
-                0x736c3a59232d511d,
-                0x10acd42d29cfcbb6,
-            ]),
-            c1: -Fp::from_raw_unchecked([
-                0xd328e37cc2f58d41,
-                0x948df0858a605869,
-                0x6032f9d56f93a573,
-                0x2be483ef3fffdc87,
-                0x30ef61f88f483c2a,
-                0x1333f55a35725be0,
-            ]),
-        }
-        .lexicographically_largest()
-    ));
-    assert!(!bool::from(
-        Fp2 {
+        };
+
+        let b = Fp2 {
             c0: Fp::from_raw_unchecked([
-                0x1128ecad67549455,
-                0x9e7a1cff3a4ea1a8,
-                0xeb208d51e08bcf27,
-                0xe98ad40811f5fc2b,
-                0x736c3a59232d511d,
-                0x10acd42d29cfcbb6,
+                0x581a1333d4f48a6,
+                0x58242f6ef0748500,
+                0x292c955349e6da5,
+                0xba37721ddd95fcd0,
+                0x70d167903aa5dfc5,
+                0x11895e118b58a9d5,
             ]),
-            c1: Fp::zero(),
-        }
-        .lexicographically_largest()
-    ));
-    assert!(bool::from(
-        Fp2 {
-            c0: -Fp::from_raw_unchecked([
-                0x1128ecad67549455,
-                0x9e7a1cff3a4ea1a8,
-                0xeb208d51e08bcf27,
-                0xe98ad40811f5fc2b,
-                0x736c3a59232d511d,
-                0x10acd42d29cfcbb6,
+            c1: Fp::from_raw_unchecked([
+                0xeda09d2d7a85d17,
+                0x8808e137a7d1a2cf,
+                0x43ae2625c1ff21db,
+                0xf85ac9fdf7a74c64,
+                0x8fccdda5b8da9738,
+                0x8e84f0cb32cd17d,
             ]),
-            c1: Fp::zero(),
-        }
-        .lexicographically_largest()
-    ));
-}
+        };
 
-#[test]
-#[cfg(feature = "serde_req")]
-fn fp2_serde_roundtrip() {
-    use bincode;
+        assert_eq!(a.invert().unwrap(), b);
 
-    let fp2 = Fp2 {
-        c0: Fp::one(),
-        c1: Fp::one(),
-    };
+        assert!(Fp2::zero().invert().is_none().unwrap_u8() == 1);
+    }
 
-    let ser = bincode::serialize(&fp2).unwrap();
-    let deser: Fp2 = bincode::deserialize(&ser).unwrap();
+    #[test]
+    fn test_lexicographic_largest() {
+        assert!(!bool::from(Fp2::zero().lexicographically_largest()));
+        assert!(!bool::from(Fp2::one().lexicographically_largest()));
+        assert!(bool::from(
+            Fp2 {
+                c0: Fp::from_raw_unchecked([
+                    0x1128ecad67549455,
+                    0x9e7a1cff3a4ea1a8,
+                    0xeb208d51e08bcf27,
+                    0xe98ad40811f5fc2b,
+                    0x736c3a59232d511d,
+                    0x10acd42d29cfcbb6,
+                ]),
+                c1: Fp::from_raw_unchecked([
+                    0xd328e37cc2f58d41,
+                    0x948df0858a605869,
+                    0x6032f9d56f93a573,
+                    0x2be483ef3fffdc87,
+                    0x30ef61f88f483c2a,
+                    0x1333f55a35725be0,
+                ]),
+            }
+            .lexicographically_largest()
+        ));
+        assert!(!bool::from(
+            Fp2 {
+                c0: -Fp::from_raw_unchecked([
+                    0x1128ecad67549455,
+                    0x9e7a1cff3a4ea1a8,
+                    0xeb208d51e08bcf27,
+                    0xe98ad40811f5fc2b,
+                    0x736c3a59232d511d,
+                    0x10acd42d29cfcbb6,
+                ]),
+                c1: -Fp::from_raw_unchecked([
+                    0xd328e37cc2f58d41,
+                    0x948df0858a605869,
+                    0x6032f9d56f93a573,
+                    0x2be483ef3fffdc87,
+                    0x30ef61f88f483c2a,
+                    0x1333f55a35725be0,
+                ]),
+            }
+            .lexicographically_largest()
+        ));
+        assert!(!bool::from(
+            Fp2 {
+                c0: Fp::from_raw_unchecked([
+                    0x1128ecad67549455,
+                    0x9e7a1cff3a4ea1a8,
+                    0xeb208d51e08bcf27,
+                    0xe98ad40811f5fc2b,
+                    0x736c3a59232d511d,
+                    0x10acd42d29cfcbb6,
+                ]),
+                c1: Fp::zero(),
+            }
+            .lexicographically_largest()
+        ));
+        assert!(bool::from(
+            Fp2 {
+                c0: -Fp::from_raw_unchecked([
+                    0x1128ecad67549455,
+                    0x9e7a1cff3a4ea1a8,
+                    0xeb208d51e08bcf27,
+                    0xe98ad40811f5fc2b,
+                    0x736c3a59232d511d,
+                    0x10acd42d29cfcbb6,
+                ]),
+                c1: Fp::zero(),
+            }
+            .lexicographically_largest()
+        ));
+    }
 
-    assert_eq!(fp2, deser);
+    #[test]
+    #[cfg(feature = "serde_req")]
+    fn fp2_serde_roundtrip() {
+        use bincode;
+
+        let fp2 = Fp2 {
+            c0: Fp::one(),
+            c1: Fp::one(),
+        };
+
+        let ser = bincode::serialize(&fp2).unwrap();
+        let deser: Fp2 = bincode::deserialize(&ser).unwrap();
+
+        assert_eq!(fp2, deser);
+    }
 }
