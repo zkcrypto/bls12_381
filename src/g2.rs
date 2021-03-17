@@ -623,11 +623,6 @@ impl_binops_additive!(G2Projective, G2Projective);
 impl_binops_multiplicative!(G2Projective, Scalar);
 impl_binops_multiplicative_mixed!(G2Affine, Scalar, G2Projective);
 
-#[inline(always)]
-fn mul_by_3b(x: Fp2) -> Fp2 {
-    x * B3
-}
-
 impl G2Projective {
     /// Returns the identity of the group: the point at infinity.
     pub fn identity() -> G2Projective {
@@ -635,6 +630,16 @@ impl G2Projective {
             x: Fp2::zero(),
             y: Fp2::one(),
             z: Fp2::zero(),
+        }
+    }
+
+    /// Multiplies a Fp2 element by the b-coefficient of the curve
+    #[inline(always)]
+    pub fn mul_by_3b(x: Fp2) -> Fp2 {
+        let t = x.mul_by_nonresidue();
+        Fp2 {
+            c0: B3.c0 * t.c0,
+            c1: B3.c1 * t.c1,
         }
     }
 
@@ -692,7 +697,7 @@ impl G2Projective {
         let z3 = z3 + z3;
         let t1 = self.y * self.z;
         let t2 = self.z.square();
-        let t2 = mul_by_3b(t2);
+        let t2 = G2Projective::mul_by_3b(t2);
         let x3 = t2 * z3;
         let y3 = t0 + t2;
         let z3 = t1 * z3;
@@ -738,10 +743,10 @@ impl G2Projective {
         let y3 = x3 - y3;
         let x3 = t0 + t0;
         let t0 = x3 + t0;
-        let t2 = mul_by_3b(t2);
+        let t2 = G2Projective::mul_by_3b(t2);
         let z3 = t1 + t2;
         let t1 = t1 - t2;
-        let y3 = mul_by_3b(y3);
+        let y3 = G2Projective::mul_by_3b(y3);
         let x3 = t4 * y3;
         let t2 = t3 * t1;
         let x3 = t2 - x3;
@@ -776,10 +781,10 @@ impl G2Projective {
         let y3 = y3 + self.x;
         let x3 = t0 + t0;
         let t0 = x3 + t0;
-        let t2 = mul_by_3b(self.z);
+        let t2 = G2Projective::mul_by_3b(self.z);
         let z3 = t1 + t2;
         let t1 = t1 - t2;
-        let y3 = mul_by_3b(y3);
+        let y3 = G2Projective::mul_by_3b(y3);
         let x3 = t4 * y3;
         let t2 = t3 * t1;
         let x3 = t2 - x3;

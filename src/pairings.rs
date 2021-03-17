@@ -675,66 +675,70 @@ fn ell(f: Fp12, coeffs: &(Fp2, Fp2, Fp2), p: &G1Affine) -> Fp12 {
 }
 
 fn doubling_step(r: &mut G2Projective) -> (Fp2, Fp2, Fp2) {
-    // Adaptation of Algorithm 26, https://eprint.iacr.org/2010/354.pdf
-    let tmp0 = r.x.square();
-    let tmp1 = r.y.square();
-    let tmp2 = tmp1.square();
-    let tmp3 = (tmp1 + r.x).square() - tmp0 - tmp2;
-    let tmp3 = tmp3 + tmp3;
-    let tmp4 = tmp0 + tmp0 + tmp0;
-    let tmp6 = r.x + tmp4;
-    let tmp5 = tmp4.square();
-    let zsquared = r.z.square();
-    r.x = tmp5 - tmp3 - tmp3;
-    r.z = (r.z + r.y).square() - tmp1 - zsquared;
-    r.y = (tmp3 - r.x) * tmp4;
-    let tmp2 = tmp2 + tmp2;
-    let tmp2 = tmp2 + tmp2;
-    let tmp2 = tmp2 + tmp2;
-    r.y -= tmp2;
-    let tmp3 = tmp4 * zsquared;
-    let tmp3 = tmp3 + tmp3;
-    let tmp3 = -tmp3;
-    let tmp6 = tmp6.square() - tmp0 - tmp5;
-    let tmp1 = tmp1 + tmp1;
-    let tmp1 = tmp1 + tmp1;
-    let tmp6 = tmp6 - tmp1;
-    let tmp0 = r.z * zsquared;
-    let tmp0 = tmp0 + tmp0;
+    // Adaptation of Section 5 of https://eprint.iacr.org/2009/615.pdf
 
-    (tmp0, tmp3, tmp6)
+    // A = X1^2, B = Y1^2, C = Z1^2
+    let a = r.x.square();
+    let b = r.y.square();
+    let c = r.z.square();
+
+    // D = 3b'C, E = (X1 + Y1)^2 - A - B
+    let d = G2Projective::mul_by_3b(c);
+    let e = (r.x + r.y).square() - (a + b);
+
+    // F = (Y1 + Z1)^2 - B - C, G = 3D
+    let f = r.y * r.z;
+    let f = f + f;
+    let g = d + d + d;
+
+    // X3 = E * (B - G), Y3 = (B + G)^2 - 12D^2, Z3 = 4BF
+    r.x = e * (b - g);
+    let t0 = d + d;
+    let t0 = t0.square();
+    let t0 = t0 + t0 + t0;
+    r.y = (b + g).square() - t0;
+    let t1 = b * f;
+    let t1 = t1 + t1;
+    r.z = t1 + t1;
+
+    // l00 = D - B, l11 = -F, l01 = 3A
+    let l00 = d - b;
+    let l11 = -f;
+    let l01 = a + a + a;
+
+    (l11, l01, l00)
 }
 
 fn addition_step(r: &mut G2Projective, q: &G2Affine) -> (Fp2, Fp2, Fp2) {
-    // Adaptation of Algorithm 27, https://eprint.iacr.org/2010/354.pdf
-    let zsquared = r.z.square();
-    let ysquared = q.y.square();
-    let t0 = zsquared * q.x;
-    let t1 = ((q.y + r.z).square() - ysquared - zsquared) * zsquared;
-    let t2 = t0 - r.x;
-    let t3 = t2.square();
-    let t4 = t3 + t3;
-    let t4 = t4 + t4;
-    let t5 = t4 * t2;
-    let t6 = t1 - r.y - r.y;
-    let t9 = t6 * q.x;
-    let t7 = t4 * r.x;
-    r.x = t6.square() - t5 - t7 - t7;
-    r.z = (r.z + t2).square() - zsquared - t3;
-    let t10 = q.y + r.z;
-    let t8 = (t7 - r.x) * t6;
-    let t0 = r.y * t5;
-    let t0 = t0 + t0;
-    r.y = t8 - t0;
-    let t10 = t10.square() - ysquared;
-    let ztsquared = r.z.square();
-    let t10 = t10 - ztsquared;
-    let t9 = t9 + t9 - t10;
-    let t10 = r.z + r.z;
-    let t6 = -t6;
-    let t1 = t6 + t6;
+    // Adaptation of Section 4.3, https://eprint.iacr.org/2013/722.pdf
 
-    (t10, t1, t9)
+    // A = Y1 - Z1 * Y2
+    let a = r.y - r.z * q.y;
+
+    // B = X1 - Z1 * X2
+    let b = r.x - r.z * q.x;
+
+    // C = A^2, D = B^2, E = B^3, F = E + Z1 * C
+    let c = a.square();
+    let d = b.square();
+    let e = b * d;
+    let f = e + r.z * c;
+
+    // G = X1 * D, H = F - 2 * G
+    let g = r.x * d;
+    let h = f - (g + g);
+
+    // X3 = B * H, Y3 = A * (G - H) - Y1 * E, Z3 = Z1 * E
+    r.x = b * h;
+    r.y = a * (g - h) - r.y * e;
+    r.z = r.z * e;
+
+    // l00 = A * X2 - B * Y2, l11 = B, l01 = -A
+    let l00 = a * q.x - b * q.y;
+    let l01 = -a;
+    let l11 = b;
+
+    (l11, l01, l00)
 }
 
 impl PairingCurveAffine for G1Affine {
