@@ -595,6 +595,19 @@ impl Fp {
 
         Self::montgomery_reduce(t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11)
     }
+
+    /// Returns either 0 or 1 indicating the "sign" of x, where sgn0(x) == 1
+    /// just when x is "negative". (In other words, this function always considers 0 to be positive.)
+    /// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-10#section-4.1
+    #[cfg(feature = "hash_to_curve")]
+    pub(crate) fn sgn0(&self) -> Choice {
+        // Turn into canonical form by computing
+        // (a.R) / R = a
+        let tmp = Fp::montgomery_reduce(
+            self.0[0], self.0[1], self.0[2], self.0[3], self.0[4], self.0[5], 0, 0, 0, 0, 0, 0,
+        );
+        Choice::from((tmp.0[0] & 1) as u8)
+    }
 }
 
 #[test]
@@ -913,4 +926,12 @@ fn test_lexicographic_largest() {
         ])
         .lexicographically_largest()
     ));
+}
+
+#[cfg(feature = "hash_to_curve")]
+#[test]
+fn test_sgn0() {
+    assert_eq!(bool::from(Fp::zero().sgn0()), false);
+    assert_eq!(bool::from(Fp::one().sgn0()), true);
+    assert_eq!(bool::from(Fp::zero().neg().sgn0()), false);
 }

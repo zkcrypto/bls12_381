@@ -419,9 +419,9 @@ impl G1Affine {
 #[cfg_attr(docsrs, doc(cfg(feature = "groups")))]
 #[derive(Copy, Clone, Debug)]
 pub struct G1Projective {
-    x: Fp,
-    y: Fp,
-    z: Fp,
+    pub(crate) x: Fp,
+    pub(crate) y: Fp,
+    pub(crate) z: Fp,
 }
 
 impl Default for G1Projective {

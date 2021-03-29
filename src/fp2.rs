@@ -339,6 +339,34 @@ impl Fp2 {
         }
         res
     }
+
+    /// Vartime exponentiation for larger exponents, only
+    /// used in testing and not exposed through the public API.
+    #[cfg(all(test, feature = "hash_to_curve"))]
+    pub(crate) fn pow_vartime_extended(&self, by: &[u64]) -> Self {
+        let mut res = Self::one();
+        for e in by.iter().rev() {
+            for i in (0..64).rev() {
+                res = res.square();
+
+                if ((*e >> i) & 1) == 1 {
+                    res *= self;
+                }
+            }
+        }
+        res
+    }
+
+    /// Returns either 0 or 1 indicating the "sign" of x, where sgn0(x) == 1
+    /// just when x is "negative". (In other words, this function always considers 0 to be positive.)
+    /// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-10#section-4.1
+    #[cfg(feature = "hash_to_curve")]
+    pub(crate) fn sgn0(&self) -> Choice {
+        let sign_0 = self.c0.sgn0();
+        let zero_0 = self.c0.is_zero();
+        let sign_1 = self.c1.sgn0();
+        sign_0 ^ (zero_0 & sign_1)
+    }
 }
 
 #[test]
@@ -872,4 +900,12 @@ fn test_lexicographic_largest() {
         }
         .lexicographically_largest()
     ));
+}
+
+#[cfg(feature = "hash_to_curve")]
+#[test]
+fn test_sgn0() {
+    assert_eq!(bool::from(Fp2::zero().sgn0()), false);
+    assert_eq!(bool::from(Fp2::one().sgn0()), true);
+    assert_eq!(bool::from(Fp2::zero().neg().sgn0()), false);
 }
