@@ -6,10 +6,13 @@ use core::ops::Add;
 pub(crate) mod chain;
 
 mod expand_msg;
-pub use self::expand_msg::{ExpandMessage, ExpandMsgXmd, ExpandMsgXof, InitExpandMessage};
+pub use self::expand_msg::{
+    ExpandMessage, ExpandMessageState, ExpandMsgXmd, ExpandMsgXof, InitExpandMessage,
+};
 
 mod map_g1;
 mod map_g2;
+mod map_scalar;
 
 use crate::generic_array::{typenum::Unsigned, ArrayLength, GenericArray};
 
@@ -21,7 +24,7 @@ pub trait HashToField {
     type Pt: Copy + Default;
 
     /// Convert output keying material to a field element
-    fn input_okm(okm: &GenericArray<u8, Self::InputLength>) -> Self::Pt;
+    fn from_okm(okm: &GenericArray<u8, Self::InputLength>) -> Self::Pt;
 }
 
 /// Allow conversion from the output of hashed or encoded input into points on the curve
@@ -34,23 +37,20 @@ pub trait MapToCurve: HashToField {
 }
 
 /// Implementation of random oracle maps to the curve
-pub trait HashToCurve<'x, X>
-where
-    X: InitExpandMessage<'x>,
-{
+pub trait HashToCurve<X: ExpandMessage> {
     /// Uniformly random encoding
-    fn hash_to_curve(msg: impl AsRef<[u8]>, dst: &'x [u8]) -> Self;
+    fn hash_to_curve(msg: impl AsRef<[u8]>, dst: &[u8]) -> Self;
 
     /// Non-uniformly random encoding
-    fn encode_to_curve(msg: impl AsRef<[u8]>, dst: &'x [u8]) -> Self;
+    fn encode_to_curve(msg: impl AsRef<[u8]>, dst: &[u8]) -> Self;
 }
 
-impl<'x, F, X> HashToCurve<'x, X> for F
+impl<F, X> HashToCurve<X> for F
 where
     F: MapToCurve + for<'a> Add<&'a Self, Output = Self>,
-    X: InitExpandMessage<'x>,
+    X: ExpandMessage,
 {
-    fn hash_to_curve(message: impl AsRef<[u8]>, dst: &'x [u8]) -> F {
+    fn hash_to_curve(message: impl AsRef<[u8]>, dst: &[u8]) -> F {
         let mut u = [F::Pt::default(); 2];
         hash_to_field::<F, X>(message.as_ref(), dst, &mut u);
         // Note: draft 7 suggested adding the two outputs of map_to_curve_simple_ssw
@@ -61,7 +61,7 @@ where
         (p1 + &p2).clear_h()
     }
 
-    fn encode_to_curve(message: impl AsRef<[u8]>, dst: &'x [u8]) -> F {
+    fn encode_to_curve(message: impl AsRef<[u8]>, dst: &[u8]) -> F {
         let mut u = [F::Pt::default(); 1];
         hash_to_field::<F, X>(message.as_ref(), dst, &mut u);
         let p = F::map_to_curve_simple_ssw(&u[0]);
@@ -70,10 +70,10 @@ where
 }
 
 /// Hash to field for the type `F` using ExpandMessage variant `X`.
-pub fn hash_to_field<'x, F, X>(message: &[u8], dst: &'x [u8], output: &mut [<F as HashToField>::Pt])
+pub fn hash_to_field<F, X>(message: &[u8], dst: &[u8], output: &mut [<F as HashToField>::Pt])
 where
     F: HashToField,
-    X: InitExpandMessage<'x>,
+    X: ExpandMessage,
 {
     let len_per_elm = F::InputLength::to_usize();
     let len_in_bytes = output.len() * len_per_elm;
@@ -82,6 +82,6 @@ where
     let mut buf = GenericArray::<u8, F::InputLength>::default();
     for idx in 0..output.len() {
         expander.read_into(&mut buf[..]);
-        output[idx] = F::input_okm(&buf);
+        output[idx] = F::from_okm(&buf);
     }
 }

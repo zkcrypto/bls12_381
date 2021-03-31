@@ -504,7 +504,7 @@ impl HashToField for G1Projective {
     type InputLength = U64;
     type Pt = Fp;
 
-    fn input_okm(okm: &GenericArray<u8, U64>) -> Fp {
+    fn from_okm(okm: &GenericArray<u8, U64>) -> Fp {
         const F_2_256: Fp = Fp::from_raw_unchecked([
             0x075b_3cd7_c5ce_820f,
             0x3ec6_ba62_1c3e_db0b,

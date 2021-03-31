@@ -371,11 +371,11 @@ impl HashToField for G2Projective {
     type InputLength = U128;
     type Pt = Fp2;
 
-    fn input_okm(okm: &GenericArray<u8, U128>) -> Fp2 {
-        let c0 = <G1Projective as HashToField>::input_okm(GenericArray::<u8, U64>::from_slice(
+    fn from_okm(okm: &GenericArray<u8, U128>) -> Fp2 {
+        let c0 = <G1Projective as HashToField>::from_okm(GenericArray::<u8, U64>::from_slice(
             &okm[..64],
         ));
-        let c1 = <G1Projective as HashToField>::input_okm(GenericArray::<u8, U64>::from_slice(
+        let c1 = <G1Projective as HashToField>::from_okm(GenericArray::<u8, U64>::from_slice(
             &okm[64..],
         ));
         Fp2 { c0, c1 }
