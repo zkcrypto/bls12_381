@@ -905,7 +905,192 @@ fn test_lexicographic_largest() {
 #[cfg(feature = "hash_to_curve")]
 #[test]
 fn test_sgn0() {
+    use super::fp::P_M1_OVER2;
+
     assert_eq!(bool::from(Fp2::zero().sgn0()), false);
     assert_eq!(bool::from(Fp2::one().sgn0()), true);
-    assert_eq!(bool::from(Fp2::zero().neg().sgn0()), false);
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: P_M1_OVER2,
+                c1: Fp::zero()
+            }
+            .sgn0()
+        ),
+        true
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: P_M1_OVER2,
+                c1: Fp::one()
+            }
+            .sgn0()
+        ),
+        true
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: Fp::zero(),
+                c1: P_M1_OVER2,
+            }
+            .sgn0()
+        ),
+        true
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: Fp::one(),
+                c1: P_M1_OVER2,
+            }
+            .sgn0()
+        ),
+        true
+    );
+
+    let p_p1_over2 = P_M1_OVER2 + Fp::one();
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: p_p1_over2,
+                c1: Fp::zero()
+            }
+            .sgn0()
+        ),
+        false
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: p_p1_over2,
+                c1: Fp::one()
+            }
+            .sgn0()
+        ),
+        false
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: Fp::zero(),
+                c1: p_p1_over2,
+            }
+            .sgn0()
+        ),
+        false
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: Fp::one(),
+                c1: p_p1_over2,
+            }
+            .sgn0()
+        ),
+        true
+    );
+
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: P_M1_OVER2,
+                c1: -Fp::one()
+            }
+            .sgn0()
+        ),
+        true
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: p_p1_over2,
+                c1: -Fp::one()
+            }
+            .sgn0()
+        ),
+        false
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: Fp::zero(),
+                c1: -Fp::one()
+            }
+            .sgn0()
+        ),
+        false
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: P_M1_OVER2,
+                c1: p_p1_over2
+            }
+            .sgn0()
+        ),
+        true
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: p_p1_over2,
+                c1: P_M1_OVER2
+            }
+            .sgn0()
+        ),
+        false
+    );
+
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: -Fp::one(),
+                c1: P_M1_OVER2,
+            }
+            .sgn0()
+        ),
+        false
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: -Fp::one(),
+                c1: p_p1_over2,
+            }
+            .sgn0()
+        ),
+        false
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: -Fp::one(),
+                c1: Fp::zero(),
+            }
+            .sgn0()
+        ),
+        false
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: p_p1_over2,
+                c1: P_M1_OVER2,
+            }
+            .sgn0()
+        ),
+        false
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: P_M1_OVER2,
+                c1: p_p1_over2,
+            }
+            .sgn0()
+        ),
+        true
+    );
 }
