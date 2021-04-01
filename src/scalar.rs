@@ -644,6 +644,13 @@ impl Scalar {
 
         Scalar([d0 & mask, d1 & mask, d2 & mask, d3 & mask])
     }
+
+    /// A convenience function to generate a random scalar value
+    pub fn random(mut rng: impl RngCore) -> Self {
+        let mut buf = [0; 64];
+        rng.fill_bytes(&mut buf);
+        Self::from_bytes_wide(&buf)
+    }
 }
 
 impl From<Scalar> for [u8; 32] {
@@ -1228,5 +1235,14 @@ fn test_double() {
         0x1824_b159_acc5_0562,
     ]);
 
+    assert_eq!(a.double(), a + a);
+}
+
+#[test]
+fn test_random() {
+    use rand::{SeedableRng, rngs::StdRng};
+    let rng = StdRng::seed_from_u64(42);
+    let a = Scalar::random(rng);
+    println!("a: {:?}", a);
     assert_eq!(a.double(), a + a);
 }
