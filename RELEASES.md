@@ -1,3 +1,9 @@
+# Unreleased
+
+## Changed
+- Bumped dependencies to `ff 0.10`, `group 0.10`, `pairing 0.20`.
+- MSRV is now 1.51.0.
+
 # 0.4.0
 
 ## Changed
