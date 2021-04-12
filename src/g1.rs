@@ -894,689 +894,694 @@ impl G1Projective {
     }
 }
 
-#[test]
-fn test_is_on_curve() {
-    assert!(bool::from(G1Affine::identity().is_on_curve()));
-    assert!(bool::from(G1Affine::generator().is_on_curve()));
-    assert!(bool::from(G1Projective::identity().is_on_curve()));
-    assert!(bool::from(G1Projective::generator().is_on_curve()));
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    let z = Fp::from_raw_unchecked([
-        0xba7afa1f9a6fe250,
-        0xfa0f5b595eafe731,
-        0x3bdc477694c306e7,
-        0x2149be4b3949fa24,
-        0x64aa6e0649b2078c,
-        0x12b108ac33643c3e,
-    ]);
+    #[test]
+    fn test_is_on_curve() {
+        assert!(bool::from(G1Affine::identity().is_on_curve()));
+        assert!(bool::from(G1Affine::generator().is_on_curve()));
+        assert!(bool::from(G1Projective::identity().is_on_curve()));
+        assert!(bool::from(G1Projective::generator().is_on_curve()));
 
-    let gen = G1Affine::generator();
-    let mut test = G1Projective {
-        x: gen.x * (z.square()),
-        y: gen.y * (z.square() * z),
-        z,
-    };
-
-    assert!(bool::from(test.is_on_curve()));
-
-    test.x = z;
-    assert!(!bool::from(test.is_on_curve()));
-}
-
-#[test]
-fn test_affine_point_equality() {
-    let a = G1Affine::generator();
-    let b = G1Affine::identity();
-
-    assert!(a == a);
-    assert!(b == b);
-    assert!(a != b);
-    assert!(b != a);
-}
-
-#[test]
-fn test_projective_point_equality() {
-    let a = G1Projective::generator();
-    let b = G1Projective::identity();
-
-    assert!(a == a);
-    assert!(b == b);
-    assert!(a != b);
-    assert!(b != a);
-
-    let z = Fp::from_raw_unchecked([
-        0xba7afa1f9a6fe250,
-        0xfa0f5b595eafe731,
-        0x3bdc477694c306e7,
-        0x2149be4b3949fa24,
-        0x64aa6e0649b2078c,
-        0x12b108ac33643c3e,
-    ]);
-
-    let mut c = G1Projective {
-        x: a.x * (z.square()),
-        y: a.y * (z.square() * z),
-        z,
-    };
-    assert!(bool::from(c.is_on_curve()));
-
-    assert!(a == c);
-    assert!(b != c);
-    assert!(c == a);
-    assert!(c != b);
-
-    c.y = -c.y;
-    assert!(bool::from(c.is_on_curve()));
-
-    assert!(a != c);
-    assert!(b != c);
-    assert!(c != a);
-    assert!(c != b);
-
-    c.y = -c.y;
-    c.x = z;
-    assert!(!bool::from(c.is_on_curve()));
-    assert!(a != b);
-    assert!(a != c);
-    assert!(b != c);
-}
-
-#[test]
-fn test_conditionally_select_affine() {
-    let a = G1Affine::generator();
-    let b = G1Affine::identity();
-
-    assert_eq!(G1Affine::conditional_select(&a, &b, Choice::from(0u8)), a);
-    assert_eq!(G1Affine::conditional_select(&a, &b, Choice::from(1u8)), b);
-}
-
-#[test]
-fn test_conditionally_select_projective() {
-    let a = G1Projective::generator();
-    let b = G1Projective::identity();
-
-    assert_eq!(
-        G1Projective::conditional_select(&a, &b, Choice::from(0u8)),
-        a
-    );
-    assert_eq!(
-        G1Projective::conditional_select(&a, &b, Choice::from(1u8)),
-        b
-    );
-}
-
-#[test]
-fn test_projective_to_affine() {
-    let a = G1Projective::generator();
-    let b = G1Projective::identity();
-
-    assert!(bool::from(G1Affine::from(a).is_on_curve()));
-    assert!(!bool::from(G1Affine::from(a).is_identity()));
-    assert!(bool::from(G1Affine::from(b).is_on_curve()));
-    assert!(bool::from(G1Affine::from(b).is_identity()));
-
-    let z = Fp::from_raw_unchecked([
-        0xba7afa1f9a6fe250,
-        0xfa0f5b595eafe731,
-        0x3bdc477694c306e7,
-        0x2149be4b3949fa24,
-        0x64aa6e0649b2078c,
-        0x12b108ac33643c3e,
-    ]);
-
-    let c = G1Projective {
-        x: a.x * (z.square()),
-        y: a.y * (z.square() * z),
-        z,
-    };
-
-    assert_eq!(G1Affine::from(c), G1Affine::generator());
-}
-
-#[test]
-fn test_affine_to_projective() {
-    let a = G1Affine::generator();
-    let b = G1Affine::identity();
-
-    assert!(bool::from(G1Projective::from(a).is_on_curve()));
-    assert!(!bool::from(G1Projective::from(a).is_identity()));
-    assert!(bool::from(G1Projective::from(b).is_on_curve()));
-    assert!(bool::from(G1Projective::from(b).is_identity()));
-}
-
-#[test]
-fn test_doubling() {
-    {
-        let tmp = G1Projective::identity().double();
-        assert!(bool::from(tmp.is_identity()));
-        assert!(bool::from(tmp.is_on_curve()));
-    }
-    {
-        let tmp = G1Projective::generator().double();
-        assert!(!bool::from(tmp.is_identity()));
-        assert!(bool::from(tmp.is_on_curve()));
-
-        assert_eq!(
-            G1Affine::from(tmp),
-            G1Affine {
-                x: Fp::from_raw_unchecked([
-                    0x53e978ce58a9ba3c,
-                    0x3ea0583c4f3d65f9,
-                    0x4d20bb47f0012960,
-                    0xa54c664ae5b2b5d9,
-                    0x26b552a39d7eb21f,
-                    0x8895d26e68785
-                ]),
-                y: Fp::from_raw_unchecked([
-                    0x70110b3298293940,
-                    0xda33c5393f1f6afc,
-                    0xb86edfd16a5aa785,
-                    0xaec6d1c9e7b1c895,
-                    0x25cfc2b522d11720,
-                    0x6361c83f8d09b15
-                ]),
-                infinity: Choice::from(0u8)
-            }
-        );
-    }
-}
-
-#[test]
-fn test_projective_addition() {
-    {
-        let a = G1Projective::identity();
-        let b = G1Projective::identity();
-        let c = a + b;
-        assert!(bool::from(c.is_identity()));
-        assert!(bool::from(c.is_on_curve()));
-    }
-    {
-        let a = G1Projective::identity();
-        let mut b = G1Projective::generator();
-        {
-            let z = Fp::from_raw_unchecked([
-                0xba7afa1f9a6fe250,
-                0xfa0f5b595eafe731,
-                0x3bdc477694c306e7,
-                0x2149be4b3949fa24,
-                0x64aa6e0649b2078c,
-                0x12b108ac33643c3e,
-            ]);
-
-            b = G1Projective {
-                x: b.x * (z.square()),
-                y: b.y * (z.square() * z),
-                z,
-            };
-        }
-        let c = a + b;
-        assert!(!bool::from(c.is_identity()));
-        assert!(bool::from(c.is_on_curve()));
-        assert!(c == G1Projective::generator());
-    }
-    {
-        let a = G1Projective::identity();
-        let mut b = G1Projective::generator();
-        {
-            let z = Fp::from_raw_unchecked([
-                0xba7afa1f9a6fe250,
-                0xfa0f5b595eafe731,
-                0x3bdc477694c306e7,
-                0x2149be4b3949fa24,
-                0x64aa6e0649b2078c,
-                0x12b108ac33643c3e,
-            ]);
-
-            b = G1Projective {
-                x: b.x * (z.square()),
-                y: b.y * (z.square() * z),
-                z,
-            };
-        }
-        let c = b + a;
-        assert!(!bool::from(c.is_identity()));
-        assert!(bool::from(c.is_on_curve()));
-        assert!(c == G1Projective::generator());
-    }
-    {
-        let a = G1Projective::generator().double().double(); // 4P
-        let b = G1Projective::generator().double(); // 2P
-        let c = a + b;
-
-        let mut d = G1Projective::generator();
-        for _ in 0..5 {
-            d = d + G1Projective::generator();
-        }
-        assert!(!bool::from(c.is_identity()));
-        assert!(bool::from(c.is_on_curve()));
-        assert!(!bool::from(d.is_identity()));
-        assert!(bool::from(d.is_on_curve()));
-        assert_eq!(c, d);
-    }
-
-    // Degenerate case
-    {
-        let beta = Fp::from_raw_unchecked([
-            0xcd03c9e48671f071,
-            0x5dab22461fcda5d2,
-            0x587042afd3851b95,
-            0x8eb60ebe01bacb9e,
-            0x3f97d6e83d050d2,
-            0x18f0206554638741,
+        let z = Fp::from_raw_unchecked([
+            0xba7afa1f9a6fe250,
+            0xfa0f5b595eafe731,
+            0x3bdc477694c306e7,
+            0x2149be4b3949fa24,
+            0x64aa6e0649b2078c,
+            0x12b108ac33643c3e,
         ]);
-        let beta = beta.square();
-        let a = G1Projective::generator().double().double();
-        let b = G1Projective {
-            x: a.x * beta,
-            y: -a.y,
-            z: a.z,
+
+        let gen = G1Affine::generator();
+        let mut test = G1Projective {
+            x: gen.x * (z.square()),
+            y: gen.y * (z.square() * z),
+            z,
         };
-        assert!(bool::from(a.is_on_curve()));
-        assert!(bool::from(b.is_on_curve()));
 
-        let c = a + b;
-        assert_eq!(
-            G1Affine::from(c),
-            G1Affine::from(G1Projective {
-                x: Fp::from_raw_unchecked([
-                    0x29e1e987ef68f2d0,
-                    0xc5f3ec531db03233,
-                    0xacd6c4b6ca19730f,
-                    0x18ad9e827bc2bab7,
-                    0x46e3b2c5785cc7a9,
-                    0x7e571d42d22ddd6
-                ]),
-                y: Fp::from_raw_unchecked([
-                    0x94d117a7e5a539e7,
-                    0x8e17ef673d4b5d22,
-                    0x9d746aaf508a33ea,
-                    0x8c6d883d2516c9a2,
-                    0xbc3b8d5fb0447f7,
-                    0x7bfa4c7210f4f44
-                ]),
-                z: Fp::one()
-            })
-        );
-        assert!(!bool::from(c.is_identity()));
-        assert!(bool::from(c.is_on_curve()));
+        assert!(bool::from(test.is_on_curve()));
+
+        test.x = z;
+        assert!(!bool::from(test.is_on_curve()));
     }
-}
 
-#[test]
-fn test_mixed_addition() {
-    {
-        let a = G1Affine::identity();
+    #[test]
+    fn test_affine_point_equality() {
+        let a = G1Affine::generator();
+        let b = G1Affine::identity();
+
+        assert!(a == a);
+        assert!(b == b);
+        assert!(a != b);
+        assert!(b != a);
+    }
+
+    #[test]
+    fn test_projective_point_equality() {
+        let a = G1Projective::generator();
         let b = G1Projective::identity();
-        let c = a + b;
-        assert!(bool::from(c.is_identity()));
-        assert!(bool::from(c.is_on_curve()));
-    }
-    {
-        let a = G1Affine::identity();
-        let mut b = G1Projective::generator();
-        {
-            let z = Fp::from_raw_unchecked([
-                0xba7afa1f9a6fe250,
-                0xfa0f5b595eafe731,
-                0x3bdc477694c306e7,
-                0x2149be4b3949fa24,
-                0x64aa6e0649b2078c,
-                0x12b108ac33643c3e,
-            ]);
 
-            b = G1Projective {
-                x: b.x * (z.square()),
-                y: b.y * (z.square() * z),
-                z,
-            };
-        }
-        let c = a + b;
-        assert!(!bool::from(c.is_identity()));
-        assert!(bool::from(c.is_on_curve()));
-        assert!(c == G1Projective::generator());
-    }
-    {
-        let a = G1Affine::identity();
-        let mut b = G1Projective::generator();
-        {
-            let z = Fp::from_raw_unchecked([
-                0xba7afa1f9a6fe250,
-                0xfa0f5b595eafe731,
-                0x3bdc477694c306e7,
-                0x2149be4b3949fa24,
-                0x64aa6e0649b2078c,
-                0x12b108ac33643c3e,
-            ]);
+        assert!(a == a);
+        assert!(b == b);
+        assert!(a != b);
+        assert!(b != a);
 
-            b = G1Projective {
-                x: b.x * (z.square()),
-                y: b.y * (z.square() * z),
-                z,
-            };
-        }
-        let c = b + a;
-        assert!(!bool::from(c.is_identity()));
-        assert!(bool::from(c.is_on_curve()));
-        assert!(c == G1Projective::generator());
-    }
-    {
-        let a = G1Projective::generator().double().double(); // 4P
-        let b = G1Projective::generator().double(); // 2P
-        let c = a + b;
-
-        let mut d = G1Projective::generator();
-        for _ in 0..5 {
-            d = d + G1Affine::generator();
-        }
-        assert!(!bool::from(c.is_identity()));
-        assert!(bool::from(c.is_on_curve()));
-        assert!(!bool::from(d.is_identity()));
-        assert!(bool::from(d.is_on_curve()));
-        assert_eq!(c, d);
-    }
-
-    // Degenerate case
-    {
-        let beta = Fp::from_raw_unchecked([
-            0xcd03c9e48671f071,
-            0x5dab22461fcda5d2,
-            0x587042afd3851b95,
-            0x8eb60ebe01bacb9e,
-            0x3f97d6e83d050d2,
-            0x18f0206554638741,
+        let z = Fp::from_raw_unchecked([
+            0xba7afa1f9a6fe250,
+            0xfa0f5b595eafe731,
+            0x3bdc477694c306e7,
+            0x2149be4b3949fa24,
+            0x64aa6e0649b2078c,
+            0x12b108ac33643c3e,
         ]);
-        let beta = beta.square();
-        let a = G1Projective::generator().double().double();
-        let b = G1Projective {
-            x: a.x * beta,
-            y: -a.y,
-            z: a.z,
+
+        let mut c = G1Projective {
+            x: a.x * (z.square()),
+            y: a.y * (z.square() * z),
+            z,
         };
-        let a = G1Affine::from(a);
-        assert!(bool::from(a.is_on_curve()));
-        assert!(bool::from(b.is_on_curve()));
-
-        let c = a + b;
-        assert_eq!(
-            G1Affine::from(c),
-            G1Affine::from(G1Projective {
-                x: Fp::from_raw_unchecked([
-                    0x29e1e987ef68f2d0,
-                    0xc5f3ec531db03233,
-                    0xacd6c4b6ca19730f,
-                    0x18ad9e827bc2bab7,
-                    0x46e3b2c5785cc7a9,
-                    0x7e571d42d22ddd6
-                ]),
-                y: Fp::from_raw_unchecked([
-                    0x94d117a7e5a539e7,
-                    0x8e17ef673d4b5d22,
-                    0x9d746aaf508a33ea,
-                    0x8c6d883d2516c9a2,
-                    0xbc3b8d5fb0447f7,
-                    0x7bfa4c7210f4f44
-                ]),
-                z: Fp::one()
-            })
-        );
-        assert!(!bool::from(c.is_identity()));
         assert!(bool::from(c.is_on_curve()));
+
+        assert!(a == c);
+        assert!(b != c);
+        assert!(c == a);
+        assert!(c != b);
+
+        c.y = -c.y;
+        assert!(bool::from(c.is_on_curve()));
+
+        assert!(a != c);
+        assert!(b != c);
+        assert!(c != a);
+        assert!(c != b);
+
+        c.y = -c.y;
+        c.x = z;
+        assert!(!bool::from(c.is_on_curve()));
+        assert!(a != b);
+        assert!(a != c);
+        assert!(b != c);
     }
-}
 
-#[test]
-fn test_projective_negation_and_subtraction() {
-    let a = G1Projective::generator().double();
-    assert_eq!(a + (-a), G1Projective::identity());
-    assert_eq!(a + (-a), a - a);
-}
+    #[test]
+    fn test_conditionally_select_affine() {
+        let a = G1Affine::generator();
+        let b = G1Affine::identity();
 
-#[test]
-fn test_affine_negation_and_subtraction() {
-    let a = G1Affine::generator();
-    assert_eq!(G1Projective::from(a) + (-a), G1Projective::identity());
-    assert_eq!(G1Projective::from(a) + (-a), G1Projective::from(a) - a);
-}
+        assert_eq!(G1Affine::conditional_select(&a, &b, Choice::from(0u8)), a);
+        assert_eq!(G1Affine::conditional_select(&a, &b, Choice::from(1u8)), b);
+    }
 
-#[test]
-fn test_projective_scalar_multiplication() {
-    let g = G1Projective::generator();
-    let a = BlsScalar::from_raw([
-        0x2b568297a56da71c,
-        0xd8c39ecb0ef375d1,
-        0x435c38da67bfbf96,
-        0x8088a05026b659b2,
-    ]);
-    let b = BlsScalar::from_raw([
-        0x785fdd9b26ef8b85,
-        0xc997f25837695c18,
-        0x4c8dbc39e7b756c1,
-        0x70d9b6cc6d87df20,
-    ]);
-    let c = a * b;
+    #[test]
+    fn test_conditionally_select_projective() {
+        let a = G1Projective::generator();
+        let b = G1Projective::identity();
 
-    assert_eq!((g * a) * b, g * c);
-}
+        assert_eq!(
+            G1Projective::conditional_select(&a, &b, Choice::from(0u8)),
+            a
+        );
+        assert_eq!(
+            G1Projective::conditional_select(&a, &b, Choice::from(1u8)),
+            b
+        );
+    }
 
-#[test]
-fn test_affine_scalar_multiplication() {
-    let g = G1Affine::generator();
-    let a = BlsScalar::from_raw([
-        0x2b568297a56da71c,
-        0xd8c39ecb0ef375d1,
-        0x435c38da67bfbf96,
-        0x8088a05026b659b2,
-    ]);
-    let b = BlsScalar::from_raw([
-        0x785fdd9b26ef8b85,
-        0xc997f25837695c18,
-        0x4c8dbc39e7b756c1,
-        0x70d9b6cc6d87df20,
-    ]);
-    let c = a * b;
+    #[test]
+    fn test_projective_to_affine() {
+        let a = G1Projective::generator();
+        let b = G1Projective::identity();
 
-    assert_eq!(G1Affine::from(g * a) * b, g * c);
-}
+        assert!(bool::from(G1Affine::from(a).is_on_curve()));
+        assert!(!bool::from(G1Affine::from(a).is_identity()));
+        assert!(bool::from(G1Affine::from(b).is_on_curve()));
+        assert!(bool::from(G1Affine::from(b).is_identity()));
 
-#[test]
-fn test_is_torsion_free() {
-    let a = G1Affine {
-        x: Fp::from_raw_unchecked([
-            0xabaf895b97e43c8,
-            0xba4c6432eb9b61b0,
-            0x12506f52adfe307f,
-            0x75028c3439336b72,
-            0x84744f05b8e9bd71,
-            0x113d554fb09554f7,
-        ]),
-        y: Fp::from_raw_unchecked([
-            0x73e90e88f5cf01c0,
-            0x37007b65dd3197e2,
-            0x5cf9a1992f0d7c78,
-            0x4f83c10b9eb3330d,
-            0xf6a63f6f07f60961,
-            0xc53b5b97e634df3,
-        ]),
-        infinity: Choice::from(0u8),
-    };
-    assert!(!bool::from(a.is_torsion_free()));
+        let z = Fp::from_raw_unchecked([
+            0xba7afa1f9a6fe250,
+            0xfa0f5b595eafe731,
+            0x3bdc477694c306e7,
+            0x2149be4b3949fa24,
+            0x64aa6e0649b2078c,
+            0x12b108ac33643c3e,
+        ]);
 
-    assert!(bool::from(G1Affine::identity().is_torsion_free()));
-    assert!(bool::from(G1Affine::generator().is_torsion_free()));
-}
+        let c = G1Projective {
+            x: a.x * (z.square()),
+            y: a.y * (z.square() * z),
+            z,
+        };
 
-#[test]
-fn test_mul_by_x() {
-    // multiplying by `x` a point in G1 is the same as multiplying by
-    // the equivalent scalar.
-    let generator = G1Projective::generator();
-    let x = if crate::BLS_X_IS_NEGATIVE {
-        -BlsScalar::from(crate::BLS_X)
-    } else {
-        BlsScalar::from(crate::BLS_X)
-    };
-    assert_eq!(generator.mul_by_x(), generator * x);
+        assert_eq!(G1Affine::from(c), G1Affine::generator());
+    }
 
-    let point = G1Projective::generator() * BlsScalar::from(42);
-    assert_eq!(point.mul_by_x(), point * x);
-}
+    #[test]
+    fn test_affine_to_projective() {
+        let a = G1Affine::generator();
+        let b = G1Affine::identity();
 
-#[test]
-fn test_clear_cofactor() {
-    // the generator (and the identity) are always on the curve,
-    // even after clearing the cofactor
-    let generator = G1Projective::generator();
-    assert!(bool::from(generator.clear_cofactor().is_on_curve()));
-    let id = G1Projective::identity();
-    assert!(bool::from(id.clear_cofactor().is_on_curve()));
+        assert!(bool::from(G1Projective::from(a).is_on_curve()));
+        assert!(!bool::from(G1Projective::from(a).is_identity()));
+        assert!(bool::from(G1Projective::from(b).is_on_curve()));
+        assert!(bool::from(G1Projective::from(b).is_identity()));
+    }
 
-    let point = G1Projective {
-        x: Fp::from_raw_unchecked([
-            0x48af5ff540c817f0,
-            0xd73893acaf379d5a,
-            0xe6c43584e18e023c,
-            0x1eda39c30f188b3e,
-            0xf618c6d3ccc0f8d8,
-            0x0073542cd671e16c,
-        ]),
-        y: Fp::from_raw_unchecked([
-            0x57bf8be79461d0ba,
-            0xfc61459cee3547c3,
-            0x0d23567df1ef147b,
-            0x0ee187bcce1d9b64,
-            0xb0c8cfbe9dc8fdc1,
-            0x1328661767ef368b,
-        ]),
-        z: Fp::from_raw_unchecked([
-            0x3d2d1c670671394e,
-            0x0ee3a800a2f7c1ca,
-            0x270f4f21da2e5050,
-            0xe02840a53f1be768,
-            0x55debeb597512690,
-            0x08bd25353dc8f791,
-        ]),
-    };
+    #[test]
+    fn test_doubling() {
+        {
+            let tmp = G1Projective::identity().double();
+            assert!(bool::from(tmp.is_identity()));
+            assert!(bool::from(tmp.is_on_curve()));
+        }
+        {
+            let tmp = G1Projective::generator().double();
+            assert!(!bool::from(tmp.is_identity()));
+            assert!(bool::from(tmp.is_on_curve()));
 
-    assert!(bool::from(point.is_on_curve()));
-    assert!(!bool::from(G1Affine::from(point).is_torsion_free()));
-    let cleared_point = point.clear_cofactor();
-    assert!(bool::from(cleared_point.is_on_curve()));
-    assert!(bool::from(G1Affine::from(cleared_point).is_torsion_free()));
-
-    // in BLS12-381 the cofactor in G1 can be
-    // cleared multiplying by (1-x)
-    let h_eff = BlsScalar::from(1) + BlsScalar::from(crate::BLS_X);
-    assert_eq!(point.clear_cofactor(), point * h_eff);
-}
-
-#[test]
-fn test_batch_normalize() {
-    let a = G1Projective::generator().double();
-    let b = a.double();
-    let c = b.double();
-
-    for a_identity in (0..1).map(|n| n == 1) {
-        for b_identity in (0..1).map(|n| n == 1) {
-            for c_identity in (0..1).map(|n| n == 1) {
-                let mut v = [a, b, c];
-                if a_identity {
-                    v[0] = G1Projective::identity()
+            assert_eq!(
+                G1Affine::from(tmp),
+                G1Affine {
+                    x: Fp::from_raw_unchecked([
+                        0x53e978ce58a9ba3c,
+                        0x3ea0583c4f3d65f9,
+                        0x4d20bb47f0012960,
+                        0xa54c664ae5b2b5d9,
+                        0x26b552a39d7eb21f,
+                        0x8895d26e68785
+                    ]),
+                    y: Fp::from_raw_unchecked([
+                        0x70110b3298293940,
+                        0xda33c5393f1f6afc,
+                        0xb86edfd16a5aa785,
+                        0xaec6d1c9e7b1c895,
+                        0x25cfc2b522d11720,
+                        0x6361c83f8d09b15
+                    ]),
+                    infinity: Choice::from(0u8)
                 }
-                if b_identity {
-                    v[1] = G1Projective::identity()
+            );
+        }
+    }
+
+    #[test]
+    fn test_projective_addition() {
+        {
+            let a = G1Projective::identity();
+            let b = G1Projective::identity();
+            let c = a + b;
+            assert!(bool::from(c.is_identity()));
+            assert!(bool::from(c.is_on_curve()));
+        }
+        {
+            let a = G1Projective::identity();
+            let mut b = G1Projective::generator();
+            {
+                let z = Fp::from_raw_unchecked([
+                    0xba7afa1f9a6fe250,
+                    0xfa0f5b595eafe731,
+                    0x3bdc477694c306e7,
+                    0x2149be4b3949fa24,
+                    0x64aa6e0649b2078c,
+                    0x12b108ac33643c3e,
+                ]);
+
+                b = G1Projective {
+                    x: b.x * (z.square()),
+                    y: b.y * (z.square() * z),
+                    z,
+                };
+            }
+            let c = a + b;
+            assert!(!bool::from(c.is_identity()));
+            assert!(bool::from(c.is_on_curve()));
+            assert!(c == G1Projective::generator());
+        }
+        {
+            let a = G1Projective::identity();
+            let mut b = G1Projective::generator();
+            {
+                let z = Fp::from_raw_unchecked([
+                    0xba7afa1f9a6fe250,
+                    0xfa0f5b595eafe731,
+                    0x3bdc477694c306e7,
+                    0x2149be4b3949fa24,
+                    0x64aa6e0649b2078c,
+                    0x12b108ac33643c3e,
+                ]);
+
+                b = G1Projective {
+                    x: b.x * (z.square()),
+                    y: b.y * (z.square() * z),
+                    z,
+                };
+            }
+            let c = b + a;
+            assert!(!bool::from(c.is_identity()));
+            assert!(bool::from(c.is_on_curve()));
+            assert!(c == G1Projective::generator());
+        }
+        {
+            let a = G1Projective::generator().double().double(); // 4P
+            let b = G1Projective::generator().double(); // 2P
+            let c = a + b;
+
+            let mut d = G1Projective::generator();
+            for _ in 0..5 {
+                d = d + G1Projective::generator();
+            }
+            assert!(!bool::from(c.is_identity()));
+            assert!(bool::from(c.is_on_curve()));
+            assert!(!bool::from(d.is_identity()));
+            assert!(bool::from(d.is_on_curve()));
+            assert_eq!(c, d);
+        }
+
+        // Degenerate case
+        {
+            let beta = Fp::from_raw_unchecked([
+                0xcd03c9e48671f071,
+                0x5dab22461fcda5d2,
+                0x587042afd3851b95,
+                0x8eb60ebe01bacb9e,
+                0x3f97d6e83d050d2,
+                0x18f0206554638741,
+            ]);
+            let beta = beta.square();
+            let a = G1Projective::generator().double().double();
+            let b = G1Projective {
+                x: a.x * beta,
+                y: -a.y,
+                z: a.z,
+            };
+            assert!(bool::from(a.is_on_curve()));
+            assert!(bool::from(b.is_on_curve()));
+
+            let c = a + b;
+            assert_eq!(
+                G1Affine::from(c),
+                G1Affine::from(G1Projective {
+                    x: Fp::from_raw_unchecked([
+                        0x29e1e987ef68f2d0,
+                        0xc5f3ec531db03233,
+                        0xacd6c4b6ca19730f,
+                        0x18ad9e827bc2bab7,
+                        0x46e3b2c5785cc7a9,
+                        0x7e571d42d22ddd6
+                    ]),
+                    y: Fp::from_raw_unchecked([
+                        0x94d117a7e5a539e7,
+                        0x8e17ef673d4b5d22,
+                        0x9d746aaf508a33ea,
+                        0x8c6d883d2516c9a2,
+                        0xbc3b8d5fb0447f7,
+                        0x7bfa4c7210f4f44
+                    ]),
+                    z: Fp::one()
+                })
+            );
+            assert!(!bool::from(c.is_identity()));
+            assert!(bool::from(c.is_on_curve()));
+        }
+    }
+
+    #[test]
+    fn test_mixed_addition() {
+        {
+            let a = G1Affine::identity();
+            let b = G1Projective::identity();
+            let c = a + b;
+            assert!(bool::from(c.is_identity()));
+            assert!(bool::from(c.is_on_curve()));
+        }
+        {
+            let a = G1Affine::identity();
+            let mut b = G1Projective::generator();
+            {
+                let z = Fp::from_raw_unchecked([
+                    0xba7afa1f9a6fe250,
+                    0xfa0f5b595eafe731,
+                    0x3bdc477694c306e7,
+                    0x2149be4b3949fa24,
+                    0x64aa6e0649b2078c,
+                    0x12b108ac33643c3e,
+                ]);
+
+                b = G1Projective {
+                    x: b.x * (z.square()),
+                    y: b.y * (z.square() * z),
+                    z,
+                };
+            }
+            let c = a + b;
+            assert!(!bool::from(c.is_identity()));
+            assert!(bool::from(c.is_on_curve()));
+            assert!(c == G1Projective::generator());
+        }
+        {
+            let a = G1Affine::identity();
+            let mut b = G1Projective::generator();
+            {
+                let z = Fp::from_raw_unchecked([
+                    0xba7afa1f9a6fe250,
+                    0xfa0f5b595eafe731,
+                    0x3bdc477694c306e7,
+                    0x2149be4b3949fa24,
+                    0x64aa6e0649b2078c,
+                    0x12b108ac33643c3e,
+                ]);
+
+                b = G1Projective {
+                    x: b.x * (z.square()),
+                    y: b.y * (z.square() * z),
+                    z,
+                };
+            }
+            let c = b + a;
+            assert!(!bool::from(c.is_identity()));
+            assert!(bool::from(c.is_on_curve()));
+            assert!(c == G1Projective::generator());
+        }
+        {
+            let a = G1Projective::generator().double().double(); // 4P
+            let b = G1Projective::generator().double(); // 2P
+            let c = a + b;
+
+            let mut d = G1Projective::generator();
+            for _ in 0..5 {
+                d = d + G1Affine::generator();
+            }
+            assert!(!bool::from(c.is_identity()));
+            assert!(bool::from(c.is_on_curve()));
+            assert!(!bool::from(d.is_identity()));
+            assert!(bool::from(d.is_on_curve()));
+            assert_eq!(c, d);
+        }
+
+        // Degenerate case
+        {
+            let beta = Fp::from_raw_unchecked([
+                0xcd03c9e48671f071,
+                0x5dab22461fcda5d2,
+                0x587042afd3851b95,
+                0x8eb60ebe01bacb9e,
+                0x3f97d6e83d050d2,
+                0x18f0206554638741,
+            ]);
+            let beta = beta.square();
+            let a = G1Projective::generator().double().double();
+            let b = G1Projective {
+                x: a.x * beta,
+                y: -a.y,
+                z: a.z,
+            };
+            let a = G1Affine::from(a);
+            assert!(bool::from(a.is_on_curve()));
+            assert!(bool::from(b.is_on_curve()));
+
+            let c = a + b;
+            assert_eq!(
+                G1Affine::from(c),
+                G1Affine::from(G1Projective {
+                    x: Fp::from_raw_unchecked([
+                        0x29e1e987ef68f2d0,
+                        0xc5f3ec531db03233,
+                        0xacd6c4b6ca19730f,
+                        0x18ad9e827bc2bab7,
+                        0x46e3b2c5785cc7a9,
+                        0x7e571d42d22ddd6
+                    ]),
+                    y: Fp::from_raw_unchecked([
+                        0x94d117a7e5a539e7,
+                        0x8e17ef673d4b5d22,
+                        0x9d746aaf508a33ea,
+                        0x8c6d883d2516c9a2,
+                        0xbc3b8d5fb0447f7,
+                        0x7bfa4c7210f4f44
+                    ]),
+                    z: Fp::one()
+                })
+            );
+            assert!(!bool::from(c.is_identity()));
+            assert!(bool::from(c.is_on_curve()));
+        }
+    }
+
+    #[test]
+    fn test_projective_negation_and_subtraction() {
+        let a = G1Projective::generator().double();
+        assert_eq!(a + (-a), G1Projective::identity());
+        assert_eq!(a + (-a), a - a);
+    }
+
+    #[test]
+    fn test_affine_negation_and_subtraction() {
+        let a = G1Affine::generator();
+        assert_eq!(G1Projective::from(a) + (-a), G1Projective::identity());
+        assert_eq!(G1Projective::from(a) + (-a), G1Projective::from(a) - a);
+    }
+
+    #[test]
+    fn test_projective_scalar_multiplication() {
+        let g = G1Projective::generator();
+        let a = BlsScalar::from_raw([
+            0x2b568297a56da71c,
+            0xd8c39ecb0ef375d1,
+            0x435c38da67bfbf96,
+            0x8088a05026b659b2,
+        ]);
+        let b = BlsScalar::from_raw([
+            0x785fdd9b26ef8b85,
+            0xc997f25837695c18,
+            0x4c8dbc39e7b756c1,
+            0x70d9b6cc6d87df20,
+        ]);
+        let c = a * b;
+
+        assert_eq!((g * a) * b, g * c);
+    }
+
+    #[test]
+    fn test_affine_scalar_multiplication() {
+        let g = G1Affine::generator();
+        let a = BlsScalar::from_raw([
+            0x2b568297a56da71c,
+            0xd8c39ecb0ef375d1,
+            0x435c38da67bfbf96,
+            0x8088a05026b659b2,
+        ]);
+        let b = BlsScalar::from_raw([
+            0x785fdd9b26ef8b85,
+            0xc997f25837695c18,
+            0x4c8dbc39e7b756c1,
+            0x70d9b6cc6d87df20,
+        ]);
+        let c = a * b;
+
+        assert_eq!(G1Affine::from(g * a) * b, g * c);
+    }
+
+    #[test]
+    fn test_is_torsion_free() {
+        let a = G1Affine {
+            x: Fp::from_raw_unchecked([
+                0xabaf895b97e43c8,
+                0xba4c6432eb9b61b0,
+                0x12506f52adfe307f,
+                0x75028c3439336b72,
+                0x84744f05b8e9bd71,
+                0x113d554fb09554f7,
+            ]),
+            y: Fp::from_raw_unchecked([
+                0x73e90e88f5cf01c0,
+                0x37007b65dd3197e2,
+                0x5cf9a1992f0d7c78,
+                0x4f83c10b9eb3330d,
+                0xf6a63f6f07f60961,
+                0xc53b5b97e634df3,
+            ]),
+            infinity: Choice::from(0u8),
+        };
+        assert!(!bool::from(a.is_torsion_free()));
+
+        assert!(bool::from(G1Affine::identity().is_torsion_free()));
+        assert!(bool::from(G1Affine::generator().is_torsion_free()));
+    }
+
+    #[test]
+    fn test_mul_by_x() {
+        // multiplying by `x` a point in G1 is the same as multiplying by
+        // the equivalent scalar.
+        let generator = G1Projective::generator();
+        let x = if crate::BLS_X_IS_NEGATIVE {
+            -BlsScalar::from(crate::BLS_X)
+        } else {
+            BlsScalar::from(crate::BLS_X)
+        };
+        assert_eq!(generator.mul_by_x(), generator * x);
+
+        let point = G1Projective::generator() * BlsScalar::from(42);
+        assert_eq!(point.mul_by_x(), point * x);
+    }
+
+    #[test]
+    fn test_clear_cofactor() {
+        // the generator (and the identity) are always on the curve,
+        // even after clearing the cofactor
+        let generator = G1Projective::generator();
+        assert!(bool::from(generator.clear_cofactor().is_on_curve()));
+        let id = G1Projective::identity();
+        assert!(bool::from(id.clear_cofactor().is_on_curve()));
+
+        let point = G1Projective {
+            x: Fp::from_raw_unchecked([
+                0x48af5ff540c817f0,
+                0xd73893acaf379d5a,
+                0xe6c43584e18e023c,
+                0x1eda39c30f188b3e,
+                0xf618c6d3ccc0f8d8,
+                0x0073542cd671e16c,
+            ]),
+            y: Fp::from_raw_unchecked([
+                0x57bf8be79461d0ba,
+                0xfc61459cee3547c3,
+                0x0d23567df1ef147b,
+                0x0ee187bcce1d9b64,
+                0xb0c8cfbe9dc8fdc1,
+                0x1328661767ef368b,
+            ]),
+            z: Fp::from_raw_unchecked([
+                0x3d2d1c670671394e,
+                0x0ee3a800a2f7c1ca,
+                0x270f4f21da2e5050,
+                0xe02840a53f1be768,
+                0x55debeb597512690,
+                0x08bd25353dc8f791,
+            ]),
+        };
+
+        assert!(bool::from(point.is_on_curve()));
+        assert!(!bool::from(G1Affine::from(point).is_torsion_free()));
+        let cleared_point = point.clear_cofactor();
+        assert!(bool::from(cleared_point.is_on_curve()));
+        assert!(bool::from(G1Affine::from(cleared_point).is_torsion_free()));
+
+        // in BLS12-381 the cofactor in G1 can be
+        // cleared multiplying by (1-x)
+        let h_eff = BlsScalar::from(1) + BlsScalar::from(crate::BLS_X);
+        assert_eq!(point.clear_cofactor(), point * h_eff);
+    }
+
+    #[test]
+    fn test_batch_normalize() {
+        let a = G1Projective::generator().double();
+        let b = a.double();
+        let c = b.double();
+
+        for a_identity in (0..1).map(|n| n == 1) {
+            for b_identity in (0..1).map(|n| n == 1) {
+                for c_identity in (0..1).map(|n| n == 1) {
+                    let mut v = [a, b, c];
+                    if a_identity {
+                        v[0] = G1Projective::identity()
+                    }
+                    if b_identity {
+                        v[1] = G1Projective::identity()
+                    }
+                    if c_identity {
+                        v[2] = G1Projective::identity()
+                    }
+
+                    let mut t = [
+                        G1Affine::identity(),
+                        G1Affine::identity(),
+                        G1Affine::identity(),
+                    ];
+                    let expected = [
+                        G1Affine::from(v[0]),
+                        G1Affine::from(v[1]),
+                        G1Affine::from(v[2]),
+                    ];
+
+                    G1Projective::batch_normalize(&v[..], &mut t[..]);
+
+                    assert_eq!(&t[..], &expected[..]);
                 }
-                if c_identity {
-                    v[2] = G1Projective::identity()
-                }
-
-                let mut t = [
-                    G1Affine::identity(),
-                    G1Affine::identity(),
-                    G1Affine::identity(),
-                ];
-                let expected = [
-                    G1Affine::from(v[0]),
-                    G1Affine::from(v[1]),
-                    G1Affine::from(v[2]),
-                ];
-
-                G1Projective::batch_normalize(&v[..], &mut t[..]);
-
-                assert_eq!(&t[..], &expected[..]);
             }
         }
     }
-}
 
-#[test]
-#[cfg(feature = "serde_req")]
-fn g1_affine_serde_roundtrip() {
-    use bincode;
+    #[test]
+    #[cfg(feature = "serde_req")]
+    fn g1_affine_serde_roundtrip() {
+        use bincode;
 
-    let gen = G1Affine::generator();
-    let ser = bincode::serialize(&gen).unwrap();
-    let deser: G1Affine = bincode::deserialize(&ser).unwrap();
+        let gen = G1Affine::generator();
+        let ser = bincode::serialize(&gen).unwrap();
+        let deser: G1Affine = bincode::deserialize(&ser).unwrap();
 
-    assert_eq!(gen, deser);
-}
+        assert_eq!(gen, deser);
+    }
 
-#[test]
-fn g1_affine_bytes_unchecked() {
-    let gen = G1Affine::generator();
-    let ident = G1Affine::identity();
+    #[test]
+    fn g1_affine_bytes_unchecked() {
+        let gen = G1Affine::generator();
+        let ident = G1Affine::identity();
 
-    let gen_p = gen.to_raw_bytes();
-    let gen_p = unsafe { G1Affine::from_slice_unchecked(&gen_p) };
+        let gen_p = gen.to_raw_bytes();
+        let gen_p = unsafe { G1Affine::from_slice_unchecked(&gen_p) };
 
-    let ident_p = ident.to_raw_bytes();
-    let ident_p = unsafe { G1Affine::from_slice_unchecked(&ident_p) };
+        let ident_p = ident.to_raw_bytes();
+        let ident_p = unsafe { G1Affine::from_slice_unchecked(&ident_p) };
 
-    assert_eq!(gen, gen_p);
-    assert_eq!(ident, ident_p);
-}
+        assert_eq!(gen, gen_p);
+        assert_eq!(ident, ident_p);
+    }
 
-#[test]
-fn g1_affine_bytes_unchecked_field() {
-    let x = Fp::from_raw_unchecked([
-        0x9af1f35780fffb82,
-        0x557416ceeea5a52f,
-        0x1e4403e4911a2d97,
-        0xb85bfb438316bf2,
-        0xa3b716c69a9e5a7b,
-        0x1fe9b8ad976dd39,
-    ]);
+    #[test]
+    fn g1_affine_bytes_unchecked_field() {
+        let x = Fp::from_raw_unchecked([
+            0x9af1f35780fffb82,
+            0x557416ceeea5a52f,
+            0x1e4403e4911a2d97,
+            0xb85bfb438316bf2,
+            0xa3b716c69a9e5a7b,
+            0x1fe9b8ad976dd39,
+        ]);
 
-    let y = Fp::from_raw_unchecked([
-        0xb4f1cc806acfb4e2,
-        0x38c28cba4cf600ed,
-        0x3af1c2f54a01a366,
-        0x96a75ac708a9eb72,
-        0x4253bd59228e50d,
-        0x120114fae4294c21,
-    ]);
+        let y = Fp::from_raw_unchecked([
+            0xb4f1cc806acfb4e2,
+            0x38c28cba4cf600ed,
+            0x3af1c2f54a01a366,
+            0x96a75ac708a9eb72,
+            0x4253bd59228e50d,
+            0x120114fae4294c21,
+        ]);
 
-    let infinity = 0u8.into();
-    let g = G1Affine { x, y, infinity };
+        let infinity = 0u8.into();
+        let g = G1Affine { x, y, infinity };
 
-    let g_p = g.to_raw_bytes();
-    let g_p = unsafe { G1Affine::from_slice_unchecked(&g_p) };
+        let g_p = g.to_raw_bytes();
+        let g_p = unsafe { G1Affine::from_slice_unchecked(&g_p) };
 
-    assert_eq!(g, g_p);
-}
+        assert_eq!(g, g_p);
+    }
 
-#[test]
-fn g1_affine_hex() {
-    use dusk_bytes::ParseHexStr;
+    #[test]
+    fn g1_affine_hex() {
+        use dusk_bytes::ParseHexStr;
 
-    let gen = G1Affine::generator();
-    let ident = G1Affine::identity();
+        let gen = G1Affine::generator();
+        let ident = G1Affine::identity();
 
-    let gen_p = format!("{:x}", gen);
-    let gen_p = G1Affine::from_hex_str(gen_p.as_str()).unwrap();
+        let gen_p = format!("{:x}", gen);
+        let gen_p = G1Affine::from_hex_str(gen_p.as_str()).unwrap();
 
-    let ident_p = format!("{:x}", ident);
-    let ident_p = G1Affine::from_hex_str(ident_p.as_str()).unwrap();
+        let ident_p = format!("{:x}", ident);
+        let ident_p = G1Affine::from_hex_str(ident_p.as_str()).unwrap();
 
-    assert_eq!(gen, gen_p);
-    assert_eq!(ident, ident_p);
+        assert_eq!(gen, gen_p);
+        assert_eq!(ident, ident_p);
+    }
 }

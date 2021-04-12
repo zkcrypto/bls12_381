@@ -10,7 +10,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // Catch documentation errors caused by code changes.
-#![deny(broken_intra_doc_links)]
+#![deny(rustdoc::broken_intra_doc_links)]
 #![deny(missing_debug_implementations)]
 #![deny(missing_docs)]
 #![allow(clippy::too_many_arguments)]
@@ -82,5 +82,5 @@ pub use pairings::{pairing, Gt, MillerLoopResult};
 #[cfg(all(feature = "pairings", feature = "alloc"))]
 pub use pairings::{multi_miller_loop, G2Prepared};
 
-#[cfg(all(feature = "groups", feature = "std"))]
+#[cfg(all(feature = "groups", feature = "alloc"))]
 pub mod multiscalar_mul;

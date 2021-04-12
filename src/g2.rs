@@ -1073,935 +1073,940 @@ impl G2Projective {
     }
 }
 
-#[test]
-fn test_is_on_curve() {
-    assert!(bool::from(G2Affine::identity().is_on_curve()));
-    assert!(bool::from(G2Affine::generator().is_on_curve()));
-    assert!(bool::from(G2Projective::identity().is_on_curve()));
-    assert!(bool::from(G2Projective::generator().is_on_curve()));
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    let z = Fp2 {
-        c0: Fp::from_raw_unchecked([
-            0xba7afa1f9a6fe250,
-            0xfa0f5b595eafe731,
-            0x3bdc477694c306e7,
-            0x2149be4b3949fa24,
-            0x64aa6e0649b2078c,
-            0x12b108ac33643c3e,
-        ]),
-        c1: Fp::from_raw_unchecked([
-            0x125325df3d35b5a8,
-            0xdc469ef5555d7fe3,
-            0x2d716d2443106a9,
-            0x5a1db59a6ff37d0,
-            0x7cf7784e5300bb8f,
-            0x16a88922c7a5e844,
-        ]),
-    };
+    #[test]
+    fn test_is_on_curve() {
+        assert!(bool::from(G2Affine::identity().is_on_curve()));
+        assert!(bool::from(G2Affine::generator().is_on_curve()));
+        assert!(bool::from(G2Projective::identity().is_on_curve()));
+        assert!(bool::from(G2Projective::generator().is_on_curve()));
 
-    let gen = G2Affine::generator();
-    let mut test = G2Projective {
-        x: gen.x * (z.square()),
-        y: gen.y * (z.square() * z),
-        z,
-    };
+        let z = Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xba7afa1f9a6fe250,
+                0xfa0f5b595eafe731,
+                0x3bdc477694c306e7,
+                0x2149be4b3949fa24,
+                0x64aa6e0649b2078c,
+                0x12b108ac33643c3e,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x125325df3d35b5a8,
+                0xdc469ef5555d7fe3,
+                0x2d716d2443106a9,
+                0x5a1db59a6ff37d0,
+                0x7cf7784e5300bb8f,
+                0x16a88922c7a5e844,
+            ]),
+        };
 
-    assert!(bool::from(test.is_on_curve()));
+        let gen = G2Affine::generator();
+        let mut test = G2Projective {
+            x: gen.x * (z.square()),
+            y: gen.y * (z.square() * z),
+            z,
+        };
 
-    test.x = z;
-    assert!(!bool::from(test.is_on_curve()));
-}
+        assert!(bool::from(test.is_on_curve()));
 
-#[test]
-fn test_affine_point_equality() {
-    let a = G2Affine::generator();
-    let b = G2Affine::identity();
-
-    assert!(a == a);
-    assert!(b == b);
-    assert!(a != b);
-    assert!(b != a);
-}
-
-#[test]
-fn test_projective_point_equality() {
-    let a = G2Projective::generator();
-    let b = G2Projective::identity();
-
-    assert!(a == a);
-    assert!(b == b);
-    assert!(a != b);
-    assert!(b != a);
-
-    let z = Fp2 {
-        c0: Fp::from_raw_unchecked([
-            0xba7afa1f9a6fe250,
-            0xfa0f5b595eafe731,
-            0x3bdc477694c306e7,
-            0x2149be4b3949fa24,
-            0x64aa6e0649b2078c,
-            0x12b108ac33643c3e,
-        ]),
-        c1: Fp::from_raw_unchecked([
-            0x125325df3d35b5a8,
-            0xdc469ef5555d7fe3,
-            0x2d716d2443106a9,
-            0x5a1db59a6ff37d0,
-            0x7cf7784e5300bb8f,
-            0x16a88922c7a5e844,
-        ]),
-    };
-
-    let mut c = G2Projective {
-        x: a.x * (z.square()),
-        y: a.y * (z.square() * z),
-        z,
-    };
-    assert!(bool::from(c.is_on_curve()));
-
-    assert!(a == c);
-    assert!(b != c);
-    assert!(c == a);
-    assert!(c != b);
-
-    c.y = -c.y;
-    assert!(bool::from(c.is_on_curve()));
-
-    assert!(a != c);
-    assert!(b != c);
-    assert!(c != a);
-    assert!(c != b);
-
-    c.y = -c.y;
-    c.x = z;
-    assert!(!bool::from(c.is_on_curve()));
-    assert!(a != b);
-    assert!(a != c);
-    assert!(b != c);
-}
-
-#[test]
-fn test_conditionally_select_affine() {
-    let a = G2Affine::generator();
-    let b = G2Affine::identity();
-
-    assert_eq!(G2Affine::conditional_select(&a, &b, Choice::from(0u8)), a);
-    assert_eq!(G2Affine::conditional_select(&a, &b, Choice::from(1u8)), b);
-}
-
-#[test]
-fn test_conditionally_select_projective() {
-    let a = G2Projective::generator();
-    let b = G2Projective::identity();
-
-    assert_eq!(
-        G2Projective::conditional_select(&a, &b, Choice::from(0u8)),
-        a
-    );
-    assert_eq!(
-        G2Projective::conditional_select(&a, &b, Choice::from(1u8)),
-        b
-    );
-}
-
-#[test]
-fn test_projective_to_affine() {
-    let a = G2Projective::generator();
-    let b = G2Projective::identity();
-
-    assert!(bool::from(G2Affine::from(a).is_on_curve()));
-    assert!(!bool::from(G2Affine::from(a).is_identity()));
-    assert!(bool::from(G2Affine::from(b).is_on_curve()));
-    assert!(bool::from(G2Affine::from(b).is_identity()));
-
-    let z = Fp2 {
-        c0: Fp::from_raw_unchecked([
-            0xba7afa1f9a6fe250,
-            0xfa0f5b595eafe731,
-            0x3bdc477694c306e7,
-            0x2149be4b3949fa24,
-            0x64aa6e0649b2078c,
-            0x12b108ac33643c3e,
-        ]),
-        c1: Fp::from_raw_unchecked([
-            0x125325df3d35b5a8,
-            0xdc469ef5555d7fe3,
-            0x2d716d2443106a9,
-            0x5a1db59a6ff37d0,
-            0x7cf7784e5300bb8f,
-            0x16a88922c7a5e844,
-        ]),
-    };
-
-    let c = G2Projective {
-        x: a.x * (z.square()),
-        y: a.y * (z.square() * z),
-        z,
-    };
-
-    assert_eq!(G2Affine::from(c), G2Affine::generator());
-}
-
-#[test]
-fn test_affine_to_projective() {
-    let a = G2Affine::generator();
-    let b = G2Affine::identity();
-
-    assert!(bool::from(G2Projective::from(a).is_on_curve()));
-    assert!(!bool::from(G2Projective::from(a).is_identity()));
-    assert!(bool::from(G2Projective::from(b).is_on_curve()));
-    assert!(bool::from(G2Projective::from(b).is_identity()));
-}
-
-#[test]
-fn test_doubling() {
-    {
-        let tmp = G2Projective::identity().double();
-        assert!(bool::from(tmp.is_identity()));
-        assert!(bool::from(tmp.is_on_curve()));
+        test.x = z;
+        assert!(!bool::from(test.is_on_curve()));
     }
-    {
-        let tmp = G2Projective::generator().double();
-        assert!(!bool::from(tmp.is_identity()));
-        assert!(bool::from(tmp.is_on_curve()));
 
-        assert_eq!(
-            G2Affine::from(tmp),
-            G2Affine {
-                x: Fp2 {
-                    c0: Fp::from_raw_unchecked([
-                        0xe9d9e2da9620f98b,
-                        0x54f1199346b97f36,
-                        0x3db3b820376bed27,
-                        0xcfdb31c9b0b64f4c,
-                        0x41d7c12786354493,
-                        0x5710794c255c064
-                    ]),
-                    c1: Fp::from_raw_unchecked([
-                        0xd6c1d3ca6ea0d06e,
-                        0xda0cbd905595489f,
-                        0x4f5352d43479221d,
-                        0x8ade5d736f8c97e0,
-                        0x48cc8433925ef70e,
-                        0x8d7ea71ea91ef81
-                    ]),
-                },
-                y: Fp2 {
-                    c0: Fp::from_raw_unchecked([
-                        0x15ba26eb4b0d186f,
-                        0xd086d64b7e9e01e,
-                        0xc8b848dd652f4c78,
-                        0xeecf46a6123bae4f,
-                        0x255e8dd8b6dc812a,
-                        0x164142af21dcf93f
-                    ]),
-                    c1: Fp::from_raw_unchecked([
-                        0xf9b4a1a895984db4,
-                        0xd417b114cccff748,
-                        0x6856301fc89f086e,
-                        0x41c777878931e3da,
-                        0x3556b155066a2105,
-                        0xacf7d325cb89cf
-                    ]),
-                },
-                infinity: Choice::from(0u8)
-            }
-        );
+    #[test]
+    fn test_affine_point_equality() {
+        let a = G2Affine::generator();
+        let b = G2Affine::identity();
+
+        assert!(a == a);
+        assert!(b == b);
+        assert!(a != b);
+        assert!(b != a);
     }
-}
 
-#[test]
-fn test_projective_addition() {
-    {
-        let a = G2Projective::identity();
+    #[test]
+    fn test_projective_point_equality() {
+        let a = G2Projective::generator();
         let b = G2Projective::identity();
-        let c = a + b;
-        assert!(bool::from(c.is_identity()));
-        assert!(bool::from(c.is_on_curve()));
-    }
-    {
-        let a = G2Projective::identity();
-        let mut b = G2Projective::generator();
-        {
-            let z = Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0xba7afa1f9a6fe250,
-                    0xfa0f5b595eafe731,
-                    0x3bdc477694c306e7,
-                    0x2149be4b3949fa24,
-                    0x64aa6e0649b2078c,
-                    0x12b108ac33643c3e,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0x125325df3d35b5a8,
-                    0xdc469ef5555d7fe3,
-                    0x2d716d2443106a9,
-                    0x5a1db59a6ff37d0,
-                    0x7cf7784e5300bb8f,
-                    0x16a88922c7a5e844,
-                ]),
-            };
 
-            b = G2Projective {
-                x: b.x * (z.square()),
-                y: b.y * (z.square() * z),
-                z,
-            };
-        }
-        let c = a + b;
-        assert!(!bool::from(c.is_identity()));
-        assert!(bool::from(c.is_on_curve()));
-        assert!(c == G2Projective::generator());
-    }
-    {
-        let a = G2Projective::identity();
-        let mut b = G2Projective::generator();
-        {
-            let z = Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0xba7afa1f9a6fe250,
-                    0xfa0f5b595eafe731,
-                    0x3bdc477694c306e7,
-                    0x2149be4b3949fa24,
-                    0x64aa6e0649b2078c,
-                    0x12b108ac33643c3e,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0x125325df3d35b5a8,
-                    0xdc469ef5555d7fe3,
-                    0x2d716d2443106a9,
-                    0x5a1db59a6ff37d0,
-                    0x7cf7784e5300bb8f,
-                    0x16a88922c7a5e844,
-                ]),
-            };
+        assert!(a == a);
+        assert!(b == b);
+        assert!(a != b);
+        assert!(b != a);
 
-            b = G2Projective {
-                x: b.x * (z.square()),
-                y: b.y * (z.square() * z),
-                z,
-            };
-        }
-        let c = b + a;
-        assert!(!bool::from(c.is_identity()));
-        assert!(bool::from(c.is_on_curve()));
-        assert!(c == G2Projective::generator());
-    }
-    {
-        let a = G2Projective::generator().double().double(); // 4P
-        let b = G2Projective::generator().double(); // 2P
-        let c = a + b;
-
-        let mut d = G2Projective::generator();
-        for _ in 0..5 {
-            d = d + G2Projective::generator();
-        }
-        assert!(!bool::from(c.is_identity()));
-        assert!(bool::from(c.is_on_curve()));
-        assert!(!bool::from(d.is_identity()));
-        assert!(bool::from(d.is_on_curve()));
-        assert_eq!(c, d);
-    }
-
-    // Degenerate case
-    {
-        let beta = Fp2 {
+        let z = Fp2 {
             c0: Fp::from_raw_unchecked([
-                0xcd03c9e48671f071,
-                0x5dab22461fcda5d2,
-                0x587042afd3851b95,
-                0x8eb60ebe01bacb9e,
-                0x3f97d6e83d050d2,
-                0x18f0206554638741,
+                0xba7afa1f9a6fe250,
+                0xfa0f5b595eafe731,
+                0x3bdc477694c306e7,
+                0x2149be4b3949fa24,
+                0x64aa6e0649b2078c,
+                0x12b108ac33643c3e,
             ]),
-            c1: Fp::zero(),
+            c1: Fp::from_raw_unchecked([
+                0x125325df3d35b5a8,
+                0xdc469ef5555d7fe3,
+                0x2d716d2443106a9,
+                0x5a1db59a6ff37d0,
+                0x7cf7784e5300bb8f,
+                0x16a88922c7a5e844,
+            ]),
         };
-        let beta = beta.square();
-        let a = G2Projective::generator().double().double();
-        let b = G2Projective {
-            x: a.x * beta,
-            y: -a.y,
-            z: a.z,
-        };
-        assert!(bool::from(a.is_on_curve()));
-        assert!(bool::from(b.is_on_curve()));
 
-        let c = a + b;
-        assert_eq!(
-            G2Affine::from(c),
-            G2Affine::from(G2Projective {
-                x: Fp2 {
-                    c0: Fp::from_raw_unchecked([
-                        0x705abc799ca773d3,
-                        0xfe132292c1d4bf08,
-                        0xf37ece3e07b2b466,
-                        0x887e1c43f447e301,
-                        0x1e0970d033bc77e8,
-                        0x1985c81e20a693f2
-                    ]),
-                    c1: Fp::from_raw_unchecked([
-                        0x1d79b25db36ab924,
-                        0x23948e4d529639d3,
-                        0x471ba7fb0d006297,
-                        0x2c36d4b4465dc4c0,
-                        0x82bbc3cfec67f538,
-                        0x51d2728b67bf952
-                    ])
-                },
-                y: Fp2 {
-                    c0: Fp::from_raw_unchecked([
-                        0x41b1bbf6576c0abf,
-                        0xb6cc93713f7a0f9a,
-                        0x6b65b43e48f3f01f,
-                        0xfb7a4cfcaf81be4f,
-                        0x3e32dadc6ec22cb6,
-                        0xbb0fc49d79807e3
-                    ]),
-                    c1: Fp::from_raw_unchecked([
-                        0x7d1397788f5f2ddf,
-                        0xab2907144ff0d8e8,
-                        0x5b7573e0cdb91f92,
-                        0x4cb8932dd31daf28,
-                        0x62bbfac6db052a54,
-                        0x11f95c16d14c3bbe
-                    ])
-                },
-                z: Fp2::one()
-            })
-        );
-        assert!(!bool::from(c.is_identity()));
+        let mut c = G2Projective {
+            x: a.x * (z.square()),
+            y: a.y * (z.square() * z),
+            z,
+        };
         assert!(bool::from(c.is_on_curve()));
-    }
-}
 
-#[test]
-fn test_mixed_addition() {
-    {
-        let a = G2Affine::identity();
+        assert!(a == c);
+        assert!(b != c);
+        assert!(c == a);
+        assert!(c != b);
+
+        c.y = -c.y;
+        assert!(bool::from(c.is_on_curve()));
+
+        assert!(a != c);
+        assert!(b != c);
+        assert!(c != a);
+        assert!(c != b);
+
+        c.y = -c.y;
+        c.x = z;
+        assert!(!bool::from(c.is_on_curve()));
+        assert!(a != b);
+        assert!(a != c);
+        assert!(b != c);
+    }
+
+    #[test]
+    fn test_conditionally_select_affine() {
+        let a = G2Affine::generator();
+        let b = G2Affine::identity();
+
+        assert_eq!(G2Affine::conditional_select(&a, &b, Choice::from(0u8)), a);
+        assert_eq!(G2Affine::conditional_select(&a, &b, Choice::from(1u8)), b);
+    }
+
+    #[test]
+    fn test_conditionally_select_projective() {
+        let a = G2Projective::generator();
         let b = G2Projective::identity();
-        let c = a + b;
-        assert!(bool::from(c.is_identity()));
-        assert!(bool::from(c.is_on_curve()));
-    }
-    {
-        let a = G2Affine::identity();
-        let mut b = G2Projective::generator();
-        {
-            let z = Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0xba7afa1f9a6fe250,
-                    0xfa0f5b595eafe731,
-                    0x3bdc477694c306e7,
-                    0x2149be4b3949fa24,
-                    0x64aa6e0649b2078c,
-                    0x12b108ac33643c3e,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0x125325df3d35b5a8,
-                    0xdc469ef5555d7fe3,
-                    0x2d716d2443106a9,
-                    0x5a1db59a6ff37d0,
-                    0x7cf7784e5300bb8f,
-                    0x16a88922c7a5e844,
-                ]),
-            };
 
-            b = G2Projective {
-                x: b.x * (z.square()),
-                y: b.y * (z.square() * z),
-                z,
-            };
-        }
-        let c = a + b;
-        assert!(!bool::from(c.is_identity()));
-        assert!(bool::from(c.is_on_curve()));
-        assert!(c == G2Projective::generator());
-    }
-    {
-        let a = G2Affine::identity();
-        let mut b = G2Projective::generator();
-        {
-            let z = Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0xba7afa1f9a6fe250,
-                    0xfa0f5b595eafe731,
-                    0x3bdc477694c306e7,
-                    0x2149be4b3949fa24,
-                    0x64aa6e0649b2078c,
-                    0x12b108ac33643c3e,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0x125325df3d35b5a8,
-                    0xdc469ef5555d7fe3,
-                    0x2d716d2443106a9,
-                    0x5a1db59a6ff37d0,
-                    0x7cf7784e5300bb8f,
-                    0x16a88922c7a5e844,
-                ]),
-            };
-
-            b = G2Projective {
-                x: b.x * (z.square()),
-                y: b.y * (z.square() * z),
-                z,
-            };
-        }
-        let c = b + a;
-        assert!(!bool::from(c.is_identity()));
-        assert!(bool::from(c.is_on_curve()));
-        assert!(c == G2Projective::generator());
-    }
-    {
-        let a = G2Projective::generator().double().double(); // 4P
-        let b = G2Projective::generator().double(); // 2P
-        let c = a + b;
-
-        let mut d = G2Projective::generator();
-        for _ in 0..5 {
-            d = d + G2Affine::generator();
-        }
-        assert!(!bool::from(c.is_identity()));
-        assert!(bool::from(c.is_on_curve()));
-        assert!(!bool::from(d.is_identity()));
-        assert!(bool::from(d.is_on_curve()));
-        assert_eq!(c, d);
-    }
-
-    // Degenerate case
-    {
-        let beta = Fp2 {
-            c0: Fp::from_raw_unchecked([
-                0xcd03c9e48671f071,
-                0x5dab22461fcda5d2,
-                0x587042afd3851b95,
-                0x8eb60ebe01bacb9e,
-                0x3f97d6e83d050d2,
-                0x18f0206554638741,
-            ]),
-            c1: Fp::zero(),
-        };
-        let beta = beta.square();
-        let a = G2Projective::generator().double().double();
-        let b = G2Projective {
-            x: a.x * beta,
-            y: -a.y,
-            z: a.z,
-        };
-        let a = G2Affine::from(a);
-        assert!(bool::from(a.is_on_curve()));
-        assert!(bool::from(b.is_on_curve()));
-
-        let c = a + b;
         assert_eq!(
-            G2Affine::from(c),
-            G2Affine::from(G2Projective {
-                x: Fp2 {
-                    c0: Fp::from_raw_unchecked([
-                        0x705abc799ca773d3,
-                        0xfe132292c1d4bf08,
-                        0xf37ece3e07b2b466,
-                        0x887e1c43f447e301,
-                        0x1e0970d033bc77e8,
-                        0x1985c81e20a693f2
-                    ]),
-                    c1: Fp::from_raw_unchecked([
-                        0x1d79b25db36ab924,
-                        0x23948e4d529639d3,
-                        0x471ba7fb0d006297,
-                        0x2c36d4b4465dc4c0,
-                        0x82bbc3cfec67f538,
-                        0x51d2728b67bf952
-                    ])
-                },
-                y: Fp2 {
-                    c0: Fp::from_raw_unchecked([
-                        0x41b1bbf6576c0abf,
-                        0xb6cc93713f7a0f9a,
-                        0x6b65b43e48f3f01f,
-                        0xfb7a4cfcaf81be4f,
-                        0x3e32dadc6ec22cb6,
-                        0xbb0fc49d79807e3
-                    ]),
-                    c1: Fp::from_raw_unchecked([
-                        0x7d1397788f5f2ddf,
-                        0xab2907144ff0d8e8,
-                        0x5b7573e0cdb91f92,
-                        0x4cb8932dd31daf28,
-                        0x62bbfac6db052a54,
-                        0x11f95c16d14c3bbe
-                    ])
-                },
-                z: Fp2::one()
-            })
+            G2Projective::conditional_select(&a, &b, Choice::from(0u8)),
+            a
         );
-        assert!(!bool::from(c.is_identity()));
-        assert!(bool::from(c.is_on_curve()));
+        assert_eq!(
+            G2Projective::conditional_select(&a, &b, Choice::from(1u8)),
+            b
+        );
     }
-}
 
-#[test]
-fn test_projective_negation_and_subtraction() {
-    let a = G2Projective::generator().double();
-    assert_eq!(a + (-a), G2Projective::identity());
-    assert_eq!(a + (-a), a - a);
-}
+    #[test]
+    fn test_projective_to_affine() {
+        let a = G2Projective::generator();
+        let b = G2Projective::identity();
 
-#[test]
-fn test_affine_negation_and_subtraction() {
-    let a = G2Affine::generator();
-    assert_eq!(G2Projective::from(a) + (-a), G2Projective::identity());
-    assert_eq!(G2Projective::from(a) + (-a), G2Projective::from(a) - a);
-}
+        assert!(bool::from(G2Affine::from(a).is_on_curve()));
+        assert!(!bool::from(G2Affine::from(a).is_identity()));
+        assert!(bool::from(G2Affine::from(b).is_on_curve()));
+        assert!(bool::from(G2Affine::from(b).is_identity()));
 
-#[test]
-fn test_projective_scalar_multiplication() {
-    let g = G2Projective::generator();
-    let a = BlsScalar::from_raw([
-        0x2b568297a56da71c,
-        0xd8c39ecb0ef375d1,
-        0x435c38da67bfbf96,
-        0x8088a05026b659b2,
-    ]);
-    let b = BlsScalar::from_raw([
-        0x785fdd9b26ef8b85,
-        0xc997f25837695c18,
-        0x4c8dbc39e7b756c1,
-        0x70d9b6cc6d87df20,
-    ]);
-    let c = a * b;
-
-    assert_eq!((g * a) * b, g * c);
-}
-
-#[test]
-fn test_affine_scalar_multiplication() {
-    let g = G2Affine::generator();
-    let a = BlsScalar::from_raw([
-        0x2b568297a56da71c,
-        0xd8c39ecb0ef375d1,
-        0x435c38da67bfbf96,
-        0x8088a05026b659b2,
-    ]);
-    let b = BlsScalar::from_raw([
-        0x785fdd9b26ef8b85,
-        0xc997f25837695c18,
-        0x4c8dbc39e7b756c1,
-        0x70d9b6cc6d87df20,
-    ]);
-    let c = a * b;
-
-    assert_eq!(G2Affine::from(g * a) * b, g * c);
-}
-
-#[test]
-fn test_is_torsion_free() {
-    let a = G2Affine {
-        x: Fp2 {
+        let z = Fp2 {
             c0: Fp::from_raw_unchecked([
-                0x89f550c813db6431,
-                0xa50be8c456cd8a1a,
-                0xa45b374114cae851,
-                0xbb6190f5bf7fff63,
-                0x970ca02c3ba80bc7,
-                0x2b85d24e840fbac,
+                0xba7afa1f9a6fe250,
+                0xfa0f5b595eafe731,
+                0x3bdc477694c306e7,
+                0x2149be4b3949fa24,
+                0x64aa6e0649b2078c,
+                0x12b108ac33643c3e,
             ]),
             c1: Fp::from_raw_unchecked([
-                0x6888bc53d70716dc,
-                0x3dea6b4117682d70,
-                0xd8f5f930500ca354,
-                0x6b5ecb6556f5c155,
-                0xc96bef0434778ab0,
-                0x5081505515006ad,
+                0x125325df3d35b5a8,
+                0xdc469ef5555d7fe3,
+                0x2d716d2443106a9,
+                0x5a1db59a6ff37d0,
+                0x7cf7784e5300bb8f,
+                0x16a88922c7a5e844,
             ]),
-        },
-        y: Fp2 {
-            c0: Fp::from_raw_unchecked([
-                0x3cf1ea0d434b0f40,
-                0x1a0dc610e603e333,
-                0x7f89956160c72fa0,
-                0x25ee03decf6431c5,
-                0xeee8e206ec0fe137,
-                0x97592b226dfef28,
-            ]),
-            c1: Fp::from_raw_unchecked([
-                0x71e8bb5f29247367,
-                0xa5fe049e211831ce,
-                0xce6b354502a3896,
-                0x93b012000997314e,
-                0x6759f3b6aa5b42ac,
-                0x156944c4dfe92bbb,
-            ]),
-        },
-        infinity: Choice::from(0u8),
-    };
-    assert!(!bool::from(a.is_torsion_free()));
+        };
 
-    assert!(bool::from(G2Affine::identity().is_torsion_free()));
-    assert!(bool::from(G2Affine::generator().is_torsion_free()));
-}
+        let c = G2Projective {
+            x: a.x * (z.square()),
+            y: a.y * (z.square() * z),
+            z,
+        };
 
-#[cfg(feature = "endo")]
-#[test]
-fn test_mul_by_x() {
-    // multiplying by `x` a point in G2 is the same as multiplying by
-    // the equivalent scalar.
-    let generator = G2Projective::generator();
-    let x = if crate::BLS_X_IS_NEGATIVE {
-        -BlsScalar::from(crate::BLS_X)
-    } else {
-        BlsScalar::from(crate::BLS_X)
-    };
-    assert_eq!(generator.mul_by_x(), generator * x);
+        assert_eq!(G2Affine::from(c), G2Affine::generator());
+    }
 
-    let point = G2Projective::generator() * BlsScalar::from(42);
-    assert_eq!(point.mul_by_x(), point * x);
-}
+    #[test]
+    fn test_affine_to_projective() {
+        let a = G2Affine::generator();
+        let b = G2Affine::identity();
 
-#[cfg(feature = "endo")]
-#[test]
-fn test_psi() {
-    let generator = G2Projective::generator();
+        assert!(bool::from(G2Projective::from(a).is_on_curve()));
+        assert!(!bool::from(G2Projective::from(a).is_identity()));
+        assert!(bool::from(G2Projective::from(b).is_on_curve()));
+        assert!(bool::from(G2Projective::from(b).is_identity()));
+    }
 
-    // `point` is a random point in the curve
-    let point = G2Projective {
-        x: Fp2 {
-            c0: Fp::from_raw_unchecked([
-                0xee4c8cb7c047eaf2,
-                0x44ca22eee036b604,
-                0x33b3affb2aefe101,
-                0x15d3e45bbafaeb02,
-                0x7bfc2154cd7419a4,
-                0x0a2d0c2b756e5edc,
-            ]),
-            c1: Fp::from_raw_unchecked([
-                0xfc224361029a8777,
-                0x4cbf2baab8740924,
-                0xc5008c6ec6592c89,
-                0xecc2c57b472a9c2d,
-                0x8613eafd9d81ffb1,
-                0x10fe54daa2d3d495,
-            ]),
-        },
-        y: Fp2 {
-            c0: Fp::from_raw_unchecked([
-                0x7de7edc43953b75c,
-                0x58be1d2de35e87dc,
-                0x5731d30b0e337b40,
-                0xbe93b60cfeaae4c9,
-                0x8b22c203764bedca,
-                0x01616c8d1033b771,
-            ]),
-            c1: Fp::from_raw_unchecked([
-                0xea126fe476b5733b,
-                0x85cee68b5dae1652,
-                0x98247779f7272b04,
-                0xa649c8b468c6e808,
-                0xb5b9a62dff0c4e45,
-                0x1555b67fc7bbe73d,
-            ]),
-        },
-        z: Fp2 {
-            c0: Fp::from_raw_unchecked([
-                0x0ef2ddffab187c0a,
-                0x2424522b7d5ecbfc,
-                0xc6f341a3398054f4,
-                0x5523ddf409502df0,
-                0xd55c0b5a88e0dd97,
-                0x066428d704923e52,
-            ]),
-            c1: Fp::from_raw_unchecked([
-                0x538bbe0c95b4878d,
-                0xad04a50379522881,
-                0x6d5c05bf5c12fb64,
-                0x4ce4a069a2d34787,
-                0x59ea6c8d0dffaeaf,
-                0x0d42a083a75bd6f3,
-            ]),
-        },
-    };
-    assert!(bool::from(point.is_on_curve()));
+    #[test]
+    fn test_doubling() {
+        {
+            let tmp = G2Projective::identity().double();
+            assert!(bool::from(tmp.is_identity()));
+            assert!(bool::from(tmp.is_on_curve()));
+        }
+        {
+            let tmp = G2Projective::generator().double();
+            assert!(!bool::from(tmp.is_identity()));
+            assert!(bool::from(tmp.is_on_curve()));
 
-    // psi2(P) = psi(psi(P))
-    assert_eq!(generator.psi2(), generator.psi().psi());
-    assert_eq!(point.psi2(), point.psi().psi());
-    // psi(P) is a morphism
-    assert_eq!(generator.double().psi(), generator.psi().double());
-    assert_eq!(point.psi() + generator.psi(), (point + generator).psi());
-    // psi(P) behaves in the same way on the same projective point
-    let mut normalized_point = [G2Affine::identity()];
-    G2Projective::batch_normalize(&[point], &mut normalized_point);
-    let normalized_point = G2Projective::from(normalized_point[0]);
-    assert_eq!(point.psi(), normalized_point.psi());
-    assert_eq!(point.psi2(), normalized_point.psi2());
-}
-
-#[test]
-fn test_clear_cofactor() {
-    // `point` is a random point in the curve
-    let point = G2Projective {
-        x: Fp2 {
-            c0: Fp::from_raw_unchecked([
-                0xee4c8cb7c047eaf2,
-                0x44ca22eee036b604,
-                0x33b3affb2aefe101,
-                0x15d3e45bbafaeb02,
-                0x7bfc2154cd7419a4,
-                0x0a2d0c2b756e5edc,
-            ]),
-            c1: Fp::from_raw_unchecked([
-                0xfc224361029a8777,
-                0x4cbf2baab8740924,
-                0xc5008c6ec6592c89,
-                0xecc2c57b472a9c2d,
-                0x8613eafd9d81ffb1,
-                0x10fe54daa2d3d495,
-            ]),
-        },
-        y: Fp2 {
-            c0: Fp::from_raw_unchecked([
-                0x7de7edc43953b75c,
-                0x58be1d2de35e87dc,
-                0x5731d30b0e337b40,
-                0xbe93b60cfeaae4c9,
-                0x8b22c203764bedca,
-                0x01616c8d1033b771,
-            ]),
-            c1: Fp::from_raw_unchecked([
-                0xea126fe476b5733b,
-                0x85cee68b5dae1652,
-                0x98247779f7272b04,
-                0xa649c8b468c6e808,
-                0xb5b9a62dff0c4e45,
-                0x1555b67fc7bbe73d,
-            ]),
-        },
-        z: Fp2 {
-            c0: Fp::from_raw_unchecked([
-                0x0ef2ddffab187c0a,
-                0x2424522b7d5ecbfc,
-                0xc6f341a3398054f4,
-                0x5523ddf409502df0,
-                0xd55c0b5a88e0dd97,
-                0x066428d704923e52,
-            ]),
-            c1: Fp::from_raw_unchecked([
-                0x538bbe0c95b4878d,
-                0xad04a50379522881,
-                0x6d5c05bf5c12fb64,
-                0x4ce4a069a2d34787,
-                0x59ea6c8d0dffaeaf,
-                0x0d42a083a75bd6f3,
-            ]),
-        },
-    };
-
-    assert!(bool::from(point.is_on_curve()));
-    assert!(!bool::from(G2Affine::from(point).is_torsion_free()));
-    let cleared_point = point.clear_cofactor();
-
-    assert!(bool::from(cleared_point.is_on_curve()));
-    assert!(bool::from(G2Affine::from(cleared_point).is_torsion_free()));
-
-    // the generator (and the identity) are always on the curve,
-    // even after clearing the cofactor
-    let generator = G2Projective::generator();
-    assert!(bool::from(generator.clear_cofactor().is_on_curve()));
-    let id = G2Projective::identity();
-    assert!(bool::from(id.clear_cofactor().is_on_curve()));
-
-    // test the effect on q-torsion points multiplying by h_eff modulo |BlsScalar|
-    // h_eff % q = 0x2b116900400069009a40200040001ffff
-    let h_eff_modq: [u8; 32] = [
-        0xff, 0xff, 0x01, 0x00, 0x04, 0x00, 0x02, 0xa4, 0x09, 0x90, 0x06, 0x00, 0x04, 0x90, 0x16,
-        0xb1, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00,
-    ];
-    assert_eq!(generator.clear_cofactor(), generator.multiply(&h_eff_modq));
-    assert_eq!(
-        cleared_point.clear_cofactor(),
-        cleared_point.multiply(&h_eff_modq)
-    );
-}
-
-#[test]
-fn test_batch_normalize() {
-    let a = G2Projective::generator().double();
-    let b = a.double();
-    let c = b.double();
-
-    for a_identity in (0..1).map(|n| n == 1) {
-        for b_identity in (0..1).map(|n| n == 1) {
-            for c_identity in (0..1).map(|n| n == 1) {
-                let mut v = [a, b, c];
-                if a_identity {
-                    v[0] = G2Projective::identity()
+            assert_eq!(
+                G2Affine::from(tmp),
+                G2Affine {
+                    x: Fp2 {
+                        c0: Fp::from_raw_unchecked([
+                            0xe9d9e2da9620f98b,
+                            0x54f1199346b97f36,
+                            0x3db3b820376bed27,
+                            0xcfdb31c9b0b64f4c,
+                            0x41d7c12786354493,
+                            0x5710794c255c064
+                        ]),
+                        c1: Fp::from_raw_unchecked([
+                            0xd6c1d3ca6ea0d06e,
+                            0xda0cbd905595489f,
+                            0x4f5352d43479221d,
+                            0x8ade5d736f8c97e0,
+                            0x48cc8433925ef70e,
+                            0x8d7ea71ea91ef81
+                        ]),
+                    },
+                    y: Fp2 {
+                        c0: Fp::from_raw_unchecked([
+                            0x15ba26eb4b0d186f,
+                            0xd086d64b7e9e01e,
+                            0xc8b848dd652f4c78,
+                            0xeecf46a6123bae4f,
+                            0x255e8dd8b6dc812a,
+                            0x164142af21dcf93f
+                        ]),
+                        c1: Fp::from_raw_unchecked([
+                            0xf9b4a1a895984db4,
+                            0xd417b114cccff748,
+                            0x6856301fc89f086e,
+                            0x41c777878931e3da,
+                            0x3556b155066a2105,
+                            0xacf7d325cb89cf
+                        ]),
+                    },
+                    infinity: Choice::from(0u8)
                 }
-                if b_identity {
-                    v[1] = G2Projective::identity()
+            );
+        }
+    }
+
+    #[test]
+    fn test_projective_addition() {
+        {
+            let a = G2Projective::identity();
+            let b = G2Projective::identity();
+            let c = a + b;
+            assert!(bool::from(c.is_identity()));
+            assert!(bool::from(c.is_on_curve()));
+        }
+        {
+            let a = G2Projective::identity();
+            let mut b = G2Projective::generator();
+            {
+                let z = Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0xba7afa1f9a6fe250,
+                        0xfa0f5b595eafe731,
+                        0x3bdc477694c306e7,
+                        0x2149be4b3949fa24,
+                        0x64aa6e0649b2078c,
+                        0x12b108ac33643c3e,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0x125325df3d35b5a8,
+                        0xdc469ef5555d7fe3,
+                        0x2d716d2443106a9,
+                        0x5a1db59a6ff37d0,
+                        0x7cf7784e5300bb8f,
+                        0x16a88922c7a5e844,
+                    ]),
+                };
+
+                b = G2Projective {
+                    x: b.x * (z.square()),
+                    y: b.y * (z.square() * z),
+                    z,
+                };
+            }
+            let c = a + b;
+            assert!(!bool::from(c.is_identity()));
+            assert!(bool::from(c.is_on_curve()));
+            assert!(c == G2Projective::generator());
+        }
+        {
+            let a = G2Projective::identity();
+            let mut b = G2Projective::generator();
+            {
+                let z = Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0xba7afa1f9a6fe250,
+                        0xfa0f5b595eafe731,
+                        0x3bdc477694c306e7,
+                        0x2149be4b3949fa24,
+                        0x64aa6e0649b2078c,
+                        0x12b108ac33643c3e,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0x125325df3d35b5a8,
+                        0xdc469ef5555d7fe3,
+                        0x2d716d2443106a9,
+                        0x5a1db59a6ff37d0,
+                        0x7cf7784e5300bb8f,
+                        0x16a88922c7a5e844,
+                    ]),
+                };
+
+                b = G2Projective {
+                    x: b.x * (z.square()),
+                    y: b.y * (z.square() * z),
+                    z,
+                };
+            }
+            let c = b + a;
+            assert!(!bool::from(c.is_identity()));
+            assert!(bool::from(c.is_on_curve()));
+            assert!(c == G2Projective::generator());
+        }
+        {
+            let a = G2Projective::generator().double().double(); // 4P
+            let b = G2Projective::generator().double(); // 2P
+            let c = a + b;
+
+            let mut d = G2Projective::generator();
+            for _ in 0..5 {
+                d = d + G2Projective::generator();
+            }
+            assert!(!bool::from(c.is_identity()));
+            assert!(bool::from(c.is_on_curve()));
+            assert!(!bool::from(d.is_identity()));
+            assert!(bool::from(d.is_on_curve()));
+            assert_eq!(c, d);
+        }
+
+        // Degenerate case
+        {
+            let beta = Fp2 {
+                c0: Fp::from_raw_unchecked([
+                    0xcd03c9e48671f071,
+                    0x5dab22461fcda5d2,
+                    0x587042afd3851b95,
+                    0x8eb60ebe01bacb9e,
+                    0x3f97d6e83d050d2,
+                    0x18f0206554638741,
+                ]),
+                c1: Fp::zero(),
+            };
+            let beta = beta.square();
+            let a = G2Projective::generator().double().double();
+            let b = G2Projective {
+                x: a.x * beta,
+                y: -a.y,
+                z: a.z,
+            };
+            assert!(bool::from(a.is_on_curve()));
+            assert!(bool::from(b.is_on_curve()));
+
+            let c = a + b;
+            assert_eq!(
+                G2Affine::from(c),
+                G2Affine::from(G2Projective {
+                    x: Fp2 {
+                        c0: Fp::from_raw_unchecked([
+                            0x705abc799ca773d3,
+                            0xfe132292c1d4bf08,
+                            0xf37ece3e07b2b466,
+                            0x887e1c43f447e301,
+                            0x1e0970d033bc77e8,
+                            0x1985c81e20a693f2
+                        ]),
+                        c1: Fp::from_raw_unchecked([
+                            0x1d79b25db36ab924,
+                            0x23948e4d529639d3,
+                            0x471ba7fb0d006297,
+                            0x2c36d4b4465dc4c0,
+                            0x82bbc3cfec67f538,
+                            0x51d2728b67bf952
+                        ])
+                    },
+                    y: Fp2 {
+                        c0: Fp::from_raw_unchecked([
+                            0x41b1bbf6576c0abf,
+                            0xb6cc93713f7a0f9a,
+                            0x6b65b43e48f3f01f,
+                            0xfb7a4cfcaf81be4f,
+                            0x3e32dadc6ec22cb6,
+                            0xbb0fc49d79807e3
+                        ]),
+                        c1: Fp::from_raw_unchecked([
+                            0x7d1397788f5f2ddf,
+                            0xab2907144ff0d8e8,
+                            0x5b7573e0cdb91f92,
+                            0x4cb8932dd31daf28,
+                            0x62bbfac6db052a54,
+                            0x11f95c16d14c3bbe
+                        ])
+                    },
+                    z: Fp2::one()
+                })
+            );
+            assert!(!bool::from(c.is_identity()));
+            assert!(bool::from(c.is_on_curve()));
+        }
+    }
+
+    #[test]
+    fn test_mixed_addition() {
+        {
+            let a = G2Affine::identity();
+            let b = G2Projective::identity();
+            let c = a + b;
+            assert!(bool::from(c.is_identity()));
+            assert!(bool::from(c.is_on_curve()));
+        }
+        {
+            let a = G2Affine::identity();
+            let mut b = G2Projective::generator();
+            {
+                let z = Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0xba7afa1f9a6fe250,
+                        0xfa0f5b595eafe731,
+                        0x3bdc477694c306e7,
+                        0x2149be4b3949fa24,
+                        0x64aa6e0649b2078c,
+                        0x12b108ac33643c3e,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0x125325df3d35b5a8,
+                        0xdc469ef5555d7fe3,
+                        0x2d716d2443106a9,
+                        0x5a1db59a6ff37d0,
+                        0x7cf7784e5300bb8f,
+                        0x16a88922c7a5e844,
+                    ]),
+                };
+
+                b = G2Projective {
+                    x: b.x * (z.square()),
+                    y: b.y * (z.square() * z),
+                    z,
+                };
+            }
+            let c = a + b;
+            assert!(!bool::from(c.is_identity()));
+            assert!(bool::from(c.is_on_curve()));
+            assert!(c == G2Projective::generator());
+        }
+        {
+            let a = G2Affine::identity();
+            let mut b = G2Projective::generator();
+            {
+                let z = Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0xba7afa1f9a6fe250,
+                        0xfa0f5b595eafe731,
+                        0x3bdc477694c306e7,
+                        0x2149be4b3949fa24,
+                        0x64aa6e0649b2078c,
+                        0x12b108ac33643c3e,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0x125325df3d35b5a8,
+                        0xdc469ef5555d7fe3,
+                        0x2d716d2443106a9,
+                        0x5a1db59a6ff37d0,
+                        0x7cf7784e5300bb8f,
+                        0x16a88922c7a5e844,
+                    ]),
+                };
+
+                b = G2Projective {
+                    x: b.x * (z.square()),
+                    y: b.y * (z.square() * z),
+                    z,
+                };
+            }
+            let c = b + a;
+            assert!(!bool::from(c.is_identity()));
+            assert!(bool::from(c.is_on_curve()));
+            assert!(c == G2Projective::generator());
+        }
+        {
+            let a = G2Projective::generator().double().double(); // 4P
+            let b = G2Projective::generator().double(); // 2P
+            let c = a + b;
+
+            let mut d = G2Projective::generator();
+            for _ in 0..5 {
+                d = d + G2Affine::generator();
+            }
+            assert!(!bool::from(c.is_identity()));
+            assert!(bool::from(c.is_on_curve()));
+            assert!(!bool::from(d.is_identity()));
+            assert!(bool::from(d.is_on_curve()));
+            assert_eq!(c, d);
+        }
+
+        // Degenerate case
+        {
+            let beta = Fp2 {
+                c0: Fp::from_raw_unchecked([
+                    0xcd03c9e48671f071,
+                    0x5dab22461fcda5d2,
+                    0x587042afd3851b95,
+                    0x8eb60ebe01bacb9e,
+                    0x3f97d6e83d050d2,
+                    0x18f0206554638741,
+                ]),
+                c1: Fp::zero(),
+            };
+            let beta = beta.square();
+            let a = G2Projective::generator().double().double();
+            let b = G2Projective {
+                x: a.x * beta,
+                y: -a.y,
+                z: a.z,
+            };
+            let a = G2Affine::from(a);
+            assert!(bool::from(a.is_on_curve()));
+            assert!(bool::from(b.is_on_curve()));
+
+            let c = a + b;
+            assert_eq!(
+                G2Affine::from(c),
+                G2Affine::from(G2Projective {
+                    x: Fp2 {
+                        c0: Fp::from_raw_unchecked([
+                            0x705abc799ca773d3,
+                            0xfe132292c1d4bf08,
+                            0xf37ece3e07b2b466,
+                            0x887e1c43f447e301,
+                            0x1e0970d033bc77e8,
+                            0x1985c81e20a693f2
+                        ]),
+                        c1: Fp::from_raw_unchecked([
+                            0x1d79b25db36ab924,
+                            0x23948e4d529639d3,
+                            0x471ba7fb0d006297,
+                            0x2c36d4b4465dc4c0,
+                            0x82bbc3cfec67f538,
+                            0x51d2728b67bf952
+                        ])
+                    },
+                    y: Fp2 {
+                        c0: Fp::from_raw_unchecked([
+                            0x41b1bbf6576c0abf,
+                            0xb6cc93713f7a0f9a,
+                            0x6b65b43e48f3f01f,
+                            0xfb7a4cfcaf81be4f,
+                            0x3e32dadc6ec22cb6,
+                            0xbb0fc49d79807e3
+                        ]),
+                        c1: Fp::from_raw_unchecked([
+                            0x7d1397788f5f2ddf,
+                            0xab2907144ff0d8e8,
+                            0x5b7573e0cdb91f92,
+                            0x4cb8932dd31daf28,
+                            0x62bbfac6db052a54,
+                            0x11f95c16d14c3bbe
+                        ])
+                    },
+                    z: Fp2::one()
+                })
+            );
+            assert!(!bool::from(c.is_identity()));
+            assert!(bool::from(c.is_on_curve()));
+        }
+    }
+
+    #[test]
+    fn test_projective_negation_and_subtraction() {
+        let a = G2Projective::generator().double();
+        assert_eq!(a + (-a), G2Projective::identity());
+        assert_eq!(a + (-a), a - a);
+    }
+
+    #[test]
+    fn test_affine_negation_and_subtraction() {
+        let a = G2Affine::generator();
+        assert_eq!(G2Projective::from(a) + (-a), G2Projective::identity());
+        assert_eq!(G2Projective::from(a) + (-a), G2Projective::from(a) - a);
+    }
+
+    #[test]
+    fn test_projective_scalar_multiplication() {
+        let g = G2Projective::generator();
+        let a = BlsScalar::from_raw([
+            0x2b568297a56da71c,
+            0xd8c39ecb0ef375d1,
+            0x435c38da67bfbf96,
+            0x8088a05026b659b2,
+        ]);
+        let b = BlsScalar::from_raw([
+            0x785fdd9b26ef8b85,
+            0xc997f25837695c18,
+            0x4c8dbc39e7b756c1,
+            0x70d9b6cc6d87df20,
+        ]);
+        let c = a * b;
+
+        assert_eq!((g * a) * b, g * c);
+    }
+
+    #[test]
+    fn test_affine_scalar_multiplication() {
+        let g = G2Affine::generator();
+        let a = BlsScalar::from_raw([
+            0x2b568297a56da71c,
+            0xd8c39ecb0ef375d1,
+            0x435c38da67bfbf96,
+            0x8088a05026b659b2,
+        ]);
+        let b = BlsScalar::from_raw([
+            0x785fdd9b26ef8b85,
+            0xc997f25837695c18,
+            0x4c8dbc39e7b756c1,
+            0x70d9b6cc6d87df20,
+        ]);
+        let c = a * b;
+
+        assert_eq!(G2Affine::from(g * a) * b, g * c);
+    }
+
+    #[test]
+    fn test_is_torsion_free() {
+        let a = G2Affine {
+            x: Fp2 {
+                c0: Fp::from_raw_unchecked([
+                    0x89f550c813db6431,
+                    0xa50be8c456cd8a1a,
+                    0xa45b374114cae851,
+                    0xbb6190f5bf7fff63,
+                    0x970ca02c3ba80bc7,
+                    0x2b85d24e840fbac,
+                ]),
+                c1: Fp::from_raw_unchecked([
+                    0x6888bc53d70716dc,
+                    0x3dea6b4117682d70,
+                    0xd8f5f930500ca354,
+                    0x6b5ecb6556f5c155,
+                    0xc96bef0434778ab0,
+                    0x5081505515006ad,
+                ]),
+            },
+            y: Fp2 {
+                c0: Fp::from_raw_unchecked([
+                    0x3cf1ea0d434b0f40,
+                    0x1a0dc610e603e333,
+                    0x7f89956160c72fa0,
+                    0x25ee03decf6431c5,
+                    0xeee8e206ec0fe137,
+                    0x97592b226dfef28,
+                ]),
+                c1: Fp::from_raw_unchecked([
+                    0x71e8bb5f29247367,
+                    0xa5fe049e211831ce,
+                    0xce6b354502a3896,
+                    0x93b012000997314e,
+                    0x6759f3b6aa5b42ac,
+                    0x156944c4dfe92bbb,
+                ]),
+            },
+            infinity: Choice::from(0u8),
+        };
+        assert!(!bool::from(a.is_torsion_free()));
+
+        assert!(bool::from(G2Affine::identity().is_torsion_free()));
+        assert!(bool::from(G2Affine::generator().is_torsion_free()));
+    }
+
+    #[cfg(feature = "endo")]
+    #[test]
+    fn test_mul_by_x() {
+        // multiplying by `x` a point in G2 is the same as multiplying by
+        // the equivalent scalar.
+        let generator = G2Projective::generator();
+        let x = if crate::BLS_X_IS_NEGATIVE {
+            -BlsScalar::from(crate::BLS_X)
+        } else {
+            BlsScalar::from(crate::BLS_X)
+        };
+        assert_eq!(generator.mul_by_x(), generator * x);
+
+        let point = G2Projective::generator() * BlsScalar::from(42);
+        assert_eq!(point.mul_by_x(), point * x);
+    }
+
+    #[cfg(feature = "endo")]
+    #[test]
+    fn test_psi() {
+        let generator = G2Projective::generator();
+
+        // `point` is a random point in the curve
+        let point = G2Projective {
+            x: Fp2 {
+                c0: Fp::from_raw_unchecked([
+                    0xee4c8cb7c047eaf2,
+                    0x44ca22eee036b604,
+                    0x33b3affb2aefe101,
+                    0x15d3e45bbafaeb02,
+                    0x7bfc2154cd7419a4,
+                    0x0a2d0c2b756e5edc,
+                ]),
+                c1: Fp::from_raw_unchecked([
+                    0xfc224361029a8777,
+                    0x4cbf2baab8740924,
+                    0xc5008c6ec6592c89,
+                    0xecc2c57b472a9c2d,
+                    0x8613eafd9d81ffb1,
+                    0x10fe54daa2d3d495,
+                ]),
+            },
+            y: Fp2 {
+                c0: Fp::from_raw_unchecked([
+                    0x7de7edc43953b75c,
+                    0x58be1d2de35e87dc,
+                    0x5731d30b0e337b40,
+                    0xbe93b60cfeaae4c9,
+                    0x8b22c203764bedca,
+                    0x01616c8d1033b771,
+                ]),
+                c1: Fp::from_raw_unchecked([
+                    0xea126fe476b5733b,
+                    0x85cee68b5dae1652,
+                    0x98247779f7272b04,
+                    0xa649c8b468c6e808,
+                    0xb5b9a62dff0c4e45,
+                    0x1555b67fc7bbe73d,
+                ]),
+            },
+            z: Fp2 {
+                c0: Fp::from_raw_unchecked([
+                    0x0ef2ddffab187c0a,
+                    0x2424522b7d5ecbfc,
+                    0xc6f341a3398054f4,
+                    0x5523ddf409502df0,
+                    0xd55c0b5a88e0dd97,
+                    0x066428d704923e52,
+                ]),
+                c1: Fp::from_raw_unchecked([
+                    0x538bbe0c95b4878d,
+                    0xad04a50379522881,
+                    0x6d5c05bf5c12fb64,
+                    0x4ce4a069a2d34787,
+                    0x59ea6c8d0dffaeaf,
+                    0x0d42a083a75bd6f3,
+                ]),
+            },
+        };
+        assert!(bool::from(point.is_on_curve()));
+
+        // psi2(P) = psi(psi(P))
+        assert_eq!(generator.psi2(), generator.psi().psi());
+        assert_eq!(point.psi2(), point.psi().psi());
+        // psi(P) is a morphism
+        assert_eq!(generator.double().psi(), generator.psi().double());
+        assert_eq!(point.psi() + generator.psi(), (point + generator).psi());
+        // psi(P) behaves in the same way on the same projective point
+        let mut normalized_point = [G2Affine::identity()];
+        G2Projective::batch_normalize(&[point], &mut normalized_point);
+        let normalized_point = G2Projective::from(normalized_point[0]);
+        assert_eq!(point.psi(), normalized_point.psi());
+        assert_eq!(point.psi2(), normalized_point.psi2());
+    }
+
+    #[test]
+    fn test_clear_cofactor() {
+        // `point` is a random point in the curve
+        let point = G2Projective {
+            x: Fp2 {
+                c0: Fp::from_raw_unchecked([
+                    0xee4c8cb7c047eaf2,
+                    0x44ca22eee036b604,
+                    0x33b3affb2aefe101,
+                    0x15d3e45bbafaeb02,
+                    0x7bfc2154cd7419a4,
+                    0x0a2d0c2b756e5edc,
+                ]),
+                c1: Fp::from_raw_unchecked([
+                    0xfc224361029a8777,
+                    0x4cbf2baab8740924,
+                    0xc5008c6ec6592c89,
+                    0xecc2c57b472a9c2d,
+                    0x8613eafd9d81ffb1,
+                    0x10fe54daa2d3d495,
+                ]),
+            },
+            y: Fp2 {
+                c0: Fp::from_raw_unchecked([
+                    0x7de7edc43953b75c,
+                    0x58be1d2de35e87dc,
+                    0x5731d30b0e337b40,
+                    0xbe93b60cfeaae4c9,
+                    0x8b22c203764bedca,
+                    0x01616c8d1033b771,
+                ]),
+                c1: Fp::from_raw_unchecked([
+                    0xea126fe476b5733b,
+                    0x85cee68b5dae1652,
+                    0x98247779f7272b04,
+                    0xa649c8b468c6e808,
+                    0xb5b9a62dff0c4e45,
+                    0x1555b67fc7bbe73d,
+                ]),
+            },
+            z: Fp2 {
+                c0: Fp::from_raw_unchecked([
+                    0x0ef2ddffab187c0a,
+                    0x2424522b7d5ecbfc,
+                    0xc6f341a3398054f4,
+                    0x5523ddf409502df0,
+                    0xd55c0b5a88e0dd97,
+                    0x066428d704923e52,
+                ]),
+                c1: Fp::from_raw_unchecked([
+                    0x538bbe0c95b4878d,
+                    0xad04a50379522881,
+                    0x6d5c05bf5c12fb64,
+                    0x4ce4a069a2d34787,
+                    0x59ea6c8d0dffaeaf,
+                    0x0d42a083a75bd6f3,
+                ]),
+            },
+        };
+
+        assert!(bool::from(point.is_on_curve()));
+        assert!(!bool::from(G2Affine::from(point).is_torsion_free()));
+        let cleared_point = point.clear_cofactor();
+
+        assert!(bool::from(cleared_point.is_on_curve()));
+        assert!(bool::from(G2Affine::from(cleared_point).is_torsion_free()));
+
+        // the generator (and the identity) are always on the curve,
+        // even after clearing the cofactor
+        let generator = G2Projective::generator();
+        assert!(bool::from(generator.clear_cofactor().is_on_curve()));
+        let id = G2Projective::identity();
+        assert!(bool::from(id.clear_cofactor().is_on_curve()));
+
+        // test the effect on q-torsion points multiplying by h_eff modulo |BlsScalar|
+        // h_eff % q = 0x2b116900400069009a40200040001ffff
+        let h_eff_modq: [u8; 32] = [
+            0xff, 0xff, 0x01, 0x00, 0x04, 0x00, 0x02, 0xa4, 0x09, 0x90, 0x06, 0x00, 0x04, 0x90,
+            0x16, 0xb1, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+        ];
+        assert_eq!(generator.clear_cofactor(), generator.multiply(&h_eff_modq));
+        assert_eq!(
+            cleared_point.clear_cofactor(),
+            cleared_point.multiply(&h_eff_modq)
+        );
+    }
+
+    #[test]
+    fn test_batch_normalize() {
+        let a = G2Projective::generator().double();
+        let b = a.double();
+        let c = b.double();
+
+        for a_identity in (0..1).map(|n| n == 1) {
+            for b_identity in (0..1).map(|n| n == 1) {
+                for c_identity in (0..1).map(|n| n == 1) {
+                    let mut v = [a, b, c];
+                    if a_identity {
+                        v[0] = G2Projective::identity()
+                    }
+                    if b_identity {
+                        v[1] = G2Projective::identity()
+                    }
+                    if c_identity {
+                        v[2] = G2Projective::identity()
+                    }
+
+                    let mut t = [
+                        G2Affine::identity(),
+                        G2Affine::identity(),
+                        G2Affine::identity(),
+                    ];
+                    let expected = [
+                        G2Affine::from(v[0]),
+                        G2Affine::from(v[1]),
+                        G2Affine::from(v[2]),
+                    ];
+
+                    G2Projective::batch_normalize(&v[..], &mut t[..]);
+
+                    assert_eq!(&t[..], &expected[..]);
                 }
-                if c_identity {
-                    v[2] = G2Projective::identity()
-                }
-
-                let mut t = [
-                    G2Affine::identity(),
-                    G2Affine::identity(),
-                    G2Affine::identity(),
-                ];
-                let expected = [
-                    G2Affine::from(v[0]),
-                    G2Affine::from(v[1]),
-                    G2Affine::from(v[2]),
-                ];
-
-                G2Projective::batch_normalize(&v[..], &mut t[..]);
-
-                assert_eq!(&t[..], &expected[..]);
             }
         }
     }
-}
 
-#[test]
-#[cfg(feature = "serde_req")]
-fn g2_affine_serde_roundtrip() {
-    use bincode;
+    #[test]
+    #[cfg(feature = "serde_req")]
+    fn g2_affine_serde_roundtrip() {
+        use bincode;
 
-    let gen = G2Affine::generator();
-    let ser = bincode::serialize(&gen).unwrap();
-    let deser: G2Affine = bincode::deserialize(&ser).unwrap();
+        let gen = G2Affine::generator();
+        let ser = bincode::serialize(&gen).unwrap();
+        let deser: G2Affine = bincode::deserialize(&ser).unwrap();
 
-    assert_eq!(gen, deser);
-}
+        assert_eq!(gen, deser);
+    }
 
-#[test]
-fn g2_affine_bytes_unchecked() {
-    let gen = G2Affine::generator();
-    let ident = G2Affine::identity();
+    #[test]
+    fn g2_affine_bytes_unchecked() {
+        let gen = G2Affine::generator();
+        let ident = G2Affine::identity();
 
-    let gen_p = gen.to_raw_bytes();
-    let gen_p = unsafe { G2Affine::from_slice_unchecked(&gen_p) };
+        let gen_p = gen.to_raw_bytes();
+        let gen_p = unsafe { G2Affine::from_slice_unchecked(&gen_p) };
 
-    let ident_p = ident.to_raw_bytes();
-    let ident_p = unsafe { G2Affine::from_slice_unchecked(&ident_p) };
+        let ident_p = ident.to_raw_bytes();
+        let ident_p = unsafe { G2Affine::from_slice_unchecked(&ident_p) };
 
-    assert_eq!(gen, gen_p);
-    assert_eq!(ident, ident_p);
-}
+        assert_eq!(gen, gen_p);
+        assert_eq!(ident, ident_p);
+    }
 
-#[test]
-fn g2_affine_hex() {
-    use dusk_bytes::ParseHexStr;
+    #[test]
+    fn g2_affine_hex() {
+        use dusk_bytes::ParseHexStr;
 
-    let gen = G2Affine::generator();
-    let ident = G2Affine::identity();
+        let gen = G2Affine::generator();
+        let ident = G2Affine::identity();
 
-    let gen_p = format!("{:x}", gen);
-    let gen_p = G2Affine::from_hex_str(gen_p.as_str()).unwrap();
+        let gen_p = format!("{:x}", gen);
+        let gen_p = G2Affine::from_hex_str(gen_p.as_str()).unwrap();
 
-    let ident_p = format!("{:x}", ident);
-    let ident_p = G2Affine::from_hex_str(ident_p.as_str()).unwrap();
+        let ident_p = format!("{:x}", ident);
+        let ident_p = G2Affine::from_hex_str(ident_p.as_str()).unwrap();
 
-    assert_eq!(gen, gen_p);
-    assert_eq!(ident, ident_p);
+        assert_eq!(gen, gen_p);
+        assert_eq!(ident, ident_p);
+    }
 }

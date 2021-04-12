@@ -613,326 +613,331 @@ impl Fp {
     }
 }
 
-#[test]
-fn test_conditional_selection() {
-    let a = Fp([1, 2, 3, 4, 5, 6]);
-    let b = Fp([7, 8, 9, 10, 11, 12]);
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    assert_eq!(
-        ConditionallySelectable::conditional_select(&a, &b, Choice::from(0u8)),
-        a
-    );
-    assert_eq!(
-        ConditionallySelectable::conditional_select(&a, &b, Choice::from(1u8)),
-        b
-    );
-}
+    #[test]
+    fn test_conditional_selection() {
+        let a = Fp([1, 2, 3, 4, 5, 6]);
+        let b = Fp([7, 8, 9, 10, 11, 12]);
 
-#[test]
-fn test_equality() {
-    fn is_equal(a: &Fp, b: &Fp) -> bool {
-        let eq = a == b;
-        let ct_eq = a.ct_eq(&b);
-
-        assert_eq!(eq, ct_eq.unwrap_u8() == 1);
-
-        eq
+        assert_eq!(
+            ConditionallySelectable::conditional_select(&a, &b, Choice::from(0u8)),
+            a
+        );
+        assert_eq!(
+            ConditionallySelectable::conditional_select(&a, &b, Choice::from(1u8)),
+            b
+        );
     }
 
-    assert!(is_equal(&Fp([1, 2, 3, 4, 5, 6]), &Fp([1, 2, 3, 4, 5, 6])));
+    #[test]
+    fn test_equality() {
+        fn is_equal(a: &Fp, b: &Fp) -> bool {
+            let eq = a == b;
+            let ct_eq = a.ct_eq(&b);
 
-    assert!(!is_equal(&Fp([7, 2, 3, 4, 5, 6]), &Fp([1, 2, 3, 4, 5, 6])));
-    assert!(!is_equal(&Fp([1, 7, 3, 4, 5, 6]), &Fp([1, 2, 3, 4, 5, 6])));
-    assert!(!is_equal(&Fp([1, 2, 7, 4, 5, 6]), &Fp([1, 2, 3, 4, 5, 6])));
-    assert!(!is_equal(&Fp([1, 2, 3, 7, 5, 6]), &Fp([1, 2, 3, 4, 5, 6])));
-    assert!(!is_equal(&Fp([1, 2, 3, 4, 7, 6]), &Fp([1, 2, 3, 4, 5, 6])));
-    assert!(!is_equal(&Fp([1, 2, 3, 4, 5, 7]), &Fp([1, 2, 3, 4, 5, 6])));
-}
+            assert_eq!(eq, ct_eq.unwrap_u8() == 1);
 
-#[test]
-fn test_squaring() {
-    let a = Fp([
-        0xd215d2768e83191b,
-        0x5085d80f8fb28261,
-        0xce9a032ddf393a56,
-        0x3e9c4fff2ca0c4bb,
-        0x6436b6f7f4d95dfb,
-        0x10606628ad4a4d90,
-    ]);
-    let b = Fp([
-        0x33d9c42a3cb3e235,
-        0xdad11a094c4cd455,
-        0xa2f144bd729aaeba,
-        0xd4150932be9ffeac,
-        0xe27bc7c47d44ee50,
-        0x14b6a78d3ec7a560,
-    ]);
+            eq
+        }
 
-    assert_eq!(a.square(), b);
-}
+        assert!(is_equal(&Fp([1, 2, 3, 4, 5, 6]), &Fp([1, 2, 3, 4, 5, 6])));
 
-#[test]
-fn test_multiplication() {
-    let a = Fp([
-        0x397a38320170cd4,
-        0x734c1b2c9e761d30,
-        0x5ed255ad9a48beb5,
-        0x95a3c6b22a7fcfc,
-        0x2294ce75d4e26a27,
-        0x13338bd870011ebb,
-    ]);
-    let b = Fp([
-        0xb9c3c7c5b1196af7,
-        0x2580e2086ce335c1,
-        0xf49aed3d8a57ef42,
-        0x41f281e49846e878,
-        0xe0762346c38452ce,
-        0x652e89326e57dc0,
-    ]);
-    let c = Fp([
-        0xf96ef3d711ab5355,
-        0xe8d459ea00f148dd,
-        0x53f7354a5f00fa78,
-        0x9e34a4f3125c5f83,
-        0x3fbe0c47ca74c19e,
-        0x1b06a8bbd4adfe4,
-    ]);
+        assert!(!is_equal(&Fp([7, 2, 3, 4, 5, 6]), &Fp([1, 2, 3, 4, 5, 6])));
+        assert!(!is_equal(&Fp([1, 7, 3, 4, 5, 6]), &Fp([1, 2, 3, 4, 5, 6])));
+        assert!(!is_equal(&Fp([1, 2, 7, 4, 5, 6]), &Fp([1, 2, 3, 4, 5, 6])));
+        assert!(!is_equal(&Fp([1, 2, 3, 7, 5, 6]), &Fp([1, 2, 3, 4, 5, 6])));
+        assert!(!is_equal(&Fp([1, 2, 3, 4, 7, 6]), &Fp([1, 2, 3, 4, 5, 6])));
+        assert!(!is_equal(&Fp([1, 2, 3, 4, 5, 7]), &Fp([1, 2, 3, 4, 5, 6])));
+    }
 
-    assert_eq!(a * b, c);
-}
+    #[test]
+    fn test_squaring() {
+        let a = Fp([
+            0xd215d2768e83191b,
+            0x5085d80f8fb28261,
+            0xce9a032ddf393a56,
+            0x3e9c4fff2ca0c4bb,
+            0x6436b6f7f4d95dfb,
+            0x10606628ad4a4d90,
+        ]);
+        let b = Fp([
+            0x33d9c42a3cb3e235,
+            0xdad11a094c4cd455,
+            0xa2f144bd729aaeba,
+            0xd4150932be9ffeac,
+            0xe27bc7c47d44ee50,
+            0x14b6a78d3ec7a560,
+        ]);
 
-#[test]
-fn test_addition() {
-    let a = Fp([
-        0x5360bb5978678032,
-        0x7dd275ae799e128e,
-        0x5c5b5071ce4f4dcf,
-        0xcdb21f93078dbb3e,
-        0xc32365c5e73f474a,
-        0x115a2a5489babe5b,
-    ]);
-    let b = Fp([
-        0x9fd287733d23dda0,
-        0xb16bf2af738b3554,
-        0x3e57a75bd3cc6d1d,
-        0x900bc0bd627fd6d6,
-        0xd319a080efb245fe,
-        0x15fdcaa4e4bb2091,
-    ]);
-    let c = Fp([
-        0x393442ccb58bb327,
-        0x1092685f3bd547e3,
-        0x3382252cab6ac4c9,
-        0xf94694cb76887f55,
-        0x4b215e9093a5e071,
-        0xd56e30f34f5f853,
-    ]);
+        assert_eq!(a.square(), b);
+    }
 
-    assert_eq!(a + b, c);
-}
+    #[test]
+    fn test_multiplication() {
+        let a = Fp([
+            0x397a38320170cd4,
+            0x734c1b2c9e761d30,
+            0x5ed255ad9a48beb5,
+            0x95a3c6b22a7fcfc,
+            0x2294ce75d4e26a27,
+            0x13338bd870011ebb,
+        ]);
+        let b = Fp([
+            0xb9c3c7c5b1196af7,
+            0x2580e2086ce335c1,
+            0xf49aed3d8a57ef42,
+            0x41f281e49846e878,
+            0xe0762346c38452ce,
+            0x652e89326e57dc0,
+        ]);
+        let c = Fp([
+            0xf96ef3d711ab5355,
+            0xe8d459ea00f148dd,
+            0x53f7354a5f00fa78,
+            0x9e34a4f3125c5f83,
+            0x3fbe0c47ca74c19e,
+            0x1b06a8bbd4adfe4,
+        ]);
 
-#[test]
-fn test_subtraction() {
-    let a = Fp([
-        0x5360bb5978678032,
-        0x7dd275ae799e128e,
-        0x5c5b5071ce4f4dcf,
-        0xcdb21f93078dbb3e,
-        0xc32365c5e73f474a,
-        0x115a2a5489babe5b,
-    ]);
-    let b = Fp([
-        0x9fd287733d23dda0,
-        0xb16bf2af738b3554,
-        0x3e57a75bd3cc6d1d,
-        0x900bc0bd627fd6d6,
-        0xd319a080efb245fe,
-        0x15fdcaa4e4bb2091,
-    ]);
-    let c = Fp([
-        0x6d8d33e63b434d3d,
-        0xeb1282fdb766dd39,
-        0x85347bb6f133d6d5,
-        0xa21daa5a9892f727,
-        0x3b256cfb3ad8ae23,
-        0x155d7199de7f8464,
-    ]);
+        assert_eq!(a * b, c);
+    }
 
-    assert_eq!(a - b, c);
-}
+    #[test]
+    fn test_addition() {
+        let a = Fp([
+            0x5360bb5978678032,
+            0x7dd275ae799e128e,
+            0x5c5b5071ce4f4dcf,
+            0xcdb21f93078dbb3e,
+            0xc32365c5e73f474a,
+            0x115a2a5489babe5b,
+        ]);
+        let b = Fp([
+            0x9fd287733d23dda0,
+            0xb16bf2af738b3554,
+            0x3e57a75bd3cc6d1d,
+            0x900bc0bd627fd6d6,
+            0xd319a080efb245fe,
+            0x15fdcaa4e4bb2091,
+        ]);
+        let c = Fp([
+            0x393442ccb58bb327,
+            0x1092685f3bd547e3,
+            0x3382252cab6ac4c9,
+            0xf94694cb76887f55,
+            0x4b215e9093a5e071,
+            0xd56e30f34f5f853,
+        ]);
 
-#[test]
-fn test_negation() {
-    let a = Fp([
-        0x5360bb5978678032,
-        0x7dd275ae799e128e,
-        0x5c5b5071ce4f4dcf,
-        0xcdb21f93078dbb3e,
-        0xc32365c5e73f474a,
-        0x115a2a5489babe5b,
-    ]);
-    let b = Fp([
-        0x669e44a687982a79,
-        0xa0d98a5037b5ed71,
-        0xad5822f2861a854,
-        0x96c52bf1ebf75781,
-        0x87f841f05c0c658c,
-        0x8a6e795afc5283e,
-    ]);
+        assert_eq!(a + b, c);
+    }
 
-    assert_eq!(-a, b);
-}
+    #[test]
+    fn test_subtraction() {
+        let a = Fp([
+            0x5360bb5978678032,
+            0x7dd275ae799e128e,
+            0x5c5b5071ce4f4dcf,
+            0xcdb21f93078dbb3e,
+            0xc32365c5e73f474a,
+            0x115a2a5489babe5b,
+        ]);
+        let b = Fp([
+            0x9fd287733d23dda0,
+            0xb16bf2af738b3554,
+            0x3e57a75bd3cc6d1d,
+            0x900bc0bd627fd6d6,
+            0xd319a080efb245fe,
+            0x15fdcaa4e4bb2091,
+        ]);
+        let c = Fp([
+            0x6d8d33e63b434d3d,
+            0xeb1282fdb766dd39,
+            0x85347bb6f133d6d5,
+            0xa21daa5a9892f727,
+            0x3b256cfb3ad8ae23,
+            0x155d7199de7f8464,
+        ]);
 
-#[test]
-fn test_debug() {
-    assert_eq!(
+        assert_eq!(a - b, c);
+    }
+
+    #[test]
+    fn test_negation() {
+        let a = Fp([
+            0x5360bb5978678032,
+            0x7dd275ae799e128e,
+            0x5c5b5071ce4f4dcf,
+            0xcdb21f93078dbb3e,
+            0xc32365c5e73f474a,
+            0x115a2a5489babe5b,
+        ]);
+        let b = Fp([
+            0x669e44a687982a79,
+            0xa0d98a5037b5ed71,
+            0xad5822f2861a854,
+            0x96c52bf1ebf75781,
+            0x87f841f05c0c658c,
+            0x8a6e795afc5283e,
+        ]);
+
+        assert_eq!(-a, b);
+    }
+
+    #[test]
+    fn test_debug() {
+        assert_eq!(
         format!(
             "{:?}",
             Fp([0x5360bb5978678032, 0x7dd275ae799e128e, 0x5c5b5071ce4f4dcf, 0xcdb21f93078dbb3e, 0xc32365c5e73f474a, 0x115a2a5489babe5b])
         ),
         "0x104bf052ad3bc99bcb176c24a06a6c3aad4eaf2308fc4d282e106c84a757d061052630515305e59bdddf8111bfdeb704"
     );
-}
-
-#[test]
-fn test_from_bytes() {
-    let mut a = Fp([
-        0xdc906d9be3f95dc8,
-        0x8755caf7459691a1,
-        0xcff1a7f4e9583ab3,
-        0x9b43821f849e2284,
-        0xf57554f3a2974f3f,
-        0x85dbea84ed47f79,
-    ]);
-
-    for _ in 0..100 {
-        a = a.square();
-        let tmp = a.to_bytes();
-        let b = Fp::from_bytes(&tmp).unwrap();
-
-        assert_eq!(a, b);
     }
 
-    assert_eq!(
-        -Fp::one(),
-        Fp::from_bytes(&[
-            26, 1, 17, 234, 57, 127, 230, 154, 75, 27, 167, 182, 67, 75, 172, 215, 100, 119, 75,
-            132, 243, 133, 18, 191, 103, 48, 210, 160, 246, 176, 246, 36, 30, 171, 255, 254, 177,
-            83, 255, 255, 185, 254, 255, 255, 255, 255, 170, 170
-        ])
-        .unwrap()
-    );
+    #[test]
+    fn test_from_bytes() {
+        let mut a = Fp([
+            0xdc906d9be3f95dc8,
+            0x8755caf7459691a1,
+            0xcff1a7f4e9583ab3,
+            0x9b43821f849e2284,
+            0xf57554f3a2974f3f,
+            0x85dbea84ed47f79,
+        ]);
 
-    assert!(
-        Fp::from_bytes(&[
-            27, 1, 17, 234, 57, 127, 230, 154, 75, 27, 167, 182, 67, 75, 172, 215, 100, 119, 75,
-            132, 243, 133, 18, 191, 103, 48, 210, 160, 246, 176, 246, 36, 30, 171, 255, 254, 177,
-            83, 255, 255, 185, 254, 255, 255, 255, 255, 170, 170
-        ])
-        .is_none()
-        .unwrap_u8()
-            == 1
-    );
+        for _ in 0..100 {
+            a = a.square();
+            let tmp = a.to_bytes();
+            let b = Fp::from_bytes(&tmp).unwrap();
 
-    assert!(Fp::from_bytes(&[0xff; 48]).is_none().unwrap_u8() == 1);
-}
+            assert_eq!(a, b);
+        }
 
-#[test]
-fn test_sqrt() {
-    // a = 4
-    let a = Fp::from_raw_unchecked([
-        0xaa270000000cfff3,
-        0x53cc0032fc34000a,
-        0x478fe97a6b0a807f,
-        0xb1d37ebee6ba24d7,
-        0x8ec9733bbf78ab2f,
-        0x9d645513d83de7e,
-    ]);
+        assert_eq!(
+            -Fp::one(),
+            Fp::from_bytes(&[
+                26, 1, 17, 234, 57, 127, 230, 154, 75, 27, 167, 182, 67, 75, 172, 215, 100, 119,
+                75, 132, 243, 133, 18, 191, 103, 48, 210, 160, 246, 176, 246, 36, 30, 171, 255,
+                254, 177, 83, 255, 255, 185, 254, 255, 255, 255, 255, 170, 170
+            ])
+            .unwrap()
+        );
 
-    assert_eq!(
-        // sqrt(4) = -2
-        -a.sqrt().unwrap(),
-        // 2
-        Fp::from_raw_unchecked([
-            0x321300000006554f,
-            0xb93c0018d6c40005,
-            0x57605e0db0ddbb51,
-            0x8b256521ed1f9bcb,
-            0x6cf28d7901622c03,
-            0x11ebab9dbb81e28c
-        ])
-    );
-}
+        assert!(
+            Fp::from_bytes(&[
+                27, 1, 17, 234, 57, 127, 230, 154, 75, 27, 167, 182, 67, 75, 172, 215, 100, 119,
+                75, 132, 243, 133, 18, 191, 103, 48, 210, 160, 246, 176, 246, 36, 30, 171, 255,
+                254, 177, 83, 255, 255, 185, 254, 255, 255, 255, 255, 170, 170
+            ])
+            .is_none()
+            .unwrap_u8()
+                == 1
+        );
 
-#[test]
-fn test_inversion() {
-    let a = Fp([
-        0x43b43a5078ac2076,
-        0x1ce0763046f8962b,
-        0x724a5276486d735c,
-        0x6f05c2a6282d48fd,
-        0x2095bd5bb4ca9331,
-        0x3b35b3894b0f7da,
-    ]);
-    let b = Fp([
-        0x69ecd7040952148f,
-        0x985ccc2022190f55,
-        0xe19bba36a9ad2f41,
-        0x19bb16c95219dbd8,
-        0x14dcacfdfb478693,
-        0x115ff58afff9a8e1,
-    ]);
+        assert!(Fp::from_bytes(&[0xff; 48]).is_none().unwrap_u8() == 1);
+    }
 
-    assert_eq!(a.invert().unwrap(), b);
-    assert!(Fp::zero().invert().is_none().unwrap_u8() == 1);
-}
+    #[test]
+    fn test_sqrt() {
+        // a = 4
+        let a = Fp::from_raw_unchecked([
+            0xaa270000000cfff3,
+            0x53cc0032fc34000a,
+            0x478fe97a6b0a807f,
+            0xb1d37ebee6ba24d7,
+            0x8ec9733bbf78ab2f,
+            0x9d645513d83de7e,
+        ]);
 
-#[test]
-fn test_lexicographic_largest() {
-    assert!(!bool::from(Fp::zero().lexicographically_largest()));
-    assert!(!bool::from(Fp::one().lexicographically_largest()));
-    assert!(!bool::from(
-        Fp::from_raw_unchecked([
-            0xa1fafffffffe5557,
-            0x995bfff976a3fffe,
-            0x3f41d24d174ceb4,
-            0xf6547998c1995dbd,
-            0x778a468f507a6034,
-            0x20559931f7f8103
-        ])
-        .lexicographically_largest()
-    ));
-    assert!(bool::from(
-        Fp::from_raw_unchecked([
-            0x1804000000015554,
-            0x855000053ab00001,
-            0x633cb57c253c276f,
-            0x6e22d1ec31ebb502,
-            0xd3916126f2d14ca2,
-            0x17fbb8571a006596
-        ])
-        .lexicographically_largest()
-    ));
-    assert!(bool::from(
-        Fp::from_raw_unchecked([
-            0x43f5fffffffcaaae,
-            0x32b7fff2ed47fffd,
-            0x7e83a49a2e99d69,
-            0xeca8f3318332bb7a,
-            0xef148d1ea0f4c069,
-            0x40ab3263eff0206
-        ])
-        .lexicographically_largest()
-    ));
-}
+        assert_eq!(
+            // sqrt(4) = -2
+            -a.sqrt().unwrap(),
+            // 2
+            Fp::from_raw_unchecked([
+                0x321300000006554f,
+                0xb93c0018d6c40005,
+                0x57605e0db0ddbb51,
+                0x8b256521ed1f9bcb,
+                0x6cf28d7901622c03,
+                0x11ebab9dbb81e28c
+            ])
+        );
+    }
 
-#[test]
-#[cfg(feature = "serde_req")]
-fn fp_serde_roundtrip() {
-    use bincode;
-    let fp = Fp::one();
-    let ser = bincode::serialize(&fp).unwrap();
-    let deser: Fp = bincode::deserialize(&ser).unwrap();
+    #[test]
+    fn test_inversion() {
+        let a = Fp([
+            0x43b43a5078ac2076,
+            0x1ce0763046f8962b,
+            0x724a5276486d735c,
+            0x6f05c2a6282d48fd,
+            0x2095bd5bb4ca9331,
+            0x3b35b3894b0f7da,
+        ]);
+        let b = Fp([
+            0x69ecd7040952148f,
+            0x985ccc2022190f55,
+            0xe19bba36a9ad2f41,
+            0x19bb16c95219dbd8,
+            0x14dcacfdfb478693,
+            0x115ff58afff9a8e1,
+        ]);
 
-    assert_eq!(fp, deser);
+        assert_eq!(a.invert().unwrap(), b);
+        assert!(Fp::zero().invert().is_none().unwrap_u8() == 1);
+    }
+
+    #[test]
+    fn test_lexicographic_largest() {
+        assert!(!bool::from(Fp::zero().lexicographically_largest()));
+        assert!(!bool::from(Fp::one().lexicographically_largest()));
+        assert!(!bool::from(
+            Fp::from_raw_unchecked([
+                0xa1fafffffffe5557,
+                0x995bfff976a3fffe,
+                0x3f41d24d174ceb4,
+                0xf6547998c1995dbd,
+                0x778a468f507a6034,
+                0x20559931f7f8103
+            ])
+            .lexicographically_largest()
+        ));
+        assert!(bool::from(
+            Fp::from_raw_unchecked([
+                0x1804000000015554,
+                0x855000053ab00001,
+                0x633cb57c253c276f,
+                0x6e22d1ec31ebb502,
+                0xd3916126f2d14ca2,
+                0x17fbb8571a006596
+            ])
+            .lexicographically_largest()
+        ));
+        assert!(bool::from(
+            Fp::from_raw_unchecked([
+                0x43f5fffffffcaaae,
+                0x32b7fff2ed47fffd,
+                0x7e83a49a2e99d69,
+                0xeca8f3318332bb7a,
+                0xef148d1ea0f4c069,
+                0x40ab3263eff0206
+            ])
+            .lexicographically_largest()
+        ));
+    }
+
+    #[test]
+    #[cfg(feature = "serde_req")]
+    fn fp_serde_roundtrip() {
+        use bincode;
+        let fp = Fp::one();
+        let ser = bincode::serialize(&fp).unwrap();
+        let deser: Fp = bincode::deserialize(&ser).unwrap();
+
+        assert_eq!(fp, deser);
+    }
 }
