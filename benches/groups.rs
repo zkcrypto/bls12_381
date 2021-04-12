@@ -3,6 +3,7 @@ extern crate criterion;
 
 extern crate dusk_bls12_381;
 use dusk_bls12_381::*;
+use dusk_bytes::Serializable;
 
 use criterion::{black_box, Criterion};
 
@@ -31,9 +32,8 @@ fn criterion_benchmark(c: &mut Criterion) {
     {
         let name = "G1Affine";
         let a = G1Affine::generator();
-        let s = Scalar::from_raw([1, 2, 3, 4]);
+        let s = BlsScalar::from_raw([1, 2, 3, 4]);
         let compressed = [0u8; 48];
-        let uncompressed = [0u8; 96];
         c.bench_function(&format!("{} check on curve", name), move |b| {
             b.iter(|| black_box(a).is_on_curve())
         });
@@ -48,11 +48,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         });
         c.bench_function(
             &format!("{} deserialize compressed point", name),
-            move |b| b.iter(|| G1Affine::from_compressed(black_box(&compressed))),
-        );
-        c.bench_function(
-            &format!("{} deserialize uncompressed point", name),
-            move |b| b.iter(|| G1Affine::from_uncompressed(black_box(&uncompressed))),
+            move |b| b.iter(|| G1Affine::from_bytes(black_box(&compressed))),
         );
     }
 
@@ -61,7 +57,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         let name = "G1Projective";
         let a = G1Projective::generator();
         let a_affine = G1Affine::generator();
-        let s = Scalar::from_raw([1, 2, 3, 4]);
+        let s = BlsScalar::from_raw([1, 2, 3, 4]);
 
         const N: usize = 10000;
         let v = vec![G1Projective::generator(); N];
@@ -100,9 +96,8 @@ fn criterion_benchmark(c: &mut Criterion) {
     {
         let name = "G2Affine";
         let a = G2Affine::generator();
-        let s = Scalar::from_raw([1, 2, 3, 4]);
+        let s = BlsScalar::from_raw([1, 2, 3, 4]);
         let compressed = [0u8; 96];
-        let uncompressed = [0u8; 192];
         c.bench_function(&format!("{} check on curve", name), move |b| {
             b.iter(|| black_box(a).is_on_curve())
         });
@@ -117,11 +112,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         });
         c.bench_function(
             &format!("{} deserialize compressed point", name),
-            move |b| b.iter(|| G2Affine::from_compressed(black_box(&compressed))),
-        );
-        c.bench_function(
-            &format!("{} deserialize uncompressed point", name),
-            move |b| b.iter(|| G2Affine::from_uncompressed(black_box(&uncompressed))),
+            move |b| b.iter(|| G2Affine::from_bytes(black_box(&compressed))),
         );
     }
 
@@ -130,7 +121,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         let name = "G2Projective";
         let a = G2Projective::generator();
         let a_affine = G2Affine::generator();
-        let s = Scalar::from_raw([1, 2, 3, 4]);
+        let s = BlsScalar::from_raw([1, 2, 3, 4]);
 
         const N: usize = 10000;
         let v = vec![G2Projective::generator(); N];
