@@ -7,11 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.7.0] - XXXXX
+## [0.7.0] - 12-04-21
 
 ### Added
 
-- `parallel` feature enabled which includes or not `rayon` on multiscalar mul computations. [#54](https://github.com/dusk-network/bls12_381/issues/54)
+- `parallel` feature inclusion. [#54](https://github.com/dusk-network/bls12_381/issues/54)
+  
+### Fixed
+
+- No_std support fixes. [#54](https://github.com/dusk-network/bls12_381/issues/54)
+- Fix crate benchmarks. [#59](https://github.com/dusk-network/bls12_381/issues/59)
+
+### Changed
+
+- Update `canonical` to `0.6`. [#58](https://github.com/dusk-network/bls12_381/issues/58)
 
 ## [0.6.0] - 27-01-21
 
