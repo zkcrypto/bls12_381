@@ -41,7 +41,7 @@ impl Canon for G2Affine {
 
         bytes.copy_from_slice(source.read_bytes(Self::SIZE));
 
-        Self::from_bytes(&bytes).map_err(|_| CanonError::InvalidEncoding.into())
+        Self::from_bytes(&bytes).map_err(|_| CanonError::InvalidEncoding)
     }
 
     fn encoded_len(&self) -> usize {
