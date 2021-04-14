@@ -3,8 +3,6 @@
 
 use crate::util::{adc, mac, sbb};
 #[cfg(feature = "canon")]
-use canonical::Canon;
-#[cfg(feature = "canon")]
 use canonical_derive::Canon;
 use core::borrow::Borrow;
 use core::cmp::{Ord, Ordering, PartialOrd};
