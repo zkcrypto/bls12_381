@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## Fixed
+
+- Fix `canonical-0.6` impl bugs. [#62](https://github.com/dusk-network/bls12_381/issues/62)
+
 ## [0.7.0] - 12-04-21
 
 ### Added
