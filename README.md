@@ -1,7 +1,9 @@
-# bls12_381 [![Crates.io](https://img.shields.io/crates/v/bls12_381.svg)](https://crates.io/crates/bls12_381) #
+![Build Status](https://github.com/dusk-network/bls12_381/workflows/Continuous%20integration/badge.svg)
+[![Repository](https://img.shields.io/badge/github-dusk--bls12_381-blueviolet?logo=github)](https://github.com/dusk-network/bls12_381)
+[![Documentation](https://img.shields.io/badge/docs-dusk--bls12_381-blue?logo=rust)](https://docs.rs/bls12_381/)
 
 
-**THIS CRATE IS JUST A FORK OF [https://github.com/zkcrypto/bls12_381/](https://github.com/zkcrypto/bls12_381/) where the Dusk-Network team has added a variety of tools required by other libraries built on the top of this one.
+**THIS CRATE IS A FORK OF [https://github.com/zkcrypto/bls12_381](https://github.com/zkcrypto/bls12_381/) where the Dusk-Network team has added a variety of tools required by other libraries built on the top of this one.
 The 99% of the library stills being done by @ebfull and you SHOULD NOT use this one unless you need a specific tool that we've 
 implemented and it's not on the original library.**
 
@@ -32,6 +34,8 @@ This crate provides an implementation of the BLS12-381 pairing-friendly elliptic
 * `alloc` (on by default): Enables APIs that require an allocator; these include pairing optimizations.
 * `nightly`: Enables `subtle/nightly` which tries to prevent compiler optimizations that could jeopardize constant time operations. Requires the nightly Rust compiler.
 * `endo`: Enables optimizations that leverage curve endomorphisms, which may run foul of patents US7110538B2 and US7995752B2 set to expire in September 2020.
+* `parallel` (on by default): Enables `rayon` usage for higly parallelizable ops such as multiscalar multiplication.
+* `canon`: Enables the usage of `canonical` for WASM-related serialization usages.
 
 ## [Documentation](https://docs.rs/bls12_381)
 
