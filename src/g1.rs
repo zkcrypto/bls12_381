@@ -10,7 +10,7 @@ use dusk_bytes::{Error as BytesError, HexDebug, Serializable};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 #[cfg(feature = "canon")]
-use canonical::{Canon, InvalidEncoding, Sink, Source, Store};
+use canonical::{Canon, CanonError, Sink, Source};
 #[cfg(feature = "canon")]
 use canonical_derive::Canon;
 #[cfg(feature = "serde_req")]
@@ -30,19 +30,17 @@ pub struct G1Affine {
 }
 
 #[cfg(feature = "canon")]
-impl<S: Store> Canon<S> for G1Affine {
-    fn write(&self, sink: &mut impl Sink<S>) -> Result<(), S::Error> {
+impl Canon for G1Affine {
+    fn encode(&self, sink: &mut Sink) {
         sink.copy_bytes(&self.to_bytes());
-
-        Ok(())
     }
 
-    fn read(source: &mut impl Source<S>) -> Result<Self, S::Error> {
+    fn decode(source: &mut Source) -> Result<Self, CanonError> {
         let mut bytes = [0u8; Self::SIZE];
 
         bytes.copy_from_slice(source.read_bytes(Self::SIZE));
 
-        Self::from_bytes(&bytes).map_err(|_| InvalidEncoding.into())
+        Self::from_bytes(&bytes).map_err(|_| CanonError::InvalidEncoding)
     }
 
     fn encoded_len(&self) -> usize {

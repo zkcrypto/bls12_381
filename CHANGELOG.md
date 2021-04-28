@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## 0.8.0 - 28-04-21
+
+### Fixed
+
+- Fix `canonical-0.6` impl bugs. [#61](https://github.com/dusk-network/bls12_381/issues/61)
+
+### Removed
+
+- Remove unnecessary `.into()` calls. [#67](https://github.com/dusk-network/bls12_381/issues/67)
+
 ## [0.7.0] - 12-04-21
 
 ### Added

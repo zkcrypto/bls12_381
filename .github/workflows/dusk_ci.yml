@@ -16,7 +16,7 @@ jobs:
           command: check
 
   test_nightly:
-      name: Nightly tests
+      name: Nightly tests std
       runs-on: ubuntu-latest
       steps:
         - uses: actions/checkout@v2
@@ -29,7 +29,7 @@ jobs:
             args: --release
 
   test_nightly_no_std:
-      name: Nightly tests
+      name: Nightly tests no_std
       runs-on: ubuntu-latest
       steps:
         - uses: actions/checkout@v2
@@ -42,7 +42,7 @@ jobs:
             args: --release --no-default-features
 
   test_nightly_serde:
-      name: Nightly tests
+      name: Nightly tests serde
       runs-on: ubuntu-latest
       steps:
         - uses: actions/checkout@v2
@@ -53,6 +53,19 @@ jobs:
           with:
             command: test
             args: --release --features serde_req
+
+  test_nightly_canon:
+    name: Nightly tests canon
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --release --features canon
 
   fmt:
     name: Rustfmt
