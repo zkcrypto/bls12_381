@@ -273,7 +273,7 @@ where
 mod tests {
     use super::*;
     use sha2::{Sha256, Sha512};
-    use sha3::Shake128;
+    use sha3::{Shake128, Shake256};
 
     #[cfg(feature = "alloc")]
     #[test]
@@ -624,6 +624,160 @@ mod tests {
                 .unwrap();
         assert_eq!(
             ExpandMsgXof::<Shake128>::init_expand(msg, dst, len_in_bytes).into_vec(),
+            uniform_bytes
+        );
+    }
+
+    /// From https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-11#appendix-K.4
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn expand_message_xof_works_for_draft11_testvectors_shake256() {
+        let dst = b"QUUX-V01-CS02-with-expander";
+
+        let msg = b"";
+        let len_in_bytes = 0x20;
+        let uniform_bytes =
+            hex::decode("58e90433d81860c47d350b0bb6fb94f98f6b0f9657efd04d410ae743260c096d")
+                .unwrap();
+        assert_eq!(
+            ExpandMsgXof::<Shake256>::init_expand(msg, dst, len_in_bytes).into_vec(),
+            uniform_bytes
+        );
+
+        let msg = b"abc";
+        let len_in_bytes = 0x20;
+        let uniform_bytes =
+            hex::decode("c7f5e3c044790033707e24f21d971aaa03a760dfda6215bf0c8634da9012c8f8")
+                .unwrap();
+        assert_eq!(
+            ExpandMsgXof::<Shake256>::init_expand(msg, dst, len_in_bytes).into_vec(),
+            uniform_bytes
+        );
+
+        let msg = b"abcdef0123456789";
+        let len_in_bytes = 0x20;
+        let uniform_bytes =
+            hex::decode("f46930964d5d5006ef992f5878d7c255c9a92aed1032c9b9d4743ec1470a91e8")
+                .unwrap();
+        assert_eq!(
+            ExpandMsgXof::<Shake256>::init_expand(msg, dst, len_in_bytes).into_vec(),
+            uniform_bytes
+        );
+
+        let msg = b"q128_qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq\
+            qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq\
+            qqqqqqqqqqqqqqqqqqqqqqqqq";
+        let len_in_bytes = 0x20;
+        let uniform_bytes =
+            hex::decode("885baaf4841ad28aa853022289cb4841cc6c1bf200c579e8aebb8d005a8ff37f")
+                .unwrap();
+        assert_eq!(
+            ExpandMsgXof::<Shake256>::init_expand(msg, dst, len_in_bytes).into_vec(),
+            uniform_bytes
+        );
+
+        let msg = b"a512_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+            aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+            aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+            aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+            aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+            aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+            aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+            aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+            aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+            aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let len_in_bytes = 0x20;
+        let uniform_bytes =
+            hex::decode("4a9884b31a64772244df05622222db6cb9942034370d2400e39bb853cca727f7")
+                .unwrap();
+        assert_eq!(
+            ExpandMsgXof::<Shake256>::init_expand(msg, dst, len_in_bytes).into_vec(),
+            uniform_bytes
+        );
+
+        let msg = b"";
+        let len_in_bytes = 0x80;
+        let uniform_bytes = hex::decode(
+            "4cbc65744a4a26c059472822a4647887abb4a3220d5c1e11\
+            55c4180a04c69541d437b77676fc5b6450faa5cb906d88a8fa7e1c\
+            6807d0a66f0092cc022812368e75ba41dcb4daab00a17e752d485f\
+            5e21f835ac36f05b9d0217c79376045e1360faa4652db9d7752af1\
+            ffb76ae14cf6aabd7b08b19032d213415d2cef8cd6b62f",
+        )
+        .unwrap();
+        assert_eq!(
+            ExpandMsgXof::<Shake256>::init_expand(msg, dst, len_in_bytes).into_vec(),
+            uniform_bytes
+        );
+
+        let msg = b"abc";
+        let len_in_bytes = 0x80;
+        let uniform_bytes = hex::decode(
+            "c5f366dc668697014a0a90a40ae27c19edcb8500f6ad5d42\
+            34fbf4204f64df524a44adaecb42102fffeb7686949aa6785142b2\
+            510a419dd29dadf1f2b455688c043f6bc2fd76b101dd8e41cca404\
+            2514a6b15d137d958735961e3c32a49e0640ad564d533d20adc203\
+            c5befdb1186ca18646b729a5cb4531922d24a17b4389ea",
+        )
+        .unwrap();
+        assert_eq!(
+            ExpandMsgXof::<Shake256>::init_expand(msg, dst, len_in_bytes).into_vec(),
+            uniform_bytes
+        );
+
+        let msg = b"abcdef0123456789";
+        let len_in_bytes = 0x80;
+        let uniform_bytes = hex::decode(
+            "34dcc64cee945b94c5e29a9aa6b859b8a9705fe020bf7443\
+            eaab4c8269e739904e2703cef64e1823b5c848570db97b28da7869\
+            f52c24573d8f759b7181726e186dcff940eea5f70a11ebd14b4c90\
+            c3b17805ce91dc3157ce635e9d11fe56d86dfa76a79e84c11e2536\
+            53350d2f954922077f2ea6a17104dd0fd963d7fe4568d3",
+        )
+        .unwrap();
+        assert_eq!(
+            ExpandMsgXof::<Shake256>::init_expand(msg, dst, len_in_bytes).into_vec(),
+            uniform_bytes
+        );
+
+        let msg = b"q128_qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq\
+            qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq\
+            qqqqqqqqqqqqqqqqqqqqqqqqq";
+        let len_in_bytes = 0x80;
+        let uniform_bytes = hex::decode(
+            "b0adc10a4326ae3ddf11c42afb89058625f8812c76b2a0fb\
+            17570f7a2acb030e8dd20036d1326984fd0d973197d80fbf461fe1\
+            8ef394b9a22e609e61d710df43476ddf3a8ca4d32b737bc265d14a\
+            204f32173e447db74bc68938b6a6a08e3e9a31968e5d05a0ca213c\
+            977e94cffc9a535b5c5198a6c5892bbce1a35ecc7ab2bd",
+        )
+        .unwrap();
+        assert_eq!(
+            ExpandMsgXof::<Shake256>::init_expand(msg, dst, len_in_bytes).into_vec(),
+            uniform_bytes
+        );
+
+        let msg = b"a512_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+            aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+            aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+            aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+            aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+            aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+            aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+            aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+            aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+            aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let len_in_bytes = 0x80;
+        let uniform_bytes = hex::decode(
+            "50a0cb335f3102a15f3dfed981b0a5fecb3136112532e129\
+            d39369a2a92c32a9b0a0181af9839039c0e98a3b66a0d209fa0191\
+            34991055284c3f475c9f7c91169dea57aad442f0c98418d36e50fa\
+            d68e8863109dac6d8cfc6c5fa63e8f1c0468af9980066e87b62caa\
+            87f4b3feef0dba8ef894f2957105d111439597d3265b1f",
+        )
+        .unwrap();
+        assert_eq!(
+            ExpandMsgXof::<Shake256>::init_expand(msg, dst, len_in_bytes).into_vec(),
             uniform_bytes
         );
     }
