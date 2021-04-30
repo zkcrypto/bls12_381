@@ -598,7 +598,7 @@ impl Fp {
 
     /// Returns either 0 or 1 indicating the "sign" of x, where sgn0(x) == 1
     /// just when x is "negative". (In other words, this function always considers 0 to be positive.)
-    /// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-10#section-4.1
+    /// <https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-10#section-4.1>
     /// The equivalent for draft 6 would be `lexicographically_largest`.
     #[cfg(feature = "hash_to_curve")]
     pub(crate) fn sgn0(&self) -> Choice {

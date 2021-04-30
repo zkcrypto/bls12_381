@@ -16,10 +16,7 @@ impl HashToField for Scalar {
         bs.reverse(); // into little endian
         let db = Scalar::from_bytes(&bs).unwrap();
 
-        for i in 0..bs.len() {
-            // clear previously-used buffer (this gets optimized to a single memset)
-            bs[i] = 0u8;
-        }
+        bs[0..8].copy_from_slice(&[0u8; 8]);
         bs[8..32].copy_from_slice(&okm[24..48]);
         bs.reverse(); // into little endian
         let da = Scalar::from_bytes(&bs).unwrap();

@@ -103,7 +103,10 @@ pub trait ExpandMessageState<'x> {
 
     #[cfg(feature = "alloc")]
     /// Construct a Vec containing the remaining bytes of the output
-    fn into_vec(&mut self) -> Vec<u8> {
+    fn into_vec(mut self) -> Vec<u8>
+    where
+        Self: Sized,
+    {
         let mut result = alloc::vec![0u8; self.remain()];
         self.read_into(&mut result[..]);
         result
@@ -194,10 +197,7 @@ where
 
     fn init_expand(message: &[u8], dst: &'x [u8], len_in_bytes: usize) -> Self::Expander {
         let hash_size = <H as Digest>::OutputSize::to_usize();
-        let mut ell = len_in_bytes / hash_size;
-        if len_in_bytes % hash_size != 0 {
-            ell += 1;
-        }
+        let ell = (len_in_bytes + hash_size - 1) / hash_size;
         if ell > 255 {
             panic!("Invalid ExpandMsgXmd usage: ell > 255");
         }
@@ -303,11 +303,12 @@ mod tests {
         }
     }
 
-    // Except internal variables, expand_message_xmd and expand_message_xof did not change
-    // between draft 7 and draft 8 (https://tools.ietf.org/rfcdiff?difftype=--hwdiff&url2=draft-irtf-cfrg-hash-to-curve-08.txt).
-    // These test vectors are consistent between draft 8 and draft 10.
+    // Except for internal variables, expand_message_xmd and expand_message_xof did not change
+    // between draft 7 and draft 8:
+    // <https://tools.ietf.org/rfcdiff?difftype=--hwdiff&url2=draft-irtf-cfrg-hash-to-curve-08.txt>
+    // These test vectors are consistent between draft 8 and draft 11.
 
-    /// From https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-08#appendix-I.1
+    /// From <https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-08#appendix-I.1>
     #[cfg(feature = "alloc")]
     #[test]
     fn expand_message_xmd_works_for_draft8_testvectors_sha256() {
@@ -414,7 +415,7 @@ mod tests {
         );
     }
 
-    /// From https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-08#appendix-I.2
+    /// From <https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-08#appendix-I.2>
     #[cfg(feature = "alloc")]
     #[test]
     fn expand_message_xmd_works_for_draft8_testvectors_sha512() {
@@ -521,7 +522,7 @@ mod tests {
         );
     }
 
-    /// From https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-08#appendix-I.3
+    /// From <https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-08#appendix-I.3>
     #[cfg(feature = "alloc")]
     #[test]
     fn expand_message_xof_works_for_draft8_testvectors_shake128() {
@@ -628,7 +629,7 @@ mod tests {
         );
     }
 
-    /// From https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-11#appendix-K.4
+    /// From <https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-11#appendix-K.4>
     #[cfg(feature = "alloc")]
     #[test]
     fn expand_message_xof_works_for_draft11_testvectors_shake256() {

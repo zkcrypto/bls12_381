@@ -80,8 +80,8 @@ where
     let mut expander = X::init_expand(message, dst, len_in_bytes);
 
     let mut buf = GenericArray::<u8, F::InputLength>::default();
-    for idx in 0..output.len() {
+    output.iter_mut().for_each(|item| {
         expander.read_into(&mut buf[..]);
-        output[idx] = F::from_okm(&buf);
-    }
+        *item = F::from_okm(&buf);
+    });
 }
