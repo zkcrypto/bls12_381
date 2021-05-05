@@ -1200,81 +1200,88 @@ impl UncompressedEncoding for G2Affine {
 }
 
 #[cfg(feature = "serde")]
-use serde::de::Visitor;
+mod serde_support {
+    use super::{fmt, G2Affine, G2Projective};
+
+    use serde::de::Visitor;
+
+    use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+
+    impl Serialize for G2Affine {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            use serde::ser::SerializeTuple;
+            let mut tup = serializer.serialize_tuple(96)?;
+            for byte in self.to_compressed().iter() {
+                tup.serialize_element(byte)?;
+            }
+            tup.end()
+        }
+    }
+
+    impl<'de> Deserialize<'de> for G2Affine {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            struct G2AffineVisitor;
+
+            impl<'de> Visitor<'de> for G2AffineVisitor {
+                type Value = G2Affine;
+
+                fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                    formatter.write_str("a 96-byte compressed canonical bls12_381 G2 point")
+                }
+
+                fn visit_seq<A>(self, mut seq: A) -> Result<G2Affine, A::Error>
+                where
+                    A: serde::de::SeqAccess<'de>,
+                {
+                    let mut bytes = [0u8; 96];
+                    for i in 0..96 {
+                        bytes[i] = seq.next_element()?.ok_or_else(|| {
+                            serde::de::Error::invalid_length(i, &"expected 96 bytes")
+                        })?;
+                    }
+
+                    let res = G2Affine::from_compressed(&bytes);
+                    if res.is_some().into() {
+                        Ok(res.unwrap())
+                    } else {
+                        Err(serde::de::Error::custom(
+                            &"G2 point was not canonically encoded",
+                        ))
+                    }
+                }
+            }
+
+            deserializer.deserialize_tuple(96, G2AffineVisitor)
+        }
+    }
+
+    impl Serialize for G2Projective {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            G2Affine::from(*self).serialize(serializer)
+        }
+    }
+
+    impl<'de> Deserialize<'de> for G2Projective {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            G2Affine::deserialize(deserializer).map(G2Projective::from)
+        }
+    }
+}
+
 #[cfg(feature = "serde")]
-use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
-
-impl Serialize for G2Affine {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        use serde::ser::SerializeTuple;
-        let mut tup = serializer.serialize_tuple(96)?;
-        for byte in self.to_compressed().iter() {
-            tup.serialize_element(byte)?;
-        }
-        tup.end()
-    }
-}
-
-impl<'de> Deserialize<'de> for G2Affine {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct G2AffineVisitor;
-
-        impl<'de> Visitor<'de> for G2AffineVisitor {
-            type Value = G2Affine;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a 96-byte compressed canonical bls12_381 G2 point")
-            }
-
-            fn visit_seq<A>(self, mut seq: A) -> Result<G2Affine, A::Error>
-            where
-                A: serde::de::SeqAccess<'de>,
-            {
-                let mut bytes = [0u8; 96];
-                for i in 0..96 {
-                    bytes[i] = seq
-                        .next_element()?
-                        .ok_or_else(|| serde::de::Error::invalid_length(i, &"expected 96 bytes"))?;
-                }
-
-                let res = G2Affine::from_compressed(&bytes);
-                if res.is_some().into() {
-                    Ok(res.unwrap())
-                } else {
-                    Err(serde::de::Error::custom(
-                        &"G2 point was not canonically encoded",
-                    ))
-                }
-            }
-        }
-
-        deserializer.deserialize_tuple(96, G2AffineVisitor)
-    }
-}
-
-impl Serialize for G2Projective {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        G2Affine::from(*self).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for G2Projective {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        G2Affine::deserialize(deserializer).map(G2Projective::from)
-    }
-}
+pub use self::serde_support::*;
 
 #[test]
 fn test_is_on_curve() {
