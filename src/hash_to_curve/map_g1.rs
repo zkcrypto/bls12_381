@@ -541,7 +541,7 @@ impl Sgn0 for Fp {
 /// Implements [section 6.6.2 of `draft-irtf-cfrg-hash-to-curve-11`][sswu].
 ///
 /// [sswu]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-6.6.2
-fn map_to_curve_simple_ssw(u: &Fp) -> G1Projective {
+fn map_to_curve_simple_swu(u: &Fp) -> G1Projective {
     let usq = u.square();
     let xi_usq = SSWU_XI * usq;
     let xisq_u4 = xi_usq.square();
@@ -627,7 +627,7 @@ impl MapToCurve for G1Projective {
     type Field = Fp;
 
     fn map_to_curve(u: &Fp) -> G1Projective {
-        let pt = map_to_curve_simple_ssw(u);
+        let pt = map_to_curve_simple_swu(u);
         iso_map(&pt)
     }
 
@@ -648,7 +648,7 @@ fn check_g1_prime(pt: &G1Projective) -> bool {
 #[test]
 fn test_simple_swu_expected() {
     // exceptional case: zero
-    let p = map_to_curve_simple_ssw(&Fp::zero());
+    let p = map_to_curve_simple_swu(&Fp::zero());
     let G1Projective { x, y, z } = &p;
     let xo = Fp::from_raw_unchecked([
         0xfb99_6971_fe22_a1e0,
@@ -688,7 +688,7 @@ fn test_simple_swu_expected() {
         0xed2a_5ccd_5ca7_bb68,
         0x19cb_022f_8ee9_d73b,
     ]);
-    let p = map_to_curve_simple_ssw(&excp);
+    let p = map_to_curve_simple_swu(&excp);
     let G1Projective { x, y, z } = &p;
     assert_eq!(x, &xo);
     assert_eq!(y, &yo);
@@ -704,7 +704,7 @@ fn test_simple_swu_expected() {
         0x5df1_4ae8_e6a3_f16e,
         0x0036_0fba_aa96_0f5e,
     ]);
-    let p = map_to_curve_simple_ssw(&excp);
+    let p = map_to_curve_simple_swu(&excp);
     let G1Projective { x, y, z } = &p;
     let myo = -yo;
     assert_eq!(x, &xo);
@@ -744,7 +744,7 @@ fn test_simple_swu_expected() {
         0xb2d7_ce1e_c263_09e7,
         0x182b_57ed_6b99_f0a1,
     ]);
-    let p = map_to_curve_simple_ssw(&u);
+    let p = map_to_curve_simple_swu(&u);
     let G1Projective { x, y, z } = &p;
     assert_eq!(x, &xo);
     assert_eq!(y, &yo);
@@ -761,7 +761,7 @@ fn test_osswu_semirandom() {
     ]);
     for _ in 0..32 {
         let input = Fp::random(&mut rng);
-        let p = map_to_curve_simple_ssw(&input);
+        let p = map_to_curve_simple_swu(&input);
         assert!(check_g1_prime(&p));
 
         let p_iso = iso_map(&p);

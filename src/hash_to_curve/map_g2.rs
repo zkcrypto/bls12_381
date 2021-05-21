@@ -385,7 +385,7 @@ impl Sgn0 for Fp2 {
 }
 
 /// Maps from an [`Fp2]` element to a point on iso-G2.
-fn map_to_curve_simple_ssw(u: &Fp2) -> G2Projective {
+fn map_to_curve_simple_swu(u: &Fp2) -> G2Projective {
     let usq = u.square();
     let xi_usq = SSWU_XI * usq;
     let xisq_u4 = xi_usq.square();
@@ -492,7 +492,7 @@ impl MapToCurve for G2Projective {
     type Field = Fp2;
 
     fn map_to_curve(u: &Fp2) -> G2Projective {
-        let pt = map_to_curve_simple_ssw(u);
+        let pt = map_to_curve_simple_swu(u);
         iso_map(&pt)
     }
 
@@ -519,7 +519,7 @@ fn test_osswu_semirandom() {
     ]);
     for _ in 0..32 {
         let input = Fp2::random(&mut rng);
-        let p = map_to_curve_simple_ssw(&input);
+        let p = map_to_curve_simple_swu(&input);
         assert!(check_g2_prime(&p));
 
         let p_iso = iso_map(&p);
