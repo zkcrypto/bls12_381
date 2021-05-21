@@ -45,7 +45,8 @@ version = "2.2.1"
 default-features = false
 
 [features]
-default = ["groups", "pairings", "alloc", "endo"]
+default = ["groups", "pairings", "alloc", "bits", "endo"]
+bits = ["ff/bits"]
 groups = ["group"]
 pairings = ["groups", "pairing"]
 alloc = ["group/alloc"]
@@ -54,3 +55,8 @@ nightly = ["subtle/nightly"]
 # Deprecated.
 # GLV patents US7110538B2 and US7995752B2 expired in September 2020.
 endo = []
+
+[patch.crates-io]
+ff = { git = "https://github.com/zkcrypto/ff.git", branch = "main", default-features = false }
+group = { git = "https://github.com/zkcrypto/group.git", branch = "main", default-features = false }
+pairing = { git = "https://github.com/zkcrypto/pairing.git", branch = "main" }

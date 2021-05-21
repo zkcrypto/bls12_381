@@ -3,12 +3,13 @@
 This crate provides an implementation of the BLS12-381 pairing-friendly elliptic curve construction.
 
 * **This implementation has not been reviewed or audited. Use at your own risk.**
-* This implementation targets Rust `1.47` or later.
+* This implementation targets Rust `1.51` or later.
 * This implementation does not require the Rust standard library.
 * All operations are constant time unless explicitly noted.
 
 ## Features
 
+* `bits` (on by default): Enables APIs for obtaining bit iterators for scalars.
 * `groups` (on by default): Enables APIs for performing group arithmetic with G1, G2, and GT.
 * `pairings` (on by default): Enables some APIs for performing pairings.
 * `alloc` (on by default): Enables APIs that require an allocator; these include pairing optimizations.
