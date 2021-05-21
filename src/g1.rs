@@ -14,6 +14,9 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 #[cfg(feature = "alloc")]
 use group::WnafGroup;
 
+#[cfg(feature = "zeroize")]
+use zeroize::Zeroize;
+
 use crate::fp::Fp;
 use crate::Scalar;
 
@@ -164,6 +167,16 @@ where
         I: Iterator<Item = T>,
     {
         iter.fold(Self::identity(), |acc, item| acc + item.borrow())
+    }
+}
+
+#[cfg(feature = "zeroize")]
+// manual implementation because 'subtle' doesn't have a zeroize feature
+impl Zeroize for G1Affine {
+    fn zeroize(&mut self) {
+        self.x.zeroize();
+        self.y.zeroize();
+        self.infinity = Choice::from(0);
     }
 }
 
@@ -417,6 +430,7 @@ impl G1Affine {
 
 /// This is an element of $\mathbb{G}_1$ represented in the projective coordinate space.
 #[cfg_attr(docsrs, doc(cfg(feature = "groups")))]
+#[cfg_attr(feature = "zeroize", derive(Zeroize))]
 #[derive(Copy, Clone, Debug)]
 pub struct G1Projective {
     pub(crate) x: Fp,
@@ -811,6 +825,7 @@ impl G1Projective {
     }
 }
 
+#[cfg_attr(feature = "zeroize", derive(Zeroize))]
 pub struct G1Compressed([u8; 48]);
 
 impl fmt::Debug for G1Compressed {
@@ -837,6 +852,7 @@ impl AsMut<[u8]> for G1Compressed {
     }
 }
 
+#[cfg_attr(feature = "zeroize", derive(Zeroize))]
 pub struct G1Uncompressed([u8; 96]);
 
 impl fmt::Debug for G1Uncompressed {

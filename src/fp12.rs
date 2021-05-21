@@ -9,7 +9,11 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 #[cfg(feature = "pairings")]
 use rand_core::RngCore;
 
+#[cfg(feature = "zeroize")]
+use zeroize::Zeroize;
+
 /// This represents an element $c_0 + c_1 w$ of $\mathbb{F}_{p^12} = \mathbb{F}_{p^6} / w^2 - v$.
+#[cfg_attr(feature = "zeroize", derive(Zeroize))]
 pub struct Fp12 {
     pub c0: Fp6,
     pub c1: Fp6,
