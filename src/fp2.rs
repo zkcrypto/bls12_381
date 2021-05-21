@@ -216,14 +216,18 @@ impl Fp2 {
         // c0 = v0 + v1
         // c1 = (a0 + a1) * (b0 + b1) - v0 + v1
 
-        let v0 = (&self.c0).mul(&rhs.c0);
-        let v1 = (&(&self.c1).neg()).mul(&rhs.c1);
-        let c0 = (&v0).add(&v1);
-        let c1 = (&(&self.c0).add(&self.c1)).mul(&(&rhs.c0).add(&rhs.c1));
-        let c1 = (&c1).sub(&v0);
-        let c1 = (&c1).add(&v1);
+        let v0 = (&self.c0).mul_unreduced(&rhs.c0); // v0 has magnitude 1
+        let v1 = (&(&self.c1).neg()).mul_unreduced(&rhs.c1); // v1 has magnitude 1
+        let c0 = v0.add(&v1); // c0 has magnitude 2
+        let c1 = (&(&self.c0).add(&self.c1)).mul_unreduced(&(&rhs.c0).add(&rhs.c1)); // c1 has magnitude 1
+        let c1 = c1.add(&v1); // c1 has magnitude 2
+        let v0 = v0.negate(); // v0 has magnitude 2 (it could have been zero)
+        let c1 = c1.add(&v0); // c1 has magnitude 4
 
-        Fp2 { c0, c1 }
+        Fp2 {
+            c0: Fp::montgomery_reduce(c0),
+            c1: Fp::montgomery_reduce(c1),
+        }
     }
 
     pub const fn add(&self, rhs: &Fp2) -> Fp2 {
