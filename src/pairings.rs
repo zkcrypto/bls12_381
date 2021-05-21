@@ -18,10 +18,14 @@ use alloc::vec::Vec;
 #[cfg(feature = "alloc")]
 use pairing::MultiMillerLoop;
 
+#[cfg(feature = "zeroize")]
+use zeroize::Zeroize;
+
 /// Represents results of a Miller loop, one of the most expensive portions
 /// of the pairing function. `MillerLoopResult`s cannot be compared with each
 /// other until `.final_exponentiation()` is called, which is also expensive.
 #[cfg_attr(docsrs, doc(cfg(feature = "pairings")))]
+#[cfg_attr(feature = "zeroize", derive(Zeroize))]
 #[derive(Copy, Clone, Debug)]
 pub struct MillerLoopResult(pub(crate) Fp12);
 
@@ -204,6 +208,7 @@ impl<'b> AddAssign<&'b MillerLoopResult> for MillerLoopResult {
 /// Typically, $\mathbb{G}_T$ is written multiplicatively but we will write it additively to
 /// keep code and abstractions consistent.
 #[cfg_attr(docsrs, doc(cfg(feature = "pairings")))]
+#[cfg_attr(feature = "zeroize", derive(Zeroize))]
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Gt(pub(crate) Fp12);
 
@@ -485,7 +490,7 @@ impl Group for Gt {
 /// Requires the `alloc` and `pairing` crate features to be enabled.
 pub struct G2Prepared {
     infinity: Choice,
-    coeffs: Vec<(Fp2, Fp2, Fp2)>,
+    coeffs: Vec<G2Coeffs>,
 }
 
 #[cfg(feature = "alloc")]
@@ -494,7 +499,7 @@ impl From<G2Affine> for G2Prepared {
         struct Adder {
             cur: G2Projective,
             base: G2Affine,
-            coeffs: Vec<(Fp2, Fp2, Fp2)>,
+            coeffs: Vec<G2Coeffs>,
         }
 
         impl MillerLoopDriver for Adder {
@@ -530,6 +535,20 @@ impl From<G2Affine> for G2Prepared {
             infinity: is_identity,
             coeffs: adder.coeffs,
         }
+    }
+}
+
+#[cfg_attr(feature = "zeroize", derive(Zeroize))]
+#[derive(Clone, Copy, Debug)]
+// this is implemented as a separate type only in order to derive Zeroize
+struct G2Coeffs(Fp2, Fp2, Fp2);
+
+#[cfg(all(feature = "alloc", feature = "zeroize"))]
+// manual implementation because 'subtle' doesn't have a zeroize feature
+impl Zeroize for G2Prepared {
+    fn zeroize(&mut self) {
+        self.infinity = Choice::from(0);
+        self.coeffs.zeroize();
     }
 }
 
@@ -681,7 +700,7 @@ fn miller_loop<D: MillerLoopDriver>(driver: &mut D) -> D::Output {
     f
 }
 
-fn ell(f: Fp12, coeffs: &(Fp2, Fp2, Fp2), p: &G1Affine) -> Fp12 {
+fn ell(f: Fp12, coeffs: &G2Coeffs, p: &G1Affine) -> Fp12 {
     let mut c0 = coeffs.0;
     let mut c1 = coeffs.1;
 
@@ -694,7 +713,7 @@ fn ell(f: Fp12, coeffs: &(Fp2, Fp2, Fp2), p: &G1Affine) -> Fp12 {
     f.mul_by_014(&coeffs.2, &c1, &c0)
 }
 
-fn doubling_step(r: &mut G2Projective) -> (Fp2, Fp2, Fp2) {
+fn doubling_step(r: &mut G2Projective) -> G2Coeffs {
     // Adaptation of Algorithm 26, https://eprint.iacr.org/2010/354.pdf
     let tmp0 = r.x.square();
     let tmp1 = r.y.square();
@@ -722,10 +741,10 @@ fn doubling_step(r: &mut G2Projective) -> (Fp2, Fp2, Fp2) {
     let tmp0 = r.z * zsquared;
     let tmp0 = tmp0 + tmp0;
 
-    (tmp0, tmp3, tmp6)
+    G2Coeffs(tmp0, tmp3, tmp6)
 }
 
-fn addition_step(r: &mut G2Projective, q: &G2Affine) -> (Fp2, Fp2, Fp2) {
+fn addition_step(r: &mut G2Projective, q: &G2Affine) -> G2Coeffs {
     // Adaptation of Algorithm 27, https://eprint.iacr.org/2010/354.pdf
     let zsquared = r.z.square();
     let ysquared = q.y.square();
@@ -754,7 +773,7 @@ fn addition_step(r: &mut G2Projective, q: &G2Affine) -> (Fp2, Fp2, Fp2) {
     let t6 = -t6;
     let t1 = t6 + t6;
 
-    (t10, t1, t9)
+    G2Coeffs(t10, t1, t9)
 }
 
 impl PairingCurveAffine for G1Affine {
