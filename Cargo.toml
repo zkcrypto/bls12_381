@@ -45,7 +45,7 @@ version = "2.2.1"
 default-features = false
 
 [features]
-default = ["groups", "pairings", "alloc", "endo"]
+default = ["groups", "pairings", "alloc", "bits", "endo"]
 bits = ["ff/bits"]
 groups = ["group"]
 pairings = ["groups", "pairing"]
