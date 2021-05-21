@@ -877,19 +877,17 @@ mod tests {
     fn test_fp_chain() {
         let mut rng = rand_xorshift::XorShiftRng::from_seed(SEED);
         let p_m3_over4 = [
-            0xee7fbfffffffeaaau64,
-            0x7aaffffac54ffffu64,
-            0xd9cc34a83dac3d89u64,
-            0xd91dd2e13ce144afu64,
-            0x92c6e9ed90d2eb35u64,
-            0x680447a8e5ff9a6u64,
+            0xee7f_bfff_ffff_eaaa,
+            0x07aa_ffff_ac54_ffff,
+            0xd9cc_34a8_3dac_3d89,
+            0xd91d_d2e1_3ce1_44af,
+            0x92c6_e9ed_90d2_eb35,
+            0x0680_447a_8e5f_f9a6,
         ];
 
         for _ in 0..32 {
-            let mut input = Fp::random(&mut rng);
-            let result = chain_pm3div4(&input);
-            input = input.pow_vartime(&p_m3_over4);
-            assert_eq!(input, result);
+            let input = Fp::random(&mut rng);
+            assert_eq!(chain_pm3div4(&input), input.pow_vartime(&p_m3_over4));
         }
     }
 
@@ -897,25 +895,26 @@ mod tests {
     fn test_fp2_chain() {
         let mut rng = rand_xorshift::XorShiftRng::from_seed(SEED);
         let p_sq_m9_over16 = [
-            0xb26aa00001c718e3u64,
-            0xd7ced6b1d76382eau64,
-            0x3162c338362113cfu64,
-            0x966bf91ed3e71b74u64,
-            0xb292e85a87091a04u64,
-            0x11d68619c86185c7u64,
-            0xef53149330978ef0u64,
-            0x50a62cfd16ddca6u64,
-            0x466e59e49349e8bdu64,
-            0x9e2dc90e50e7046bu64,
-            0x74bd278eaa22f25eu64,
-            0x2a437a4b8c35fcu64,
+            0xb26a_a000_01c7_18e3,
+            0xd7ce_d6b1_d763_82ea,
+            0x3162_c338_3621_13cf,
+            0x966b_f91e_d3e7_1b74,
+            0xb292_e85a_8709_1a04,
+            0x11d6_8619_c861_85c7,
+            0xef53_1493_3097_8ef0,
+            0x050a_62cf_d16d_dca6,
+            0x466e_59e4_9349_e8bd,
+            0x9e2d_c90e_50e7_046b,
+            0x74bd_278e_aa22_f25e,
+            0x002a_437a_4b8c_35fc,
         ];
 
         for _ in 0..32 {
-            let mut input = Fp2::random(&mut rng);
-            let result = chain_p2m9div16(&input);
-            input = input.pow_vartime_extended(&p_sq_m9_over16[..]);
-            assert_eq!(input, result);
+            let input = Fp2::random(&mut rng);
+            assert_eq!(
+                chain_p2m9div16(&input),
+                input.pow_vartime_extended(&p_sq_m9_over16[..]),
+            );
         }
     }
 }

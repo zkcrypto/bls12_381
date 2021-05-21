@@ -3,15 +3,12 @@
 use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable, ConstantTimeEq};
 
 use super::chain::chain_p2m9div16;
-use super::{HashToField, MapToCurve};
-use crate::{fp::Fp, fp2::Fp2, g2::G2Projective};
-use crate::{
-    generic_array::{
-        typenum::{U128, U64},
-        GenericArray,
-    },
-    G1Projective,
+use super::{HashToField, MapToCurve, Sgn0};
+use crate::generic_array::{
+    typenum::{U128, U64},
+    GenericArray,
 };
+use crate::{fp::Fp, fp2::Fp2, g2::G2Projective};
 
 /// Coefficients of the 3-isogeny x map's numerator
 const ISO3_XNUM: [Fp2; 4] = [
@@ -367,23 +364,28 @@ const SSWU_RV1: Fp2 = Fp2 {
     ]),
 };
 
-impl HashToField for G2Projective {
+impl HashToField for Fp2 {
+    // ceil(log2(p)) = 381, m = 2, k = 128.
     type InputLength = U128;
-    type Pt = Fp2;
 
     fn from_okm(okm: &GenericArray<u8, U128>) -> Fp2 {
-        let c0 = <G1Projective as HashToField>::from_okm(GenericArray::<u8, U64>::from_slice(
-            &okm[..64],
-        ));
-        let c1 = <G1Projective as HashToField>::from_okm(GenericArray::<u8, U64>::from_slice(
-            &okm[64..],
-        ));
+        let c0 = <Fp as HashToField>::from_okm(GenericArray::<u8, U64>::from_slice(&okm[..64]));
+        let c1 = <Fp as HashToField>::from_okm(GenericArray::<u8, U64>::from_slice(&okm[64..]));
         Fp2 { c0, c1 }
     }
 }
 
-/// Map from a field element to a point on the curve E-prime
-fn map_to_curve_simple_ssw(u: &Fp2) -> G2Projective {
+impl Sgn0 for Fp2 {
+    fn sgn0(&self) -> Choice {
+        let sign_0 = self.c0.sgn0();
+        let zero_0 = self.c0.is_zero();
+        let sign_1 = self.c1.sgn0();
+        sign_0 | (zero_0 & sign_1)
+    }
+}
+
+/// Maps from an [`Fp2]` element to a point on iso-G2.
+fn map_to_curve(u: &Fp2) -> G2Projective {
     let usq = u.square();
     let xi_usq = SSWU_XI * usq;
     let xisq_u4 = xi_usq.square();
@@ -448,7 +450,7 @@ fn map_to_curve_simple_ssw(u: &Fp2) -> G2Projective {
     }
 }
 
-/// Map from a point on the curve E-prime to curve E
+/// Maps from an iso-G2 point to a G2 point.
 fn iso_map(u: &G2Projective) -> G2Projective {
     const COEFFS: [&[Fp2]; 4] = [&ISO3_XNUM, &ISO3_XDEN, &ISO3_YNUM, &ISO3_YDEN];
 
@@ -487,8 +489,10 @@ fn iso_map(u: &G2Projective) -> G2Projective {
 }
 
 impl MapToCurve for G2Projective {
-    fn map_to_curve_simple_ssw(u: &Fp2) -> G2Projective {
-        let pt = map_to_curve_simple_ssw(u);
+    type Field = Fp2;
+
+    fn map_to_curve(u: &Fp2) -> G2Projective {
+        let pt = map_to_curve(u);
         iso_map(&pt)
     }
 
@@ -515,7 +519,7 @@ fn test_osswu_semirandom() {
     ]);
     for _ in 0..32 {
         let input = Fp2::random(&mut rng);
-        let p = map_to_curve_simple_ssw(&input);
+        let p = map_to_curve(&input);
         assert!(check_g2_prime(&p));
 
         let p_iso = iso_map(&p);
@@ -701,4 +705,196 @@ fn test_hash_to_curve_10() {
 
         assert_eq!(case.expected(), hex::encode(&g_uncompressed[..]));
     }
+}
+
+#[test]
+fn test_sgn0() {
+    use super::map_g1::P_M1_OVER2;
+
+    assert_eq!(bool::from(Fp2::zero().sgn0()), false);
+    assert_eq!(bool::from(Fp2::one().sgn0()), true);
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: P_M1_OVER2,
+                c1: Fp::zero()
+            }
+            .sgn0()
+        ),
+        true
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: P_M1_OVER2,
+                c1: Fp::one()
+            }
+            .sgn0()
+        ),
+        true
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: Fp::zero(),
+                c1: P_M1_OVER2,
+            }
+            .sgn0()
+        ),
+        true
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: Fp::one(),
+                c1: P_M1_OVER2,
+            }
+            .sgn0()
+        ),
+        true
+    );
+
+    let p_p1_over2 = P_M1_OVER2 + Fp::one();
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: p_p1_over2,
+                c1: Fp::zero()
+            }
+            .sgn0()
+        ),
+        false
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: p_p1_over2,
+                c1: Fp::one()
+            }
+            .sgn0()
+        ),
+        false
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: Fp::zero(),
+                c1: p_p1_over2,
+            }
+            .sgn0()
+        ),
+        false
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: Fp::one(),
+                c1: p_p1_over2,
+            }
+            .sgn0()
+        ),
+        true
+    );
+
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: P_M1_OVER2,
+                c1: -Fp::one()
+            }
+            .sgn0()
+        ),
+        true
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: p_p1_over2,
+                c1: -Fp::one()
+            }
+            .sgn0()
+        ),
+        false
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: Fp::zero(),
+                c1: -Fp::one()
+            }
+            .sgn0()
+        ),
+        false
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: P_M1_OVER2,
+                c1: p_p1_over2
+            }
+            .sgn0()
+        ),
+        true
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: p_p1_over2,
+                c1: P_M1_OVER2
+            }
+            .sgn0()
+        ),
+        false
+    );
+
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: -Fp::one(),
+                c1: P_M1_OVER2,
+            }
+            .sgn0()
+        ),
+        false
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: -Fp::one(),
+                c1: p_p1_over2,
+            }
+            .sgn0()
+        ),
+        false
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: -Fp::one(),
+                c1: Fp::zero(),
+            }
+            .sgn0()
+        ),
+        false
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: p_p1_over2,
+                c1: P_M1_OVER2,
+            }
+            .sgn0()
+        ),
+        false
+    );
+    assert_eq!(
+        bool::from(
+            Fp2 {
+                c0: P_M1_OVER2,
+                c1: p_p1_over2,
+            }
+            .sgn0()
+        ),
+        true
+    );
 }

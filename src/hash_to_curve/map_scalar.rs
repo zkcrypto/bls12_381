@@ -5,23 +5,14 @@ use crate::generic_array::{typenum::U48, GenericArray};
 use crate::scalar::Scalar;
 
 impl HashToField for Scalar {
+    // ceil(log2(p)) = 255, m = 1, k = 128.
     type InputLength = U48;
-    type Pt = Self;
 
     fn from_okm(okm: &GenericArray<u8, U48>) -> Scalar {
-        const F_2_192: Scalar = Scalar::from_raw([0, 0, 0, 1]);
-
-        let mut bs = [0u8; 32];
-        bs[8..32].copy_from_slice(&okm[0..24]);
+        let mut bs = [0u8; 64];
+        bs[16..].copy_from_slice(&okm);
         bs.reverse(); // into little endian
-        let db = Scalar::from_bytes(&bs).unwrap();
-
-        bs[0..8].copy_from_slice(&[0u8; 8]);
-        bs[8..32].copy_from_slice(&okm[24..48]);
-        bs.reverse(); // into little endian
-        let da = Scalar::from_bytes(&bs).unwrap();
-
-        db * F_2_192 + da
+        Scalar::from_bytes_wide(&bs)
     }
 }
 

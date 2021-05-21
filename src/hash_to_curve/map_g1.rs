@@ -1,9 +1,9 @@
-//! Implementation of hash-to-curve for the G1 group
+//! Implementation of hash-to-curve for the G1 group.
 
-use subtle::{ConditionallyNegatable, ConditionallySelectable, ConstantTimeEq};
+use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable, ConstantTimeEq};
 
 use super::chain::chain_pm3div4;
-use super::{HashToField, MapToCurve};
+use super::{HashToField, MapToCurve, Sgn0};
 use crate::fp::Fp;
 use crate::g1::G1Projective;
 use crate::generic_array::{typenum::U64, GenericArray};
@@ -500,9 +500,9 @@ const SQRT_M_XI_CUBED: Fp = Fp::from_raw_unchecked([
     0x0073_a2af_9892_a2ff,
 ]);
 
-impl HashToField for G1Projective {
+impl HashToField for Fp {
+    // ceil(log2(p)) = 381, m = 1, k = 128.
     type InputLength = U64;
-    type Pt = Fp;
 
     fn from_okm(okm: &GenericArray<u8, U64>) -> Fp {
         const F_2_256: Fp = Fp::from_raw_unchecked([
@@ -525,8 +525,23 @@ impl HashToField for G1Projective {
     }
 }
 
-/// Map from a field element to a point on the curve E-prime
-fn map_to_curve_simple_ssw(u: &Fp) -> G1Projective {
+impl Sgn0 for Fp {
+    fn sgn0(&self) -> Choice {
+        // Turn into canonical form by computing
+        // (a.R) / R = a
+        let tmp = Fp::montgomery_reduce(
+            self.0[0], self.0[1], self.0[2], self.0[3], self.0[4], self.0[5], 0, 0, 0, 0, 0, 0,
+        );
+        Choice::from((tmp.0[0] & 1) as u8)
+    }
+}
+
+/// Maps an element of [`Fp`] to a point on iso-G1.
+///
+/// Implements [section 6.6.2 of `draft-irtf-cfrg-hash-to-curve-11`][sswu].
+///
+/// [sswu]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-6.6.2
+fn map_to_curve(u: &Fp) -> G1Projective {
     let usq = u.square();
     let xi_usq = SSWU_XI * usq;
     let xisq_u4 = xi_usq.square();
@@ -564,7 +579,7 @@ fn map_to_curve_simple_ssw(u: &Fp) -> G1Projective {
     }
 }
 
-/// Map from a point on the curve E-prime to curve E
+/// Maps an iso-G1 point to a G1 point.
 fn iso_map(u: &G1Projective) -> G1Projective {
     const COEFFS: [&[Fp]; 4] = [&ISO11_XNUM, &ISO11_XDEN, &ISO11_YNUM, &ISO11_YDEN];
 
@@ -609,8 +624,10 @@ fn iso_map(u: &G1Projective) -> G1Projective {
 }
 
 impl MapToCurve for G1Projective {
-    fn map_to_curve_simple_ssw(u: &Fp) -> G1Projective {
-        let pt = map_to_curve_simple_ssw(u);
+    type Field = Fp;
+
+    fn map_to_curve(u: &Fp) -> G1Projective {
+        let pt = map_to_curve(u);
         iso_map(&pt)
     }
 
@@ -631,7 +648,7 @@ fn check_g1_prime(pt: &G1Projective) -> bool {
 #[test]
 fn test_simple_swu_expected() {
     // exceptional case: zero
-    let p = map_to_curve_simple_ssw(&Fp::zero());
+    let p = map_to_curve(&Fp::zero());
     let G1Projective { x, y, z } = &p;
     let xo = Fp::from_raw_unchecked([
         0xfb99_6971_fe22_a1e0,
@@ -671,7 +688,7 @@ fn test_simple_swu_expected() {
         0xed2a_5ccd_5ca7_bb68,
         0x19cb_022f_8ee9_d73b,
     ]);
-    let p = map_to_curve_simple_ssw(&excp);
+    let p = map_to_curve(&excp);
     let G1Projective { x, y, z } = &p;
     assert_eq!(x, &xo);
     assert_eq!(y, &yo);
@@ -687,7 +704,7 @@ fn test_simple_swu_expected() {
         0x5df1_4ae8_e6a3_f16e,
         0x0036_0fba_aa96_0f5e,
     ]);
-    let p = map_to_curve_simple_ssw(&excp);
+    let p = map_to_curve(&excp);
     let G1Projective { x, y, z } = &p;
     let myo = -yo;
     assert_eq!(x, &xo);
@@ -727,7 +744,7 @@ fn test_simple_swu_expected() {
         0xb2d7_ce1e_c263_09e7,
         0x182b_57ed_6b99_f0a1,
     ]);
-    let p = map_to_curve_simple_ssw(&u);
+    let p = map_to_curve(&u);
     let G1Projective { x, y, z } = &p;
     assert_eq!(x, &xo);
     assert_eq!(y, &yo);
@@ -744,7 +761,7 @@ fn test_osswu_semirandom() {
     ]);
     for _ in 0..32 {
         let input = Fp::random(&mut rng);
-        let p = map_to_curve_simple_ssw(&input);
+        let p = map_to_curve(&input);
         assert!(check_g1_prime(&p));
 
         let p_iso = iso_map(&p);
@@ -911,4 +928,34 @@ fn test_hash_to_curve_10() {
 
         assert_eq!(case.expected(), hex::encode(&g_uncompressed[..]));
     }
+}
+
+#[cfg(test)]
+// p-1 / 2
+pub const P_M1_OVER2: Fp = Fp::from_raw_unchecked([
+    0xa1fa_ffff_fffe_5557,
+    0x995b_fff9_76a3_fffe,
+    0x03f4_1d24_d174_ceb4,
+    0xf654_7998_c199_5dbd,
+    0x778a_468f_507a_6034,
+    0x0205_5993_1f7f_8103,
+]);
+
+#[test]
+fn test_sgn0() {
+    assert_eq!(bool::from(Fp::zero().sgn0()), false);
+    assert_eq!(bool::from(Fp::one().sgn0()), true);
+    assert_eq!(bool::from((-Fp::one()).sgn0()), false);
+    assert_eq!(bool::from((-Fp::zero()).sgn0()), false);
+    assert_eq!(bool::from(P_M1_OVER2.sgn0()), true);
+
+    let p_p1_over2 = P_M1_OVER2 + Fp::one();
+    assert_eq!(bool::from(p_p1_over2.sgn0()), false);
+
+    let neg_p_p1_over2 = {
+        let mut tmp = p_p1_over2;
+        tmp.conditional_negate(Choice::from(1u8));
+        tmp
+    };
+    assert_eq!(neg_p_p1_over2, P_M1_OVER2);
 }

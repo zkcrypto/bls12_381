@@ -18,17 +18,21 @@ use alloc::vec::Vec;
 
 const OVERSIZE_DST_SALT: &[u8] = b"H2C-OVERSIZE-DST-";
 
-/// Enum to represent the DST of a message expansion
+/// The domain separation tag for a message expansion.
+///
+/// Implements [section 5.4.3 of `draft-irtf-cfrg-hash-to-curve-11`][dst].
+///
+/// [dst]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-5.4.3
 #[derive(Debug)]
 enum ExpandMsgDst<'x, L: ArrayLength<u8>> {
-    /// DST produced by hashing the input DST
+    /// DST produced by hashing a very long (> 255 chars) input DST.
     Hashed(GenericArray<u8, L>),
-    /// A raw input DST (< 255 chars)
+    /// A raw input DST (<= 255 chars).
     Raw(&'x [u8]),
 }
 
 impl<'x, L: ArrayLength<u8>> ExpandMsgDst<'x, L> {
-    /// Produce DST for expand_message_xof
+    /// Produces a DST for use with `expand_message_xof`.
     pub fn process_xof<H>(dst: &'x [u8]) -> Self
     where
         H: Default + Update + ExtendableOutputDirty,
@@ -46,7 +50,7 @@ impl<'x, L: ArrayLength<u8>> ExpandMsgDst<'x, L> {
         }
     }
 
-    /// Produce DST for expand_message_xmd
+    /// Produces a DST for use with `expand_message_xmd`.
     pub fn process_xmd<H>(dst: &'x [u8]) -> Self
     where
         H: Digest<OutputSize = L>,
@@ -58,7 +62,7 @@ impl<'x, L: ArrayLength<u8>> ExpandMsgDst<'x, L> {
         }
     }
 
-    /// Get the raw bytes of the DST
+    /// Returns the raw bytes of the DST.
     pub fn data(&'x self) -> &'x [u8] {
         match self {
             Self::Hashed(arr) => &arr[..],
@@ -66,7 +70,7 @@ impl<'x, L: ArrayLength<u8>> ExpandMsgDst<'x, L> {
         }
     }
 
-    /// Get the length of the DST
+    /// Returns the length of the DST.
     pub fn len(&'x self) -> usize {
         match self {
             Self::Hashed(_) => L::to_usize(),
@@ -75,34 +79,34 @@ impl<'x, L: ArrayLength<u8>> ExpandMsgDst<'x, L> {
     }
 }
 
-/// A trait for message expansion methods supported by hash-to-curve
+/// A trait for message expansion methods supported by hash-to-curve.
 pub trait ExpandMessage: for<'x> InitExpandMessage<'x> {
     // This intermediate is likely only necessary until GATs allow
-    // associated types with lifetimes
+    // associated types with lifetimes.
 }
 
-/// Trait for constructing a new message expander
+/// Trait for constructing a new message expander.
 pub trait InitExpandMessage<'x> {
-    /// The state object used during message expansion
+    /// The state object used during message expansion.
     type Expander: ExpandMessageState<'x>;
 
-    /// Initialize a message expander
+    /// Initializes a message expander.
     fn init_expand(message: &[u8], dst: &'x [u8], len_in_bytes: usize) -> Self::Expander;
 }
 
 // Automatically derive trait
 impl<X: for<'x> InitExpandMessage<'x>> ExpandMessage for X {}
 
-/// Trait for types implementing expand_message interface for hash_to_field
+/// Trait for types implementing the `expand_message` interface for `hash_to_field`.
 pub trait ExpandMessageState<'x> {
-    /// Read bytes from the generated output
+    /// Reads bytes from the generated output.
     fn read_into(&mut self, output: &mut [u8]) -> usize;
 
-    /// Retrieve the number of bytes remaining in the generator
+    /// Retrieves the number of bytes remaining in the generator.
     fn remain(&self) -> usize;
 
     #[cfg(feature = "alloc")]
-    /// Construct a Vec containing the remaining bytes of the output
+    /// Constructs a `Vec` containing the remaining bytes of the output.
     fn into_vec(mut self) -> Vec<u8>
     where
         Self: Sized,
@@ -113,8 +117,13 @@ pub trait ExpandMessageState<'x> {
     }
 }
 
-/// A generator for the output of expand_message_xof for a given
-/// extendable hash function, message, DST, and output length
+/// A generator for the output of `expand_message_xof` for a given
+/// extendable hash function, message, DST, and output length.
+///
+/// Implements [section 5.4.2 of `draft-irtf-cfrg-hash-to-curve-11`][expand_message_xof]
+/// with `k = 128`.
+///
+/// [expand_message_xof]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-5.4.2
 pub struct ExpandMsgXof<H: ExtendableOutputDirty> {
     hash: <H as ExtendableOutputDirty>::Reader,
     remain: usize,
@@ -151,6 +160,7 @@ where
     type Expander = Self;
 
     fn init_expand(message: &[u8], dst: &[u8], len_in_bytes: usize) -> Self {
+        // Use U32 here for k = 128.
         let dst = ExpandMsgDst::<U32>::process_xof::<H>(dst);
         let hash = H::default()
             .chain(message)
@@ -165,13 +175,21 @@ where
     }
 }
 
-/// A placeholder type used to construct an ExpandMsgXmdState
-/// instance when hashing to a curve.
+/// Constructor for `expand_message_xmd` for a given digest hash function, message, DST,
+/// and output length.
+///
+/// Implements [section 5.4.1 of `draft-irtf-cfrg-hash-to-curve-11`][expand_message_xmd].
+///
+/// [expand_message_xmd]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-5.4.1
 #[derive(Debug)]
 pub struct ExpandMsgXmd<H: Digest>(PhantomData<H>);
 
-/// A generator for the output of expand_message_xmd for a given
-/// digest hash function, message, DST, and output length
+/// A generator for the output of `expand_message_xmd` for a given
+/// digest hash function, message, DST, and output length.
+///
+/// Implements [section 5.4.1 of `draft-irtf-cfrg-hash-to-curve-11`][expand_message_xmd].
+///
+/// [expand_message_xmd]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-5.4.1
 pub struct ExpandMsgXmdState<'x, H: Digest> {
     dst: ExpandMsgDst<'x, H::OutputSize>,
     b_0: GenericArray<u8, H::OutputSize>,
@@ -277,28 +295,34 @@ mod tests {
 
     #[cfg(feature = "alloc")]
     #[test]
-    fn expand_xmd_expected() {
+    fn expand_xmd_long_dst() {
         const MESSAGE: &[u8] = b"test expand xmd input message";
-        const SHORT_DST: &[u8] = b"test expand xmd short dst";
         const LONG_DST: &[u8] = b"test expand xmd long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long dst";
 
-        const SHORT_EXPECT: &[(usize, &str)] = &[
-            (10, "0f127dc15a85b0b4eb71"),
-            (100, "b0dbbfb9206c68846386bfbb8af3f4c0352da30cd9d9f8f904e8ef12519dce6565ddc8700e40e785f516e2d0b5fb68e367f89b36ff239cd1931d80c5c23c658ef1ad3e94716e5c8485db2503aec9abd373361eab138d76891a48d1195adb6e45eee2af50"),
-            (1000, "cf4448f90fe492fa18f9686270200594d55baf8dac1d06e5841ca06dd72a58b4a9a50bd53a40086cd1dac32197981c09d6b3a4e6e56d1d22355685f7fe6b20fc10bf986e5545e840eb1fe8911e3d2ceefe7b490a4c62ed72e1b56776a0fb0773f124a0c8c461211153f1c9792066ef5d5d5ec3ad68bde16f446e90c333d817445f0246a16fe825c9cc2753e8d20dbdd4c468c9126f1b45794c41e5845fce2e3713467496bfb5a2e6d0988a687989a301e3302498b51370cddf2208a42190d1cf03661ff2c6b93798c41499878ab3de908afcd4334e767ff1ba6e6301963beb3dc24c10078d233370edfaccf747666dbd1b4a8250a360df39162724249b9e08f3b98453ebc4b5a1d527718e5847e6b63a745b1dfe521ee863bd4b0d64e2771b7886b58ab4fcfa69fcad044693b18903bcc8f710daca84cb6fa5e30b4020167470d3d3bf8bdf63eed01b37db7c39a23be4f3784fdf49816828210697b28788cbedf2edc30313ec8c1c79d46ff0ef92779b3ae41b2d0292d7ee11a323763e440ab0dc1b6eeb97703c8cc6da010c905a8e7e602c1aa81cb9e5afb6f8a014468d387a34784f5727b86e04403ea7999b1d5757b5f9fba14da476b4510cad2171218879d71511175e745ec4cb8a9a10d3ccaa3699f619b4b7f845aab6d88084b1cd2b71251417762ca3ddcb1f6067e4fb9594bada6b7005f00b5b79cd3bdd95caea28ae2bc14bbe726544d0d3266d226cf4157d2e03f0abb75a494bcea1111d16df8b5e8d74ede372a2eb184595cfa0f5ec245954334b67e32bd6277a1ac22bbb4320a593c6434d55a854b62d5eae575229df33aa1208c56cf3dd9d44ee747356c70b8c44fb009be11866b1759085972551136faa599ac610a0cd8b640ef29dae77265082eb807c31f2a7ff834a13db557506fdb3a4ce4c0d06d296c10b368d161ee8fea573443b5d8857c8d02ab4d599a487ba675655096f8552054c407fa1cc547ae0d51f9f6be1130bcb1320e5922279e724b428a52dc5d38908bd33fe6a6f7567cf3eb911bfb29cba4656fe3cea5a1eb2173dedef65fd828970a46921d13413908f6705ce86e6b96b48f18cba7f8da1853c4aa7eaa5897fc303bf851f8faa26371be96ea49a84185e18426b7d1d562e79a3e0cae5d3cf4f10b71a746fb29756f1a97d52327a3418c453f2489b6c1aaf8bf8600ca902db3579500e46b3775a67c3b8253feb639dbb76543236f7b03077c2ad89b4b45af1a22191c472647b9d4ca83abf40dad5bb980cb09487382e2210dd0fb9853e7d7c30543ae515dcf372e2f8bbfdf8bf3c023f3cf0f0a687a7fa3d32dcaaa35a7474ac443275a7c8952c0fcf7c10e155dd0301ce3e86a1916b81748a0a2d195dbb36e1df660d552144b40993f94b29f898348d6171")
-        ];
-        for (len, hexpect) in SHORT_EXPECT {
-            let data = ExpandMsgXmd::<Sha256>::init_expand(MESSAGE, SHORT_DST, *len).into_vec();
-            assert_eq!(&hex::encode(&data), hexpect);
-        }
-
-        const LONG_EXPECT: &[(usize, &str)] = &[
+        const EXPECT: &[(usize, &str)] = &[
             (10, "417ab5fec8c0afa8492b"),
             (100, "e70f11136df2be4ce806586e187437a23647be319ed4095032c776b81291905cfccd644d9123f91f18a960936956b851390f61f02785b1aa5ba1d192afce2745afe789933f0e1964eedd4e83e060d1004dea7467db044b589eb14c75b6fc75ed3f2759c7"),
             (1000, "dfff931bf2ca85308ae1baf5a3cae59fb9c2559d0ce1cf7232fbcf208938c5fa3f40186e8db05fdba3f1435491a934f466b7cacf0a5264f7cf958b331973bd7a09e04acd7e608f34f31fce54497a3dd16a6480448abb829ce63726cc9ac2ce22972c26808f11c3e0f8aa3a8a4074bd4ed015a1c20619972262a97b432105a6d11a969651ca239447cb2396a12821cc49de691140aaa882182587803333df94a57690048cf4dce7693cce54777fd5f492ac7881865a6ff889428a90be4083257cf236162e907bac6f4ded45ed745b7c986346eb8582b78fabc649d90277a6021df6fee85532d93bd125d8b61dbcae284486a5bc7c27f9e60a9faf536cdd291c63fc5661ae5415b39882ff6f0659ec8dbc524cf24929496c45fd7dd6e2769045868e0f1e9ce132c5d4e9b24ea9a9ef99178684113d4e77466e8bf95b0925b323db9a8d5782e67b4e7dfe5d233e3d1e305373c9d78ccd3d94f96b576cda18dac4df5a41266228d168f9cbb60cc2161976d2599b8532b554f10e0072bc229c8bda69b2a2521cf0fa79792454e76adbd145e962b185284e908ca45d4595deb392bed197de5cfe5dd5b05510454ac37a3fdc52862844a68e9b5a97219b614132d262c7cf51f8ad410419f62b80f3be4caa55d450ba573a0602116f06c1dda86898042c9a8617ae83f36357f3fa4e3ba930efa8a61fcd51b1a218789d423f135610fb1c1d15ca9a07ced8b043984870d3e42cfba6362cf7b2d3bc64690f14d0ad5ebaf9b20b00fe98de4b469a451a82177eff1fd584a74cfd9c0294686ed152987d598df944d5c8bd68c5a977b8dd33f9af706ba72eaaeae6e6d3d69374a4096281c21f8d8a97141c627967cdf9a2c540e2c95be91614fa69e7db12488e0c439a20aab50f21fd114d3679a2b1245115ddbead473ddc1fe4736c7f368c416a409160848a8d450ab2a7f24f00c8b1f2bc75b4553f4fb2e4e61c1da4ec7a112d5b2c1cf8245f875a52e195665eb5d43ca23e35ec306f25c5e0dfc90366b320db4c9ef1c7af86d7e7c142700fdea52a3288bbff36f49b856b8b012a7b313025b1afa08928c0406effb3d8c5f8903611ba6be55cfad7c527efcda87765d9adc8114fc25e91e64b1f13c76cb01f4d0b50e39d83c9ba211188788bb6d7af51087a00daf0c2dc037e0105e0e5fa20aa1da75e86ef479ad67e01c36afe55d4532726810ae3668c17a1c029d312ee06c356e8fdd37eef01b41c5d8d4828ccae0fb7efb2c1d51059c63b311deb480f2e6c1e42cf315942a0bdbe515471412ba47f78fdca81d5e5fcbb3a207a51c94f306dd4551e0743d3e7f9f48c1b758772b3fe09df98bf857dee124c609f570566cc73cf4746defcc6a8c77c9dad4928911e5e712fb5c90fab41791229b6f8b56fa633")
         ];
-        for (len, hexpect) in LONG_EXPECT {
+        for (len, hexpect) in EXPECT {
             let data = ExpandMsgXmd::<Sha256>::init_expand(MESSAGE, LONG_DST, *len).into_vec();
+            assert_eq!(&hex::encode(&data), hexpect);
+        }
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn expand_xof_long_dst() {
+        const MESSAGE: &[u8] = b"test expand xof input message";
+        const LONG_DST: &[u8] = b"test expand xof long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long dst";
+
+        const EXPECT: &[(usize, &str)] = &[
+            (10, "b00df0c3074566d72091"),
+            (100, "d228fba4aef7bdbe1960975d00734fecde2c1366c014588a28a4084c23b10ac97429df7953cbe811d224ec6d7b76aca88e8b00e50a7ced97e2fbd02b5cc652eb0cff3cbbb4dff1569f84576c6ae127bc3649534c8771a004aef6af08ff9e4ec78ebc85f8"),
+            (1000, "8cfd6e04761c87233893639fee0d39358531ea81b79ce545a3f87faa39e41d196ddb5d0755d29d761926eed99265a038584e849e3516c5864849312d33180484e8c75213bc4ea582a5cc55f7b7ecbed89feb2c5799abcc4b87d3627cd84939062de8c9f311e543f3c3c7be2c6ac1441d607209da0640ae3173b1715a2ac0d861c063b5b2be0d85af429afb51a89aa38a25603369955af8c420752eb434a195a0096e9b36218dfa1aab5e6a1cfc140d2be2e91050de9588b2bab05c3ac4b43db91b06483159482daf787562aa417eb886ae9b02a47e8081132fed303fc05ce316e13f4c50eaa09618dc52e77f03dec0424bec634377e857fa3c5f3b39a7695472fb4416fe5c3b4fecebd8d601dbc426ae24b95f8b6baa90b66e79cd4447266d3e9924e57efe903d3fa247c070ede4210d3f836fd0d2313e4832f07d0f9fa2fd28d615e325876cdde509ae75c1bc3c5d0be6881aff0e096cadc3f7d4823ac1ace6ca4f79286bd6d44ad95afcc4950eb26c6823297ab8bf2c6ae7203f4e9d2b35920d85fdb89d2d6120f0901afbed8e9c35794dae30bada9648775ba8dda333cce81be6f63b8cc6e2f686115b37eec11db60706a0a0fa534be88435f761b7f3e42cb6953f8bbcf4a3d2e21a8936af0ba0ab3105d3d780dcf7c4d4934512c32dbb142c5f80f1f5af1ef9f84470956eebf9cdf8a7e0037df7061ed56a8cb030f28d79be37bd72c1cb58883debf62a636e7d56fbcba2df7c5343de80ef79f5db1f02d04ad9c8cffa5ba0752bb106aa94cdacce8c8ce39e8021b9658bd55c1fe1fb7172d5af30c93933662e84ac25c1ba0cfa455782b863ea47029bfc4e78660c647cc21f377e9e5d9d8a94fbaf1087bb3b05a772ec756010beb290a786505832a075238e3899d120ae8c40a721b19e80896bad94746fd69b0e34dd937ae19b663dfee2e9f08678923fa92d66d5dc2c4f461f1eff4b7e8daf6542510a0ded177b38307eb6a4a5b5e3d5218ed752721c8b58a39f33df23a51e0b4b35e10fb2297a2a7590e8af6b587184336152c951bcc314f9d64c298b46e1327a65abe15256df6ff44284d850c392c41b350904da0c82d49bcea7324fb3a4cdc4f1f02f4e7b8da92405eb7e7d83e7bb824029912e9955401229516167700b853a57cd57b6f0ed6d80ab7bda91a49dc471e80d870ff6461c20f0cf5ae6df73181d16a47d20849677291a999578d37fc9ce75d69b1ec38d8d516da808faf09c6f470385d200f4553576f144fcf8f979fea3c98e2672a349cc47cc64dc828237901542b690cff6c54e9ee1d08f4d88a6711c150c139122ae702d6ae1121ddd8cc6a5ad5455980ecfce82a7b717be980ddcb530de526ddddf37711045f97c23963a08ab2ccafabb2e7728448b7c69cedda3ef10")
+        ];
+        for (len, hexpect) in EXPECT {
+            let data = ExpandMsgXof::<Shake128>::init_expand(MESSAGE, LONG_DST, *len).into_vec();
             assert_eq!(&hex::encode(&data), hexpect);
         }
     }

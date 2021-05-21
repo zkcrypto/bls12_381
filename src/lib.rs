@@ -83,8 +83,8 @@ pub use pairings::{pairing, Bls12, Gt, MillerLoopResult};
 pub use pairings::{multi_miller_loop, G2Prepared};
 
 /// Use the generic_array re-exported by digest to avoid a version mismatch
-#[cfg(feature = "hash_to_curve")]
+#[cfg(feature = "experimental")]
 pub(crate) use digest::generic_array;
 
-#[cfg(feature = "hash_to_curve")]
+#[cfg(feature = "experimental")]
 pub mod hash_to_curve;

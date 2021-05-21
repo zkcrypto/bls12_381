@@ -30,7 +30,7 @@ required-features = ["groups"]
 [[bench]]
 name = "hash_to_curve"
 harness = false
-required-features = ["hash_to_curve"]
+required-features = ["experimental"]
 
 [dependencies.digest]
 version = "0.9"
@@ -63,7 +63,7 @@ bits = ["ff/bits"]
 groups = ["group"]
 pairings = ["groups", "pairing"]
 alloc = ["group/alloc"]
-hash_to_curve = ["digest"]
+experimental = ["digest"]
 nightly = ["subtle/nightly"]
 
 # Deprecated.
