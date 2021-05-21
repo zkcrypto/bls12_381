@@ -43,12 +43,12 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --verbose --release --tests --features endo
+          args: --verbose --release --tests --features endo,experimental
       - name: Run tests
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --verbose --release --features endo
+          args: --verbose --release --features endo,experimental
       - name: Build tests (no endomorphism)
         uses: actions-rs/cargo@v1
         with:
