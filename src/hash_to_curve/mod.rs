@@ -27,15 +27,15 @@ pub trait HashToField: Sized {
     /// The length of the data used to produce an individual field element.
     ///
     /// This must be set to `m * L = m * ceil((ceil(log2(p)) + k) / 8)`, where `p` is the
-    /// characteristic of `Self::Field`, `m` is the extension degree of `Self::Field`, and
-    /// `k` is the security parameter.
+    /// characteristic of `Self`, `m` is the extension degree of `Self`, and `k` is the
+    /// security parameter.
     type InputLength: ArrayLength<u8>;
 
     /// Interprets the given output keying material as a big endian integer, and reduces
     /// it into a field element.
     fn from_okm(okm: &GenericArray<u8, Self::InputLength>) -> Self;
 
-    /// Hashes a byte string of arbitrary length into one or more elements of `Self::Field`,
+    /// Hashes a byte string of arbitrary length into one or more elements of `Self`,
     /// using [`ExpandMessage`] variant `X`.
     ///
     /// Implements [section 5.3 of `draft-irtf-cfrg-hash-to-curve-11`][hash_to_field].
