@@ -564,7 +564,7 @@ fn map_to_curve_simple_swu(u: &Fp) -> G1Projective {
 
     let gx0_square = (sqrt_candidate.square() * gx_den).ct_eq(&gx0_num); // g(x0) is square
     let x1_num = x0_num * xi_usq;
-    // sqrt(-XI**3) * u^3 g(x0) ^ ((p - 1) // 4)
+    // sqrt(-XI**3) * u^3 g(x0) ^ ((p - 3) // 4)
     let y1 = SQRT_M_XI_CUBED * usq * u * sqrt_candidate;
 
     let x_num = Fp::conditional_select(&x1_num, &x0_num, gx0_square);
