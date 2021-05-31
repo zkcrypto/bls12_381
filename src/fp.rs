@@ -13,7 +13,7 @@ use crate::util::{adc, mac, sbb};
 // integers in little-endian order. `Fp` values are always in
 // Montgomery form; i.e., Scalar(a) = aR mod p, with R = 2^384.
 #[derive(Copy, Clone)]
-pub struct Fp([u64; 6]);
+pub struct Fp(pub(crate) [u64; 6]);
 
 impl fmt::Debug for Fp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -421,7 +421,7 @@ impl Fp {
     }
 
     #[inline(always)]
-    const fn montgomery_reduce(
+    pub(crate) const fn montgomery_reduce(
         t0: u64,
         t1: u64,
         t2: u64,

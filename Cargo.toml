@@ -17,11 +17,24 @@ rustdoc-args = [ "--html-in-header", "katex-header.html" ]
 
 [dev-dependencies]
 criterion = "0.3"
+hex = "0.4"
+rand_xorshift = "0.3"
+sha2 = "0.9"
+sha3 = "0.9"
 
 [[bench]]
 name = "groups"
 harness = false
 required-features = ["groups"]
+
+[[bench]]
+name = "hash_to_curve"
+harness = false
+required-features = ["experimental"]
+
+[dependencies.digest]
+version = "0.9"
+optional = true
 
 [dependencies.ff]
 version = "0.9"
@@ -50,6 +63,7 @@ bits = ["ff/bits"]
 groups = ["group"]
 pairings = ["groups", "pairing"]
 alloc = ["group/alloc"]
+experimental = ["digest"]
 nightly = ["subtle/nightly"]
 
 # Deprecated.

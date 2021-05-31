@@ -339,6 +339,23 @@ impl Fp2 {
         }
         res
     }
+
+    /// Vartime exponentiation for larger exponents, only
+    /// used in testing and not exposed through the public API.
+    #[cfg(all(test, feature = "experimental"))]
+    pub(crate) fn pow_vartime_extended(&self, by: &[u64]) -> Self {
+        let mut res = Self::one();
+        for e in by.iter().rev() {
+            for i in (0..64).rev() {
+                res = res.square();
+
+                if ((*e >> i) & 1) == 1 {
+                    res *= self;
+                }
+            }
+        }
+        res
+    }
 }
 
 #[test]
