@@ -37,16 +37,16 @@ version = "0.9"
 optional = true
 
 [dependencies.ff]
-version = "0.9"
+version = "0.10"
 default-features = false
 
 [dependencies.group]
-version = "0.9"
+version = "0.10"
 default-features = false
 optional = true
 
 [dependencies.pairing]
-version = "0.19"
+version = "0.20"
 optional = true
 
 [dependencies.rand_core]
@@ -69,8 +69,3 @@ nightly = ["subtle/nightly"]
 # Deprecated.
 # GLV patents US7110538B2 and US7995752B2 expired in September 2020.
 endo = []
-
-[patch.crates-io]
-ff = { git = "https://github.com/zkcrypto/ff.git", branch = "main", default-features = false }
-group = { git = "https://github.com/zkcrypto/group.git", branch = "main", default-features = false }
-pairing = { git = "https://github.com/zkcrypto/pairing.git", branch = "main" }
