@@ -539,7 +539,7 @@ impl From<G2Affine> for G2Prepared {
 }
 
 #[cfg_attr(feature = "zeroize", derive(Zeroize))]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 // this is implemented as a separate type only in order to derive Zeroize
 struct G2Coeffs(Fp2, Fp2, Fp2);
 
@@ -548,7 +548,9 @@ struct G2Coeffs(Fp2, Fp2, Fp2);
 impl Zeroize for G2Prepared {
     fn zeroize(&mut self) {
         self.infinity = Choice::from(0);
-        self.coeffs.zeroize();
+        for c in self.coeffs.iter_mut() {
+            c.zeroize();
+        }
     }
 }
 
@@ -961,4 +963,16 @@ fn tricking_miller_loop_result() {
         .final_exponentiation(),
         Gt::identity()
     );
+}
+
+#[cfg(all(feature = "alloc", feature = "zeroize"))]
+#[test]
+fn test_zeroize_g2_prepared() {
+    let b1 = G2Affine::from(G2Affine::generator() * Scalar::from_raw([1, 2, 3, 4]));
+    let mut pre = G2Prepared::from(b1);
+    pre.zeroize();
+    assert_eq!(pre.infinity.unwrap_u8(), 0);
+    for entry in pre.coeffs.iter() {
+        assert_eq!(entry, &G2Coeffs(Fp2::zero(), Fp2::zero(), Fp2::zero()));
+    }
 }
