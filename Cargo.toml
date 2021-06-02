@@ -68,7 +68,7 @@ default = ["groups", "pairings", "alloc", "bits", "endo"]
 bits = ["ff/bits"]
 groups = ["group"]
 pairings = ["groups", "pairing"]
-alloc = ["group/alloc", "zeroize/alloc"]
+alloc = ["group/alloc"]
 experimental = ["digest"]
 nightly = ["subtle/nightly"]
 
