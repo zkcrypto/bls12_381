@@ -1,4 +1,4 @@
-# Unreleased
+# 0.5.0
 
 ## Added
 - `bits` feature flag (on by default) that exposes an `ff::PrimeFieldBits` implementation
