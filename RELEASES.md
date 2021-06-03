@@ -1,5 +1,13 @@
 # Unreleased
 
+## Added
+- `bits` feature flag (on by default) that exposes an `ff::PrimeFieldBits` implementation
+  on `bls12_381::Scalar`.
+- `experimental` feature flag, for features have no backwards-compatibility guarantees and
+  may change at any time.
+- Hashing to curves ([Internet Draft v11](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11)),
+  behind the `experimental` feature flag.
+
 ## Changed
 - Bumped dependencies to `ff 0.10`, `group 0.10`, `pairing 0.20`.
 - MSRV is now 1.51.0.
