@@ -57,6 +57,12 @@ default-features = false
 version = "2.2.1"
 default-features = false
 
+[dependencies.zeroize]
+version = "1.3"
+default-features = false
+features = ["zeroize_derive"]
+optional = true
+
 [features]
 default = ["groups", "pairings", "alloc", "bits", "endo"]
 bits = ["ff/bits"]
