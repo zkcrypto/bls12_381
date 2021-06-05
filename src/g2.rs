@@ -1882,7 +1882,7 @@ fn test_mul_by_x() {
     };
     assert_eq!(generator.mul_by_x(), generator * x);
 
-    let point = G2Projective::generator() * Scalar::from(42);
+    let point = G2Projective::generator() * Scalar::from(42u64);
     assert_eq!(point.mul_by_x(), point * x);
 }
 
