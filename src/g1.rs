@@ -62,6 +62,7 @@ impl<'a> From<&'a G1Projective> for G1Affine {
 }
 
 // The recoding width that determines the length and size of precomputation table.
+// Tested values are in 3..8.
 const G1_WIDTH: i32 = 5;
 
 impl From<G1Projective> for G1Affine {
@@ -803,16 +804,14 @@ impl G1Projective {
         naf[len - 1] = sc[0] as i8;
     }
 
-    fn precompute(&self, table: &mut [G1Affine], w: i32) {
-        if w > 2 {
-            let mut proj_table = vec![G1Projective::identity(); table.len()];
-            let double_point = self.double();
-            proj_table[0] = self.clone();
-            for i in 1..table.len() {
-                proj_table[i] = proj_table[i - 1] + double_point;
-            }
-            G1Projective::batch_normalize(&proj_table[1..], &mut table[1..]);
+    fn precompute(&self, table: &mut [G1Affine]) {
+        let mut proj_table = [G1Projective::identity(); 1 << (G1_WIDTH - 2)];
+        let double_point = self.double();
+        proj_table[0] = self.clone();
+        for i in 1..table.len() {
+            proj_table[i] = proj_table[i - 1] + double_point;
         }
+        G1Projective::batch_normalize(&proj_table[1..], &mut table[1..]);
     }
 
     fn linear_pass(&self, index: u8, table: &[G1Affine]) -> G1Affine {
@@ -840,8 +839,9 @@ impl G1Projective {
         let mut naf1 = [0 as i8; 128];
         let mut naf2 = [0 as i8; 128];
         let (s1, mut k1, s2, mut k2) = self.glv_recoding(&by);
-        //self.regular_recoding(&mut naf, &mut sc, G1_WIDTH);
-        self.precompute(&mut table, G1_WIDTH);
+        if G1_WIDTH > 2 {
+            self.precompute(&mut table);
+        }
 
         let bit1 = k1[0] & 1u8;
         k1[0] |= 1;
