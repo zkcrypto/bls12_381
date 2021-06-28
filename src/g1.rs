@@ -723,7 +723,7 @@ impl G1Projective {
     }
 
     #[inline]
-    pub const fn sub_borrow(&self, a: &[u64; 4], b: &[u64; 4]) -> ([u64; 4], i8) {
+    const fn sub_borrow(&self, a: &[u64; 4], b: &[u64; 4]) -> ([u64; 4], i8) {
         let (d0, borrow) = sbb(a[0], b[0], 0);
         let (d1, borrow) = sbb(a[1], b[1], borrow);
         let (d2, borrow) = sbb(a[2], b[2], borrow);
