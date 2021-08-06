@@ -13,13 +13,12 @@ use pairing::{Engine, PairingCurveAffine};
 use rand_core::RngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
-#[cfg(feature = "alloc")]
-use alloc::vec::Vec;
-#[cfg(feature = "alloc")]
 use pairing::MultiMillerLoop;
 
 #[cfg(feature = "zeroize")]
 use zeroize::Zeroize;
+
+const G2_PREPARED_COEFFS: usize = 68;
 
 /// Represents results of a Miller loop, one of the most expensive portions
 /// of the pairing function. `MillerLoopResult`s cannot be compared with each
@@ -477,8 +476,7 @@ impl Group for Gt {
     }
 }
 
-#[cfg(feature = "alloc")]
-#[cfg_attr(docsrs, doc(cfg(all(feature = "pairings", feature = "alloc"))))]
+#[cfg_attr(docsrs, doc(cfg(feature = "pairings")))]
 #[derive(Clone, Debug)]
 /// This structure contains cached computations pertaining to a $\mathbb{G}_2$
 /// element as part of the pairing function (specifically, the Miller loop) and
@@ -487,31 +485,33 @@ impl Group for Gt {
 /// conjunction with the [`multi_miller_loop`](crate::multi_miller_loop)
 /// function provided by this crate.
 ///
-/// Requires the `alloc` and `pairing` crate features to be enabled.
+/// Requires the `pairing` crate feature to be enabled.
 pub struct G2Prepared {
     infinity: Choice,
-    coeffs: Vec<G2Coeffs>,
+    coeffs: [G2Coeffs; G2_PREPARED_COEFFS],
 }
 
-#[cfg(feature = "alloc")]
 impl From<G2Affine> for G2Prepared {
     fn from(q: G2Affine) -> G2Prepared {
         struct Adder {
             cur: G2Projective,
             base: G2Affine,
-            coeffs: Vec<G2Coeffs>,
+            coeffs: [G2Coeffs; G2_PREPARED_COEFFS],
+            index: usize,
         }
 
         impl MillerLoopDriver for Adder {
             type Output = ();
 
             fn doubling_step(&mut self, _: Self::Output) -> Self::Output {
-                let coeffs = doubling_step(&mut self.cur);
-                self.coeffs.push(coeffs);
+                let coeff = doubling_step(&mut self.cur);
+                self.coeffs[self.index] = coeff;
+                self.index += 1;
             }
             fn addition_step(&mut self, _: Self::Output) -> Self::Output {
-                let coeffs = addition_step(&mut self.cur, &self.base);
-                self.coeffs.push(coeffs);
+                let coeff = addition_step(&mut self.cur, &self.base);
+                self.coeffs[self.index] = coeff;
+                self.index += 1;
             }
             fn square_output(_: Self::Output) -> Self::Output {}
             fn conjugate(_: Self::Output) -> Self::Output {}
@@ -524,12 +524,13 @@ impl From<G2Affine> for G2Prepared {
         let mut adder = Adder {
             cur: G2Projective::from(q),
             base: q,
-            coeffs: Vec::with_capacity(68),
+            coeffs: [G2Coeffs::zero(); G2_PREPARED_COEFFS],
+            index: 0,
         };
 
         miller_loop(&mut adder);
 
-        assert_eq!(adder.coeffs.len(), 68);
+        assert_eq!(adder.index, G2_PREPARED_COEFFS);
 
         G2Prepared {
             infinity: is_identity,
@@ -540,10 +541,16 @@ impl From<G2Affine> for G2Prepared {
 
 #[cfg_attr(feature = "zeroize", derive(Zeroize))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-// this is implemented as a separate type only in order to derive Zeroize
+// this is implemented as a new type only in order to derive Zeroize
 struct G2Coeffs(Fp2, Fp2, Fp2);
 
-#[cfg(all(feature = "alloc", feature = "zeroize"))]
+impl G2Coeffs {
+    pub const fn zero() -> Self {
+        Self(Fp2::zero(), Fp2::zero(), Fp2::zero())
+    }
+}
+
+#[cfg(feature = "zeroize")]
 // manual implementation because 'subtle' doesn't have a zeroize feature
 impl Zeroize for G2Prepared {
     fn zeroize(&mut self) {
@@ -554,12 +561,11 @@ impl Zeroize for G2Prepared {
     }
 }
 
-#[cfg(feature = "alloc")]
-#[cfg_attr(docsrs, doc(cfg(all(feature = "pairings", feature = "alloc"))))]
+#[cfg_attr(docsrs, doc(cfg(feature = "pairings")))]
 /// Computes $$\sum_{i=1}^n \textbf{ML}(a_i, b_i)$$ given a series of terms
 /// $$(a_1, b_1), (a_2, b_2), ..., (a_n, b_n).$$
 ///
-/// Requires the `alloc` and `pairing` crate features to be enabled.
+/// Requires the `pairing` crate feature to be enabled.
 pub fn multi_miller_loop(terms: &[(&G1Affine, &G2Prepared)]) -> MillerLoopResult {
     struct Adder<'a, 'b, 'c> {
         terms: &'c [(&'a G1Affine, &'b G2Prepared)],
@@ -822,7 +828,6 @@ impl pairing::MillerLoopResult for MillerLoopResult {
     }
 }
 
-#[cfg(feature = "alloc")]
 impl MultiMillerLoop for Bls12 {
     type G2Prepared = G2Prepared;
     type Result = MillerLoopResult;
@@ -875,7 +880,6 @@ fn test_unitary() {
     assert_eq!(q, r);
 }
 
-#[cfg(feature = "alloc")]
 #[test]
 fn test_multi_miller_loop() {
     let a1 = G1Affine::generator();
@@ -965,7 +969,7 @@ fn tricking_miller_loop_result() {
     );
 }
 
-#[cfg(all(feature = "alloc", feature = "zeroize"))]
+#[cfg(feature = "zeroize")]
 #[test]
 fn test_zeroize_g2_prepared() {
     let b1 = G2Affine::from(G2Affine::generator() * Scalar::from_raw([1, 2, 3, 4]));
