@@ -287,13 +287,13 @@ where
     }
 }
 
+#[cfg(feature = "alloc")]
 #[cfg(test)]
 mod tests {
     use super::*;
     use sha2::{Sha256, Sha512};
     use sha3::{Shake128, Shake256};
 
-    #[cfg(feature = "alloc")]
     #[test]
     fn expand_xmd_long_dst() {
         const MESSAGE: &[u8] = b"test expand xmd input message";
@@ -310,7 +310,6 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "alloc")]
     #[test]
     fn expand_xof_long_dst() {
         const MESSAGE: &[u8] = b"test expand xof input message";
@@ -333,7 +332,6 @@ mod tests {
     // These test vectors are consistent between draft 8 and draft 11.
 
     /// From <https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-08#appendix-I.1>
-    #[cfg(feature = "alloc")]
     #[test]
     fn expand_message_xmd_works_for_draft8_testvectors_sha256() {
         let dst = b"QUUX-V01-CS02-with-expander";
@@ -440,7 +438,6 @@ mod tests {
     }
 
     /// From <https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-08#appendix-I.2>
-    #[cfg(feature = "alloc")]
     #[test]
     fn expand_message_xmd_works_for_draft8_testvectors_sha512() {
         let dst = b"QUUX-V01-CS02-with-expander";
@@ -547,7 +544,6 @@ mod tests {
     }
 
     /// From <https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-08#appendix-I.3>
-    #[cfg(feature = "alloc")]
     #[test]
     fn expand_message_xof_works_for_draft8_testvectors_shake128() {
         let dst = b"QUUX-V01-CS02-with-expander";
@@ -654,7 +650,6 @@ mod tests {
     }
 
     /// From <https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-11#appendix-K.4>
-    #[cfg(feature = "alloc")]
     #[test]
     fn expand_message_xof_works_for_draft11_testvectors_shake256() {
         let dst = b"QUUX-V01-CS02-with-expander";
