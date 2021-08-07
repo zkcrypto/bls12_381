@@ -177,7 +177,8 @@ macro_rules! impl_pippenger_sum_of_products {
     () => {
         /// Use pippenger multi-exponentiation method to compute
         /// the sum of multiple points raise to scalars.
-        /// This uses a fixed window of 4 to be constant time
+        ///
+        /// This uses a fixed window of 4 to be constant time.
         #[cfg(feature = "alloc")]
         pub fn sum_of_products(points: &[Self], scalars: &[Scalar]) -> Self {
             use alloc::vec::Vec;
@@ -191,11 +192,12 @@ macro_rules! impl_pippenger_sum_of_products {
 
         /// Use pippenger multi-exponentiation method to compute
         /// the sum of multiple points raise to scalars.
-        /// This uses a fixed window of 4 to be constant time
-        /// The scalars are used as place holders for temporary computations
+        ///
+        /// The scalars are used as placeholders for temporary computations.
+        /// This uses a fixed window of 4 to be constant time.
         pub fn sum_of_products_in_place(points: &[Self], scalars: &mut [Scalar]) -> Self {
-            // Scalars are in montgomery form, hack them in place to be temporarily
-            // in canonical form, do the computation, then switch them back
+            // Scalars are in montgomery form, hack them in-place to be temporarily
+            // in canonical form, do the computation, then switch them back.
             for i in 0..scalars.len() {
                 // Turn into canonical form by computing (a.R) / R = a
                 scalars[i] = Scalar::montgomery_reduce(
@@ -218,8 +220,9 @@ macro_rules! impl_pippenger_sum_of_products {
         }
 
         /// Compute pippenger multi-exponentiation.
-        /// Pippenger relies on scalars in canonical form
-        /// This uses a fixed window of 4 to be constant time
+        ///
+        /// Pippenger relies on scalars in canonical form. This uses a fixed
+        /// window of 4 to be constant time.
         fn sum_of_products_pippenger(points: &[Self], scalars: &[Scalar]) -> Self {
             const WINDOW: usize = 4;
             const NUM_BUCKETS: usize = 1 << WINDOW;
