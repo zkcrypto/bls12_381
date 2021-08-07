@@ -27,6 +27,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             b.iter(|| r.final_exponentiation())
         });
     }
+
     // G1Affine
     {
         let name = "G1Affine";
@@ -67,6 +68,9 @@ fn criterion_benchmark(c: &mut Criterion) {
         let v = vec![G1Projective::generator(); N];
         let mut q = vec![G1Affine::identity(); N];
 
+        let sb = vec![G1Projective::generator(); N];
+        let ss = vec![Scalar::one(); N];
+
         c.bench_function(&format!("{} check on curve", name), move |b| {
             b.iter(|| black_box(a).is_on_curve())
         });
@@ -93,6 +97,9 @@ fn criterion_benchmark(c: &mut Criterion) {
                 G1Projective::batch_normalize(black_box(&v), black_box(&mut q));
                 black_box(&q)[0]
             })
+        });
+        c.bench_function(&format!("{} sum of products n={}", name, N), move |b| {
+            b.iter(|| G1Projective::sum_of_products(black_box(&sb), black_box(&ss)))
         });
     }
 
@@ -136,6 +143,9 @@ fn criterion_benchmark(c: &mut Criterion) {
         let v = vec![G2Projective::generator(); N];
         let mut q = vec![G2Affine::identity(); N];
 
+        let sb = vec![G2Projective::generator(); N];
+        let ss = vec![Scalar::one(); N];
+
         c.bench_function(&format!("{} check on curve", name), move |b| {
             b.iter(|| black_box(a).is_on_curve())
         });
@@ -162,6 +172,9 @@ fn criterion_benchmark(c: &mut Criterion) {
                 G2Projective::batch_normalize(black_box(&v), black_box(&mut q));
                 black_box(&q)[0]
             })
+        });
+        c.bench_function(&format!("{} sum of products n={}", name, N), move |b| {
+            b.iter(|| G2Projective::sum_of_products(black_box(&sb), black_box(&ss)))
         });
     }
 }
