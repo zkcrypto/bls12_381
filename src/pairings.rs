@@ -25,6 +25,12 @@ use pairing::MultiMillerLoop;
 #[derive(Copy, Clone, Debug)]
 pub struct MillerLoopResult(pub(crate) Fp12);
 
+impl Default for MillerLoopResult {
+    fn default() -> Self {
+        MillerLoopResult(Fp12::one())
+    }
+}
+
 impl ConditionallySelectable for MillerLoopResult {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
         MillerLoopResult(Fp12::conditional_select(&a.0, &b.0, choice))
