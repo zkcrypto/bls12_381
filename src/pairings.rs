@@ -184,6 +184,20 @@ impl<'a, 'b> Add<&'b MillerLoopResult> for &'a MillerLoopResult {
 
 impl_add_binop_specify_output!(MillerLoopResult, MillerLoopResult, MillerLoopResult);
 
+impl AddAssign<MillerLoopResult> for MillerLoopResult {
+    #[inline]
+    fn add_assign(&mut self, rhs: MillerLoopResult) {
+        self.0 *= &rhs.0;
+    }
+}
+
+impl<'b> AddAssign<&'b MillerLoopResult> for MillerLoopResult {
+    #[inline]
+    fn add_assign(&mut self, rhs: &'b MillerLoopResult) {
+        *self = &*self + rhs;
+    }
+}
+
 /// This is an element of $\mathbb{G}_T$, the target group of the pairing function. As with
 /// $\mathbb{G}_1$ and $\mathbb{G}_2$ this group has order $q$.
 ///
