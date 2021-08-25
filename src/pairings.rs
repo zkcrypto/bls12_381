@@ -907,3 +907,39 @@ fn test_multi_miller_loop() {
 
     assert_eq!(expected, test);
 }
+
+#[test]
+fn test_miller_loop_result_default() {
+    assert_eq!(
+        MillerLoopResult::default().final_exponentiation(),
+        Gt::identity(),
+    );
+}
+
+#[test]
+fn tricking_miller_loop_result() {
+    assert_eq!(
+        multi_miller_loop(&[(&G1Affine::identity(), &G2Affine::generator().into())]).0,
+        Fp12::one()
+    );
+    assert_eq!(
+        multi_miller_loop(&[(&G1Affine::generator(), &G2Affine::identity().into())]).0,
+        Fp12::one()
+    );
+    assert_ne!(
+        multi_miller_loop(&[
+            (&G1Affine::generator(), &G2Affine::generator().into()),
+            (&-G1Affine::generator(), &G2Affine::generator().into())
+        ])
+        .0,
+        Fp12::one()
+    );
+    assert_eq!(
+        multi_miller_loop(&[
+            (&G1Affine::generator(), &G2Affine::generator().into()),
+            (&-G1Affine::generator(), &G2Affine::generator().into())
+        ])
+        .final_exponentiation(),
+        Gt::identity()
+    );
+}
