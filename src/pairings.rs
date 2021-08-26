@@ -187,7 +187,7 @@ impl_add_binop_specify_output!(MillerLoopResult, MillerLoopResult, MillerLoopRes
 impl AddAssign<MillerLoopResult> for MillerLoopResult {
     #[inline]
     fn add_assign(&mut self, rhs: MillerLoopResult) {
-        self.0 *= &rhs.0;
+        *self = &*self + &rhs;
     }
 }
 
