@@ -1,3 +1,14 @@
+# Unreleased
+
+## Fixed
+- `bls12_381::Gt::default()` now returns `Gt::identity()` instead of a nonsensical value.
+
+## Added
+- `bls12_381::MillerLoopResult` trait implementations:
+  - `Default`
+  - `AddAssign<MillerLoopResult>`
+  - `AddAssign<&MillerLoopResult>`
+
 # 0.5.0
 
 ## Added
