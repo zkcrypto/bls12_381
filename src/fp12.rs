@@ -9,11 +9,7 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 #[cfg(feature = "pairings")]
 use rand_core::RngCore;
 
-#[cfg(feature = "zeroize")]
-use zeroize::Zeroize;
-
 /// This represents an element $c_0 + c_1 w$ of $\mathbb{F}_{p^12} = \mathbb{F}_{p^6} / w^2 - v$.
-#[cfg_attr(feature = "zeroize", derive(Zeroize))]
 pub struct Fp12 {
     pub c0: Fp6,
     pub c1: Fp6,
@@ -65,6 +61,9 @@ impl Default for Fp12 {
         Fp12::zero()
     }
 }
+
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for Fp12 {}
 
 impl fmt::Debug for Fp12 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -647,4 +646,14 @@ fn test_arithmetic() {
             .frobenius_map()
             .frobenius_map()
     );
+}
+
+#[cfg(feature = "zeroize")]
+#[test]
+fn test_zeroize() {
+    use zeroize::Zeroize;
+
+    let mut a = Fp12::one();
+    a.zeroize();
+    assert_eq!(a, Fp12::zero());
 }

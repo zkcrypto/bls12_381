@@ -15,16 +15,12 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
 use pairing::MultiMillerLoop;
 
-#[cfg(feature = "zeroize")]
-use zeroize::Zeroize;
-
 const G2_PREPARED_COEFFS: usize = 68;
 
 /// Represents results of a Miller loop, one of the most expensive portions
 /// of the pairing function. `MillerLoopResult`s cannot be compared with each
 /// other until `.final_exponentiation()` is called, which is also expensive.
 #[cfg_attr(docsrs, doc(cfg(feature = "pairings")))]
-#[cfg_attr(feature = "zeroize", derive(Zeroize))]
 #[derive(Copy, Clone, Debug)]
 pub struct MillerLoopResult(pub(crate) Fp12);
 
@@ -33,6 +29,9 @@ impl Default for MillerLoopResult {
         MillerLoopResult(Fp12::one())
     }
 }
+
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for MillerLoopResult {}
 
 impl ConditionallySelectable for MillerLoopResult {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
@@ -207,7 +206,6 @@ impl<'b> AddAssign<&'b MillerLoopResult> for MillerLoopResult {
 /// Typically, $\mathbb{G}_T$ is written multiplicatively but we will write it additively to
 /// keep code and abstractions consistent.
 #[cfg_attr(docsrs, doc(cfg(feature = "pairings")))]
-#[cfg_attr(feature = "zeroize", derive(Zeroize))]
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Gt(pub(crate) Fp12);
 
@@ -539,25 +537,12 @@ impl From<G2Affine> for G2Prepared {
     }
 }
 
-#[cfg_attr(feature = "zeroize", derive(Zeroize))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-// this is implemented as a new type only in order to derive Zeroize
 struct G2Coeffs(Fp2, Fp2, Fp2);
 
 impl G2Coeffs {
-    pub const fn zero() -> Self {
+    const fn zero() -> Self {
         Self(Fp2::zero(), Fp2::zero(), Fp2::zero())
-    }
-}
-
-#[cfg(feature = "zeroize")]
-// manual implementation because 'subtle' doesn't have a zeroize feature
-impl Zeroize for G2Prepared {
-    fn zeroize(&mut self) {
-        self.infinity = Choice::from(0);
-        for c in self.coeffs.iter_mut() {
-            c.zeroize();
-        }
     }
 }
 
@@ -967,16 +952,4 @@ fn tricking_miller_loop_result() {
         .final_exponentiation(),
         Gt::identity()
     );
-}
-
-#[cfg(feature = "zeroize")]
-#[test]
-fn test_zeroize_g2_prepared() {
-    let b1 = G2Affine::from(G2Affine::generator() * Scalar::from_raw([1, 2, 3, 4]));
-    let mut pre = G2Prepared::from(b1);
-    pre.zeroize();
-    assert_eq!(pre.infinity.unwrap_u8(), 0);
-    for entry in pre.coeffs.iter() {
-        assert_eq!(entry, &G2Coeffs(Fp2::zero(), Fp2::zero(), Fp2::zero()));
-    }
 }

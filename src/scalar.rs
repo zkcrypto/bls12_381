@@ -15,9 +15,6 @@ use core::convert::TryInto;
 #[cfg(feature = "bits")]
 use ff::{FieldBits, PrimeFieldBits};
 
-#[cfg(feature = "zeroize")]
-use zeroize::Zeroize;
-
 use crate::util::{adc, mac, sbb};
 
 /// Represents an element of the scalar field $\mathbb{F}_q$ of the BLS12-381 elliptic
@@ -25,7 +22,6 @@ use crate::util::{adc, mac, sbb};
 // The internal representation of this type is four 64-bit unsigned
 // integers in little-endian order. `Scalar` values are always in
 // Montgomery form; i.e., Scalar(a) = aR mod q, with R = 2^256.
-#[cfg_attr(feature = "zeroize", derive(Zeroize))]
 #[derive(Clone, Copy, Eq)]
 pub struct Scalar(pub(crate) [u64; 4]);
 
@@ -210,6 +206,9 @@ impl Default for Scalar {
         Self::zero()
     }
 }
+
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for Scalar {}
 
 impl Scalar {
     /// Returns zero, the additive identity.

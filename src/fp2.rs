@@ -5,12 +5,8 @@ use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand_core::RngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
-#[cfg(feature = "zeroize")]
-use zeroize::Zeroize;
-
 use crate::fp::Fp;
 
-#[cfg_attr(feature = "zeroize", derive(Zeroize))]
 #[derive(Copy, Clone)]
 pub struct Fp2 {
     pub c0: Fp,
@@ -28,6 +24,9 @@ impl Default for Fp2 {
         Fp2::zero()
     }
 }
+
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for Fp2 {}
 
 impl From<Fp> for Fp2 {
     fn from(f: Fp) -> Fp2 {
@@ -893,4 +892,14 @@ fn test_lexicographic_largest() {
         }
         .lexicographically_largest()
     ));
+}
+
+#[cfg(feature = "zeroize")]
+#[test]
+fn test_zeroize() {
+    use zeroize::Zeroize;
+
+    let mut a = Fp2::one();
+    a.zeroize();
+    assert_eq!(a, Fp2::zero());
 }

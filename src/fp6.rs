@@ -8,11 +8,7 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 #[cfg(feature = "pairings")]
 use rand_core::RngCore;
 
-#[cfg(feature = "zeroize")]
-use zeroize::Zeroize;
-
 /// This represents an element $c_0 + c_1 v + c_2 v^2$ of $\mathbb{F}_{p^6} = \mathbb{F}_{p^2} / v^3 - u - 1$.
-#[cfg_attr(feature = "zeroize", derive(Zeroize))]
 pub struct Fp6 {
     pub c0: Fp2,
     pub c1: Fp2,
@@ -58,6 +54,9 @@ impl Default for Fp6 {
         Fp6::zero()
     }
 }
+
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for Fp6 {}
 
 impl fmt::Debug for Fp6 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -517,4 +516,14 @@ fn test_arithmetic() {
         (a * b).invert().unwrap()
     );
     assert_eq!(a.invert().unwrap() * a, Fp6::one());
+}
+
+#[cfg(feature = "zeroize")]
+#[test]
+fn test_zeroize() {
+    use zeroize::Zeroize;
+
+    let mut a = Fp6::one();
+    a.zeroize();
+    assert_eq!(a, Fp6::zero());
 }

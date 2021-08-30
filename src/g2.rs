@@ -14,9 +14,6 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 #[cfg(feature = "alloc")]
 use group::WnafGroup;
 
-#[cfg(feature = "zeroize")]
-use zeroize::Zeroize;
-
 use crate::fp::Fp;
 use crate::fp2::Fp2;
 use crate::Scalar;
@@ -40,6 +37,9 @@ impl Default for G2Affine {
         G2Affine::identity()
     }
 }
+
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for G2Affine {}
 
 impl fmt::Display for G2Affine {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -168,16 +168,6 @@ where
         I: Iterator<Item = T>,
     {
         iter.fold(Self::identity(), |acc, item| acc + item.borrow())
-    }
-}
-
-#[cfg(feature = "zeroize")]
-// manual implementation because 'subtle' doesn't have a zeroize feature
-impl Zeroize for G2Affine {
-    fn zeroize(&mut self) {
-        self.x.zeroize();
-        self.y.zeroize();
-        self.infinity = Choice::from(0);
     }
 }
 
@@ -504,7 +494,6 @@ impl G2Affine {
 
 /// This is an element of $\mathbb{G}_2$ represented in the projective coordinate space.
 #[cfg_attr(docsrs, doc(cfg(feature = "groups")))]
-#[cfg_attr(feature = "zeroize", derive(Zeroize))]
 #[derive(Copy, Clone, Debug)]
 pub struct G2Projective {
     pub(crate) x: Fp2,
@@ -517,6 +506,9 @@ impl Default for G2Projective {
         G2Projective::identity()
     }
 }
+
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for G2Projective {}
 
 impl fmt::Display for G2Projective {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -1013,7 +1005,7 @@ impl G2Projective {
     }
 }
 
-#[cfg_attr(feature = "zeroize", derive(Zeroize))]
+#[derive(Clone, Copy)]
 pub struct G2Compressed([u8; 96]);
 
 impl fmt::Debug for G2Compressed {
@@ -1028,6 +1020,9 @@ impl Default for G2Compressed {
     }
 }
 
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for G2Compressed {}
+
 impl AsRef<[u8]> for G2Compressed {
     fn as_ref(&self) -> &[u8] {
         &self.0
@@ -1040,7 +1035,21 @@ impl AsMut<[u8]> for G2Compressed {
     }
 }
 
-#[cfg_attr(feature = "zeroize", derive(Zeroize))]
+impl ConstantTimeEq for G2Compressed {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        self.0.ct_eq(&other.0)
+    }
+}
+
+impl Eq for G2Compressed {}
+impl PartialEq for G2Compressed {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        bool::from(self.ct_eq(other))
+    }
+}
+
+#[derive(Clone, Copy)]
 pub struct G2Uncompressed([u8; 192]);
 
 impl fmt::Debug for G2Uncompressed {
@@ -1055,6 +1064,9 @@ impl Default for G2Uncompressed {
     }
 }
 
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for G2Uncompressed {}
+
 impl AsRef<[u8]> for G2Uncompressed {
     fn as_ref(&self) -> &[u8] {
         &self.0
@@ -1064,6 +1076,20 @@ impl AsRef<[u8]> for G2Uncompressed {
 impl AsMut<[u8]> for G2Uncompressed {
     fn as_mut(&mut self) -> &mut [u8] {
         &mut self.0
+    }
+}
+
+impl ConstantTimeEq for G2Uncompressed {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        self.0.ct_eq(&other.0)
+    }
+}
+
+impl Eq for G2Uncompressed {}
+impl PartialEq for G2Uncompressed {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        bool::from(self.ct_eq(other))
     }
 }
 
@@ -2109,4 +2135,26 @@ fn test_batch_normalize() {
             }
         }
     }
+}
+
+#[cfg(feature = "zeroize")]
+#[test]
+fn test_zeroize() {
+    use zeroize::Zeroize;
+
+    let mut a = G2Affine::generator();
+    a.zeroize();
+    assert_eq!(a, G2Affine::identity());
+
+    let mut a = G2Projective::generator();
+    a.zeroize();
+    assert_eq!(a, G2Projective::identity());
+
+    let mut a = GroupEncoding::to_bytes(&G2Affine::generator());
+    a.zeroize();
+    assert_eq!(&a, &G2Compressed::default());
+
+    let mut a = UncompressedEncoding::to_uncompressed(&G2Affine::generator());
+    a.zeroize();
+    assert_eq!(&a, &G2Uncompressed::default());
 }
