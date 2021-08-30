@@ -204,8 +204,14 @@ impl<'b> AddAssign<&'b MillerLoopResult> for MillerLoopResult {
 /// Typically, $\mathbb{G}_T$ is written multiplicatively but we will write it additively to
 /// keep code and abstractions consistent.
 #[cfg_attr(docsrs, doc(cfg(feature = "pairings")))]
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug)]
 pub struct Gt(pub(crate) Fp12);
+
+impl Default for Gt {
+    fn default() -> Self {
+        Self::identity()
+    }
+}
 
 impl fmt::Display for Gt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
