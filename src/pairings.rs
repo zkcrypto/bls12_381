@@ -25,6 +25,12 @@ use pairing::MultiMillerLoop;
 #[derive(Copy, Clone, Debug)]
 pub struct MillerLoopResult(pub(crate) Fp12);
 
+impl Default for MillerLoopResult {
+    fn default() -> Self {
+        MillerLoopResult(Fp12::one())
+    }
+}
+
 impl ConditionallySelectable for MillerLoopResult {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
         MillerLoopResult(Fp12::conditional_select(&a.0, &b.0, choice))
@@ -177,6 +183,20 @@ impl<'a, 'b> Add<&'b MillerLoopResult> for &'a MillerLoopResult {
 }
 
 impl_add_binop_specify_output!(MillerLoopResult, MillerLoopResult, MillerLoopResult);
+
+impl AddAssign<MillerLoopResult> for MillerLoopResult {
+    #[inline]
+    fn add_assign(&mut self, rhs: MillerLoopResult) {
+        *self = &*self + &rhs;
+    }
+}
+
+impl<'b> AddAssign<&'b MillerLoopResult> for MillerLoopResult {
+    #[inline]
+    fn add_assign(&mut self, rhs: &'b MillerLoopResult) {
+        *self = &*self + rhs;
+    }
+}
 
 /// This is an element of $\mathbb{G}_T$, the target group of the pairing function. As with
 /// $\mathbb{G}_1$ and $\mathbb{G}_2$ this group has order $q$.
@@ -886,4 +906,40 @@ fn test_multi_miller_loop() {
     .final_exponentiation();
 
     assert_eq!(expected, test);
+}
+
+#[test]
+fn test_miller_loop_result_default() {
+    assert_eq!(
+        MillerLoopResult::default().final_exponentiation(),
+        Gt::identity(),
+    );
+}
+
+#[test]
+fn tricking_miller_loop_result() {
+    assert_eq!(
+        multi_miller_loop(&[(&G1Affine::identity(), &G2Affine::generator().into())]).0,
+        Fp12::one()
+    );
+    assert_eq!(
+        multi_miller_loop(&[(&G1Affine::generator(), &G2Affine::identity().into())]).0,
+        Fp12::one()
+    );
+    assert_ne!(
+        multi_miller_loop(&[
+            (&G1Affine::generator(), &G2Affine::generator().into()),
+            (&-G1Affine::generator(), &G2Affine::generator().into())
+        ])
+        .0,
+        Fp12::one()
+    );
+    assert_eq!(
+        multi_miller_loop(&[
+            (&G1Affine::generator(), &G2Affine::generator().into()),
+            (&-G1Affine::generator(), &G2Affine::generator().into())
+        ])
+        .final_exponentiation(),
+        Gt::identity()
+    );
 }
