@@ -25,6 +25,9 @@ impl Default for Fp2 {
     }
 }
 
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for Fp2 {}
+
 impl From<Fp> for Fp2 {
     fn from(f: Fp) -> Fp2 {
         Fp2 {
@@ -889,4 +892,14 @@ fn test_lexicographic_largest() {
         }
         .lexicographically_largest()
     ));
+}
+
+#[cfg(feature = "zeroize")]
+#[test]
+fn test_zeroize() {
+    use zeroize::Zeroize;
+
+    let mut a = Fp2::one();
+    a.zeroize();
+    assert!(bool::from(a.is_zero()));
 }
