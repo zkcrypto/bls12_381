@@ -525,5 +525,5 @@ fn test_zeroize() {
 
     let mut a = Fp6::one();
     a.zeroize();
-    assert_eq!(a, Fp6::zero());
+    assert!(bool::from(a.is_zero()));
 }

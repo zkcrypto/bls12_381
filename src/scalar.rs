@@ -1256,5 +1256,5 @@ fn test_zeroize() {
         0x1824_b159_acc5_0562,
     ]);
     a.zeroize();
-    assert_eq!(a, Scalar::zero());
+    assert!(bool::from(a.is_zero()));
 }

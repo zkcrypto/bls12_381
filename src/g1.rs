@@ -1680,11 +1680,11 @@ fn test_zeroize() {
 
     let mut a = G1Affine::generator();
     a.zeroize();
-    assert_eq!(a, G1Affine::identity());
+    assert!(bool::from(a.is_identity()));
 
     let mut a = G1Projective::generator();
     a.zeroize();
-    assert_eq!(a, G1Projective::identity());
+    assert!(bool::from(a.is_identity()));
 
     let mut a = GroupEncoding::to_bytes(&G1Affine::generator());
     a.zeroize();

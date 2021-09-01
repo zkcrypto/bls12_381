@@ -2144,11 +2144,11 @@ fn test_zeroize() {
 
     let mut a = G2Affine::generator();
     a.zeroize();
-    assert_eq!(a, G2Affine::identity());
+    assert!(bool::from(a.is_identity()));
 
     let mut a = G2Projective::generator();
     a.zeroize();
-    assert_eq!(a, G2Projective::identity());
+    assert!(bool::from(a.is_identity()));
 
     let mut a = GroupEncoding::to_bytes(&G2Affine::generator());
     a.zeroize();
