@@ -31,6 +31,9 @@ impl Default for MillerLoopResult {
     }
 }
 
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for MillerLoopResult {}
+
 impl ConditionallySelectable for MillerLoopResult {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
         MillerLoopResult(Fp12::conditional_select(&a.0, &b.0, choice))
@@ -914,6 +917,19 @@ fn test_miller_loop_result_default() {
         MillerLoopResult::default().final_exponentiation(),
         Gt::identity(),
     );
+}
+
+#[cfg(feature = "zeroize")]
+#[test]
+fn test_miller_loop_result_zeroize() {
+    use zeroize::Zeroize;
+
+    let mut m = multi_miller_loop(&[
+        (&G1Affine::generator(), &G2Affine::generator().into()),
+        (&-G1Affine::generator(), &G2Affine::generator().into()),
+    ]);
+    m.zeroize();
+    assert_eq!(m.0, MillerLoopResult::default().0);
 }
 
 #[test]

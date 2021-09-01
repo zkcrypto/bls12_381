@@ -55,6 +55,9 @@ impl Default for Fp6 {
     }
 }
 
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for Fp6 {}
+
 impl fmt::Debug for Fp6 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?} + ({:?})*v + ({:?})*v^2", self.c0, self.c1, self.c2)
@@ -513,4 +516,14 @@ fn test_arithmetic() {
         (a * b).invert().unwrap()
     );
     assert_eq!(a.invert().unwrap() * a, Fp6::one());
+}
+
+#[cfg(feature = "zeroize")]
+#[test]
+fn test_zeroize() {
+    use zeroize::Zeroize;
+
+    let mut a = Fp6::one();
+    a.zeroize();
+    assert_eq!(a, Fp6::zero());
 }

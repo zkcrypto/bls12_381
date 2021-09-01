@@ -37,6 +37,9 @@ impl Default for G1Affine {
     }
 }
 
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for G1Affine {}
+
 impl fmt::Display for G1Affine {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
@@ -430,6 +433,9 @@ impl Default for G1Projective {
     }
 }
 
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for G1Projective {}
+
 impl fmt::Display for G1Projective {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
@@ -811,6 +817,7 @@ impl G1Projective {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct G1Compressed([u8; 48]);
 
 impl fmt::Debug for G1Compressed {
@@ -825,6 +832,9 @@ impl Default for G1Compressed {
     }
 }
 
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for G1Compressed {}
+
 impl AsRef<[u8]> for G1Compressed {
     fn as_ref(&self) -> &[u8] {
         &self.0
@@ -837,6 +847,21 @@ impl AsMut<[u8]> for G1Compressed {
     }
 }
 
+impl ConstantTimeEq for G1Compressed {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        self.0.ct_eq(&other.0)
+    }
+}
+
+impl Eq for G1Compressed {}
+impl PartialEq for G1Compressed {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        bool::from(self.ct_eq(other))
+    }
+}
+
+#[derive(Clone, Copy)]
 pub struct G1Uncompressed([u8; 96]);
 
 impl fmt::Debug for G1Uncompressed {
@@ -851,6 +876,9 @@ impl Default for G1Uncompressed {
     }
 }
 
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for G1Uncompressed {}
+
 impl AsRef<[u8]> for G1Uncompressed {
     fn as_ref(&self) -> &[u8] {
         &self.0
@@ -860,6 +888,20 @@ impl AsRef<[u8]> for G1Uncompressed {
 impl AsMut<[u8]> for G1Uncompressed {
     fn as_mut(&mut self) -> &mut [u8] {
         &mut self.0
+    }
+}
+
+impl ConstantTimeEq for G1Uncompressed {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        self.0.ct_eq(&other.0)
+    }
+}
+
+impl Eq for G1Uncompressed {}
+impl PartialEq for G1Uncompressed {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        bool::from(self.ct_eq(other))
     }
 }
 
@@ -1629,4 +1671,26 @@ fn test_batch_normalize() {
             }
         }
     }
+}
+
+#[cfg(feature = "zeroize")]
+#[test]
+fn test_zeroize() {
+    use zeroize::Zeroize;
+
+    let mut a = G1Affine::generator();
+    a.zeroize();
+    assert_eq!(a, G1Affine::identity());
+
+    let mut a = G1Projective::generator();
+    a.zeroize();
+    assert_eq!(a, G1Projective::identity());
+
+    let mut a = GroupEncoding::to_bytes(&G1Affine::generator());
+    a.zeroize();
+    assert_eq!(&a, &G1Compressed::default());
+
+    let mut a = UncompressedEncoding::to_uncompressed(&G1Affine::generator());
+    a.zeroize();
+    assert_eq!(&a, &G1Uncompressed::default());
 }
