@@ -1538,7 +1538,7 @@ fn test_mul_by_x() {
     };
     assert_eq!(generator.mul_by_x(), generator * x);
 
-    let point = G1Projective::generator() * Scalar::from(42);
+    let point = G1Projective::generator() * Scalar::from(42u64);
     assert_eq!(point.mul_by_x(), point * x);
 }
 
@@ -1588,7 +1588,7 @@ fn test_clear_cofactor() {
 
     // in BLS12-381 the cofactor in G1 can be
     // cleared multiplying by (1-x)
-    let h_eff = Scalar::from(1) + Scalar::from(crate::BLS_X);
+    let h_eff = Scalar::from(1u64) + Scalar::from(crate::BLS_X);
     assert_eq!(point.clear_cofactor(), point * h_eff);
 }
 
