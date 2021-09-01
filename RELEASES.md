@@ -9,6 +9,9 @@
   - `AddAssign<MillerLoopResult>`
   - `AddAssign<&MillerLoopResult>`
 
+## Changed
+- Bumped dependencies to `ff 0.11`, `group 0.11`, `pairing 0.21`.
+
 # 0.5.0
 
 ## Added
