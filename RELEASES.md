@@ -12,6 +12,9 @@
 ## Changed
 - Bumped dependencies to `ff 0.11`, `group 0.11`, `pairing 0.21`.
 
+## Removed
+- The deprecated `endo` feature flag.
+
 # 0.5.0
 
 ## Added

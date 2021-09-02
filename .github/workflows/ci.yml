@@ -43,22 +43,12 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --verbose --release --tests --features endo,experimental,zeroize
+          args: --verbose --release --tests --features experimental,zeroize
       - name: Run tests
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --verbose --release --features endo,experimental,zeroize
-      - name: Build tests (no endomorphism)
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --verbose --release --tests
-      - name: Run tests (no endomorphism)
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --verbose --release
+          args: --verbose --release --features experimental,zeroize
 
   no-std:
     name: Check no-std target ${{ matrix.target }}
