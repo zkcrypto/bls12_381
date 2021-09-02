@@ -9,7 +9,7 @@ homepage = "https://github.com/zkcrypto/bls12_381"
 license = "MIT/Apache-2.0"
 name = "bls12_381"
 repository = "https://github.com/zkcrypto/bls12_381"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2018"
 
 [package.metadata.docs.rs]
@@ -37,16 +37,16 @@ version = "0.9"
 optional = true
 
 [dependencies.ff]
-version = "0.10"
+version = "0.11"
 default-features = false
 
 [dependencies.group]
-version = "0.10"
+version = "0.11"
 default-features = false
 optional = true
 
 [dependencies.pairing]
-version = "0.20"
+version = "0.21"
 optional = true
 
 [dependencies.rand_core]
@@ -63,17 +63,10 @@ default-features = false
 optional = true
 
 [features]
-default = ["groups", "pairings", "alloc", "bits", "endo"]
+default = ["groups", "pairings", "alloc", "bits"]
 bits = ["ff/bits"]
 groups = ["group"]
 pairings = ["groups", "pairing"]
 alloc = ["group/alloc"]
 experimental = ["digest"]
 nightly = ["subtle/nightly"]
-
-# Deprecated.
-# GLV patents US7110538B2 and US7995752B2 expired in September 2020.
-endo = []
-
-[patch.crates-io]
-pairing = { git = "https://github.com/zkcrypto/pairing", branch = "main" }
