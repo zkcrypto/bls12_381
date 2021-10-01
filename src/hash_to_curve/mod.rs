@@ -20,9 +20,9 @@ use crate::generic_array::{typenum::Unsigned, ArrayLength, GenericArray};
 
 /// Enables a byte string to be hashed into one or more field elements for a given curve.
 ///
-/// Implements [section 5 of `draft-irtf-cfrg-hash-to-curve-11`][hash_to_field].
+/// Implements [section 5 of `draft-irtf-cfrg-hash-to-2`][hash_to_field].
 ///
-/// [hash_to_field]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-5
+/// [hash_to_field]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-12#section-5
 pub trait HashToField: Sized {
     /// The length of the data used to produce an individual field element.
     ///
@@ -38,9 +38,9 @@ pub trait HashToField: Sized {
     /// Hashes a byte string of arbitrary length into one or more elements of `Self`,
     /// using [`ExpandMessage`] variant `X`.
     ///
-    /// Implements [section 5.3 of `draft-irtf-cfrg-hash-to-curve-11`][hash_to_field].
+    /// Implements [section 5.3 of `draft-irtf-cfrg-hash-to-curve-12`][hash_to_field].
     ///
-    /// [hash_to_field]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-5.3
+    /// [hash_to_field]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-12#section-5.3
     fn hash_to_field<X: ExpandMessage>(message: &[u8], dst: &[u8], output: &mut [Self]) {
         let len_per_elm = Self::InputLength::to_usize();
         let len_in_bytes = output.len() * len_per_elm;
@@ -85,10 +85,10 @@ pub trait HashToCurve<X: ExpandMessage>: MapToCurve + for<'a> Add<&'a Self, Outp
     /// The distribution of its output is not uniformly random in `Self`: the set of
     /// possible outputs of this function is only a fraction of the points in `Self`, and
     /// some elements of this set are more likely to be output than others. See
-    /// [section 10.1 of `draft-irtf-cfrg-hash-to-curve-11`][encode_to_curve-distribution]
+    /// [section 10.1 of `draft-irtf-cfrg-hash-to-curve-12`][encode_to_curve-distribution]
     /// for a more precise definition of `encode_to_curve`'s output distribution.
     ///
-    /// [encode_to_curve-distribution]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-10.1
+    /// [encode_to_curve-distribution]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-12#section-10.1
     fn encode_to_curve(message: impl AsRef<[u8]>, dst: &[u8]) -> Self {
         let mut u = [Self::Field::default(); 1];
         Self::Field::hash_to_field::<X>(message.as_ref(), dst, &mut u);
