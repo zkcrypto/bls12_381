@@ -472,16 +472,12 @@ impl G2Affine {
     /// Returns true if this point is free of an $h$-torsion component, and so it
     /// exists within the $q$-order subgroup $\mathbb{G}_2$. This should always return true
     /// unless an "unchecked" API was used.
+    /// Follows [Bowe 2019](https://eprint.iacr.org/2019/814).
     pub fn is_torsion_free(&self) -> Choice {
-        const FQ_MODULUS_BYTES: [u8; 32] = [
-            1, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
-            216, 57, 51, 72, 125, 157, 41, 83, 167, 237, 115,
-        ];
-
-        // Clear the r-torsion from the point and check if it is the identity
-        G2Projective::from(*self)
-            .multiply(&FQ_MODULUS_BYTES)
-            .is_identity()
+        let proj = G2Projective::from(self);
+        let lhs = proj.psi3().mul_by_x() - proj.psi2(); // x*psi^3(P) - psi^2(P)
+        let rhs = -proj; // -P
+        lhs.ct_eq(&rhs)
     }
 
     /// Returns true if this point is on the curve. This should always return
@@ -891,6 +887,45 @@ impl G2Projective {
             y: self.y.neg(),
             // z = z
             z: self.z,
+        }
+    }
+
+    fn psi3(&self) -> G2Projective {
+        let psi_coeff_x = Fp2 {
+            c0: Fp::zero(),
+            c1: Fp::from_raw_unchecked([
+                0x43f5fffffffcaaae,
+                0x32b7fff2ed47fffd,
+                0x7e83a49a2e99d69,
+                0xeca8f3318332bb7a,
+                0xef148d1ea0f4c069,
+                0x40ab3263eff0206,
+            ]),
+        };
+
+        let psi_coeff_y = Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0x7bcfa7a25aa30fda,
+                0xdc17dec12a927e7c,
+                0x2f088dd86b4ebef1,
+                0xd1ca2087da74d4a7,
+                0x2da2596696cebc1d,
+                0xe2b7eedbbfd87d2,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x3e2f585da55c9ad1,
+                0x4294213d86c18183,
+                0x382844c88b623732,
+                0x92ad2afd19103e18,
+                0x1d794e4fac7cf0b9,
+                0xbd592fc7d825ec8,
+            ]),
+        };
+
+        G2Projective {
+            x: self.x.frobenius_map() * psi_coeff_x,
+            y: self.y.frobenius_map() * psi_coeff_y,
+            z: self.z.frobenius_map(),
         }
     }
 
@@ -1969,6 +2004,9 @@ fn test_psi() {
     };
     assert!(bool::from(point.is_on_curve()));
 
+    // psi3(P) = psi(psi(psi(P)))
+    assert_eq!(generator.psi3(), generator.psi().psi().psi());
+    assert_eq!(point.psi3(), point.psi().psi().psi());
     // psi2(P) = psi(psi(P))
     assert_eq!(generator.psi2(), generator.psi().psi());
     assert_eq!(point.psi2(), point.psi().psi());

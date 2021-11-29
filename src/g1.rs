@@ -398,16 +398,13 @@ impl G1Affine {
     /// Returns true if this point is free of an $h$-torsion component, and so it
     /// exists within the $q$-order subgroup $\mathbb{G}_1$. This should always return true
     /// unless an "unchecked" API was used.
+    /// Follows [Bowe 2019](https://eprint.iacr.org/2019/814).
     pub fn is_torsion_free(&self) -> Choice {
-        const FQ_MODULUS_BYTES: [u8; 32] = [
-            1, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
-            216, 57, 51, 72, 125, 157, 41, 83, 167, 237, 115,
-        ];
-
-        // Clear the r-torsion from the point and check if it is the identity
-        G1Projective::from(*self)
-            .multiply(&FQ_MODULUS_BYTES)
-            .is_identity()
+        let s2 = G1Projective::from(self.sigma2()); // psi^2(P)
+        let lhs1 = G1Projective::from(self.sigma()).double() - G1Projective::from(self) - s2; // 2*sigma(P) - P - sigma^2(P)
+        let lhs = lhs1.mul_by_x().mul_by_x() - lhs1; // [x^2 - 1] * lhs1
+        let rhs = s2.double() + s2; // 3*sigma^2(P)
+        lhs.ct_eq(&rhs)
     }
 
     /// Returns true if this point is on the curve. This should always return
@@ -415,6 +412,42 @@ impl G1Affine {
     pub fn is_on_curve(&self) -> Choice {
         // y^2 - x^3 ?= 4
         (self.y.square() - (self.x.square() * self.x)).ct_eq(&B) | self.infinity
+    }
+
+    /// G1 endomorphism `(x, y) → (βx, y)`, where `β` is a constant of multiplicative-order 3.
+    pub fn sigma(&self) -> G1Affine {
+        let beta = Fp::from_raw_unchecked([
+            0xcd03_c9e4_8671_f071,
+            0x5dab_2246_1fcd_a5d2,
+            0x5870_42af_d385_1b95,
+            0x8eb6_0ebe_01ba_cb9e,
+            0x03f9_7d6e_83d0_50d2,
+            0x18f0_2065_5463_8741,
+        ]);
+
+        G1Affine {
+            x: beta * self.x,
+            y: self.y,
+            infinity: self.infinity,
+        }
+    }
+
+    /// Square of the `sigma` endomorphism.
+    pub fn sigma2(&self) -> G1Affine {
+        let beta_squared = Fp::from_raw_unchecked([
+            0x30f1361b798a64e8,
+            0xf3b8ddab7ece5a2a,
+            0x16a8ca3ac61577f7,
+            0xc26a2ff874fd029b,
+            0x3636b76660701c6e,
+            0x51ba4ab241b6160,
+        ]); // This is the square of the 'beta' in `sigma`.
+
+        G1Affine {
+            x: beta_squared * self.x,
+            y: self.y,
+            infinity: self.infinity,
+        }
     }
 }
 
@@ -1582,6 +1615,23 @@ fn test_mul_by_x() {
 
     let point = G1Projective::generator() * Scalar::from(42);
     assert_eq!(point.mul_by_x(), point * x);
+}
+
+#[test]
+fn test_sigma() {
+    let generator = G1Affine::generator();
+
+    // `β` has multiplicative order 3, so sigma^3 should be the identity morphism
+    assert_eq!(generator.sigma().sigma().sigma(), generator);
+
+    // sigma2(P) = sigma(sigma(P))
+    assert_eq!(generator.sigma().sigma(), generator.sigma2());
+
+    // sigma(P) is a morphism
+    assert_eq!(
+        G1Affine::from(G1Projective::from(generator).double()).sigma(),
+        G1Affine::from(G1Projective::from(generator.sigma()).double())
+    );
 }
 
 #[test]
