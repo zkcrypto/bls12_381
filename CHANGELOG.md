@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Update canonical and canonical_derive to v0.7
+
 ## 0.8.0 - 28-04-21
 
 ### Fixed
