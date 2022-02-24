@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## 0.9.0 - 24-02-21
+
+### Changed
 - Update canonical and canonical_derive to v0.7
+- Update rust edition to 2021
 
 ## 0.8.0 - 28-04-21
 
