@@ -611,7 +611,7 @@ impl Scalar {
     }
 
     /// Computes `2^X` where X is a `u64` without the need to generate
-    // an array in the stack as `pow` & `pow_vartime` require.
+    /// an array in the stack as `pow` & `pow_vartime` require.
     pub fn pow_of_2(by: u64) -> Self {
         let two = Scalar::from(2u64);
         let mut res = Self::one();
