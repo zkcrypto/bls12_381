@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- `invert` Scalar function signature [#78](https://github.com/dusk-network/bls12_381/issues/78)
+
+### Added
+- `invert_ct` constant time Scalar inversion calculation [#78](https://github.com/dusk-network/bls12_381/issues/78)
+
 ## 0.9.0 - 24-02-21
 
 ### Changed
