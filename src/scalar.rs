@@ -627,6 +627,9 @@ impl Scalar {
     /// Computes the multiplicative inverse of this element, failing if the
     /// element is zero.
     pub fn invert(&self) -> Option<Self> {
+        if *self == Scalar::zero() {
+            return None;
+        }
         if *self == Scalar::one() || *self == -Scalar::one() {
             return Some(*self);
         }
