@@ -626,10 +626,16 @@ impl Scalar {
 
     /// Computes the multiplicative inverse of this element, failing if the
     /// element is zero.
-    pub fn invert(&self) -> CtOption<Self> {
+    pub fn invert(&self) -> Option<Self> {
         if *self == Scalar::one() || *self == -Scalar::one() {
-            return CtOption::new(*self, !self.ct_eq(&Self::zero()));
+            return Some(*self);
         }
+        self.invert_ct().into()
+    }
+
+    /// Computes the multiplicative inverse of this element in constant time,
+    /// failing if the element is zero.
+    fn invert_ct(&self) -> CtOption<Self> {
         #[inline(always)]
         fn square_assign_multi(n: &mut Scalar, num_times: usize) {
             for _ in 0..num_times {
@@ -1230,7 +1236,7 @@ mod tests {
 
     #[test]
     fn test_inversion() {
-        assert_eq!(Scalar::zero().invert().is_none().unwrap_u8(), 1);
+        assert_eq!(Scalar::zero().invert(), None);
         assert_eq!(Scalar::one().invert().unwrap(), Scalar::one());
         assert_eq!((-&Scalar::one()).invert().unwrap(), -&Scalar::one());
 
