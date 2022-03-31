@@ -399,15 +399,21 @@ impl G1Affine {
     /// exists within the $q$-order subgroup $\mathbb{G}_1$. This should always return true
     /// unless an "unchecked" API was used.
     pub fn is_torsion_free(&self) -> Choice {
-        const FQ_MODULUS_BYTES: [u8; 32] = [
-            1, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
-            216, 57, 51, 72, 125, 157, 41, 83, 167, 237, 115,
-        ];
+        // Algorithm from Section 6 of https://eprint.iacr.org/2021/1130.
+        //
+        // Check that endomorphism_p(P) == -[X^2]P
 
-        // Clear the r-torsion from the point and check if it is the identity
-        G1Projective::from(*self)
-            .multiply(&FQ_MODULUS_BYTES)
-            .is_identity()
+        // An early-out optimization described in Section 6.
+        // If uP == P but P != point of infinity, then the point is not in the right
+        // subgroup.
+        let x_times_p = G1Projective::from(self).mul_by_x().neg();
+        if G1Affine::from(x_times_p).eq(self) && !bool::from(self.infinity) {
+            return Choice::from(0u8);
+        }
+
+        let minus_x_squared_times_p = x_times_p.mul_by_x();
+        let endomorphism_p = endomorphism(self);
+        G1Affine::from(minus_x_squared_times_p).ct_eq(&endomorphism_p)
     }
 
     /// Returns true if this point is on the curve. This should always return
@@ -416,6 +422,25 @@ impl G1Affine {
         // y^2 - x^3 ?= 4
         (self.y.square() - (self.x.square() * self.x)).ct_eq(&B) | self.infinity
     }
+}
+
+/// A nontrivial third root of unity in Fp
+pub const BETA: Fp = Fp([
+    0x30f1_361b_798a_64e8,
+    0xf3b8_ddab_7ece_5a2a,
+    0x16a8_ca3a_c615_77f7,
+    0xc26a_2ff8_74fd_029b,
+    0x3636_b766_6070_1c6e,
+    0x051b_a4ab_241b_6160,
+]);
+
+pub fn endomorphism(p: &G1Affine) -> G1Affine {
+    // Endomorphism of the points on the curve.
+    // endomorphism_p(x,y) = (BETA * x, y)
+    // where BETA is a non-trivial cubic root of unity in Fq.
+    let mut res = p.clone();
+    res.x *= BETA;
+    res
 }
 
 /// This is an element of $\mathbb{G}_1$ represented in the projective coordinate space.
@@ -1054,6 +1079,21 @@ impl UncompressedEncoding for G1Affine {
     }
 }
 
+#[test]
+fn test_beta() {
+    assert_eq!(
+        BETA,
+        Fp::from_bytes(&[
+            0x00u8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x5f, 0x19, 0x67, 0x2f, 0xdf, 0x76,
+            0xce, 0x51, 0xba, 0x69, 0xc6, 0x07, 0x6a, 0x0f, 0x77, 0xea, 0xdd, 0xb3, 0xa9, 0x3b,
+            0xe6, 0xf8, 0x96, 0x88, 0xde, 0x17, 0xd8, 0x13, 0x62, 0x0a, 0x00, 0x02, 0x2e, 0x01,
+            0xff, 0xff, 0xff, 0xfe, 0xff, 0xfe
+        ])
+        .unwrap()
+    );
+    assert_ne!(BETA, Fp::one());
+    assert_eq!(BETA * BETA * BETA, Fp::one());
+}
 #[test]
 fn test_is_on_curve() {
     assert!(bool::from(G1Affine::identity().is_on_curve()));

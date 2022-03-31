@@ -473,15 +473,10 @@ impl G2Affine {
     /// exists within the $q$-order subgroup $\mathbb{G}_2$. This should always return true
     /// unless an "unchecked" API was used.
     pub fn is_torsion_free(&self) -> Choice {
-        const FQ_MODULUS_BYTES: [u8; 32] = [
-            1, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
-            216, 57, 51, 72, 125, 157, 41, 83, 167, 237, 115,
-        ];
+        let p = G2Projective::from(self);
+        let x_times_p = p.mul_by_x();
 
-        // Clear the r-torsion from the point and check if it is the identity
-        G2Projective::from(*self)
-            .multiply(&FQ_MODULUS_BYTES)
-            .is_identity()
+        x_times_p.ct_eq(&p.psi())
     }
 
     /// Returns true if this point is on the curve. This should always return
