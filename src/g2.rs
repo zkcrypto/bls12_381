@@ -473,10 +473,12 @@ impl G2Affine {
     /// exists within the $q$-order subgroup $\mathbb{G}_2$. This should always return true
     /// unless an "unchecked" API was used.
     pub fn is_torsion_free(&self) -> Choice {
+        // Algorithm from Section 4 of https://eprint.iacr.org/2021/1130
+        // Updated proof of correctness in https://eprint.iacr.org/2022/352
+        //
+        // Check that psi(P) == [x] P
         let p = G2Projective::from(self);
-        let x_times_p = p.mul_by_x();
-
-        x_times_p.ct_eq(&p.psi())
+        p.psi().ct_eq(&p.mul_by_x())
     }
 
     /// Returns true if this point is on the curve. This should always return
