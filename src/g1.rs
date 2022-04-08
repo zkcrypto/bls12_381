@@ -400,6 +400,7 @@ impl G1Affine {
     /// unless an "unchecked" API was used.
     pub fn is_torsion_free(&self) -> Choice {
         // Algorithm from Section 6 of https://eprint.iacr.org/2021/1130
+        // Updated proof of correctness in https://eprint.iacr.org/2022/352
         //
         // Check that endomorphism_p(P) == -[x^2] P
 
