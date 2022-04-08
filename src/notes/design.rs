@@ -60,3 +60,28 @@
 //! 			print("g2 generator: {}".format(p))
 //! 			break
 //! ```
+//!
+//! ## Nontrivial third root of unity
+//!
+//! To use the fast subgroup check algorithm for $\mathbb{G_1}$ from  https://eprint.iacr.org/2019/814.pdf and
+//! https://eprint.iacr.org/2021/1130, it is necessary to find a nontrivial cube root of
+//! unity β in Fp to define the endomorphism:
+//!        (x, y) -> (βx, y)
+//! which is equivalent to
+//!        P -> λP
+//! where λ, a nontrivial cube root of unity in Fr, satisfies λ^2 + λ +1 = 0 (mod r).
+//!
+//! β can be derived using the following sage script:
+//!
+//! ```text
+//! p = 4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787
+//! Fp = GF(p)
+//! Fpx.<x> = Fp[]
+//! β = 793479390729215512621379701633421447060886740281060493010456487427281649075476305620758731620350
+//! assert β ==(Fp.multiplicative_generator() ** ((p-1)/3))
+//! R = 1 << 384
+//! tmp = ZZ(Fp(β*R))
+//! while tmp > 0:
+//!     print("0x{:_x}, ".format(tmp % (1<<64)))
+//!     tmp >>= 64
+//! ```

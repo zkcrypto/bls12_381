@@ -399,19 +399,12 @@ impl G1Affine {
     /// exists within the $q$-order subgroup $\mathbb{G}_1$. This should always return true
     /// unless an "unchecked" API was used.
     pub fn is_torsion_free(&self) -> Choice {
-        // Algorithm from Section 6 of https://eprint.iacr.org/2021/1130.
+        // Algorithm from Section 6 of https://eprint.iacr.org/2021/1130
+        // Updated proof of correctness in https://eprint.iacr.org/2022/352
         //
         // Check that endomorphism_p(P) == -[X^2]P
 
-        // An early-out optimization described in Section 6.
-        // If uP == P but P != point of infinity, then the point is not in the right
-        // subgroup.
-        let x_times_p = G1Projective::from(self).mul_by_x().neg();
-        if G1Affine::from(x_times_p).eq(self) && !bool::from(self.infinity) {
-            return Choice::from(0u8);
-        }
-
-        let minus_x_squared_times_p = x_times_p.mul_by_x();
+        let minus_x_squared_times_p = G1Projective::from(self).mul_by_x().mul_by_x().neg();
         let endomorphism_p = endomorphism(self);
         G1Affine::from(minus_x_squared_times_p).ct_eq(&endomorphism_p)
     }
