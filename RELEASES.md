@@ -1,3 +1,6 @@
+## Changed
+- Pairings are now 10-15% faster.
+
 # 0.6.0
 
 ## Fixed
