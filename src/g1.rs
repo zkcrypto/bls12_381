@@ -418,7 +418,7 @@ impl G1Affine {
 }
 
 /// A nontrivial third root of unity in Fp
-pub const BETA: Fp = Fp([
+pub const BETA: Fp = Fp::from_raw_unchecked([
     0x30f1_361b_798a_64e8,
     0xf3b8_ddab_7ece_5a2a,
     0x16a8_ca3a_c615_77f7,
@@ -427,7 +427,7 @@ pub const BETA: Fp = Fp([
     0x051b_a4ab_241b_6160,
 ]);
 
-pub fn endomorphism(p: &G1Affine) -> G1Affine {
+fn endomorphism(p: &G1Affine) -> G1Affine {
     // Endomorphism of the points on the curve.
     // endomorphism_p(x,y) = (BETA * x, y)
     // where BETA is a non-trivial cubic root of unity in Fq.
@@ -1085,6 +1085,7 @@ fn test_beta() {
         .unwrap()
     );
     assert_ne!(BETA, Fp::one());
+    assert_ne!(BETA * BETA, Fp::one());
     assert_eq!(BETA * BETA * BETA, Fp::one());
 }
 #[test]
