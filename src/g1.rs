@@ -406,7 +406,7 @@ impl G1Affine {
 
         let minus_x_squared_times_p = G1Projective::from(self).mul_by_x().mul_by_x().neg();
         let endomorphism_p = endomorphism(self);
-        G1Affine::from(minus_x_squared_times_p).ct_eq(&endomorphism_p)
+        minus_x_squared_times_p.ct_eq(&G1Projective::from(endomorphism_p))
     }
 
     /// Returns true if this point is on the curve. This should always return
