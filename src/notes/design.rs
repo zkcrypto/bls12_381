@@ -75,6 +75,7 @@
 //! can be derived using the following sage commands after running the above sage script:
 //!
 //! ```text
+//! # Prints the given field element in Montgomery form.
 //! def print_fq(a):
 //!     R = 1 << 384
 //!     tmp = ZZ(Fq(a*R))
