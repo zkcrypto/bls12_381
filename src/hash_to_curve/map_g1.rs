@@ -538,9 +538,9 @@ impl Sgn0 for Fp {
 
 /// Maps an element of [`Fp`] to a point on iso-G1.
 ///
-/// Implements [section 6.6.2 of `draft-irtf-cfrg-hash-to-curve-11`][sswu].
+/// Implements [section 6.6.2 of `draft-irtf-cfrg-hash-to-curve-12`][sswu].
 ///
-/// [sswu]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-6.6.2
+/// [sswu]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-12#section-6.6.2
 fn map_to_curve_simple_swu(u: &Fp) -> G1Projective {
     let usq = u.square();
     let xi_usq = SSWU_XI * usq;
