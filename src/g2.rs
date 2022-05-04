@@ -799,7 +799,7 @@ impl G2Projective {
             z: z3,
         };
 
-        G2Projective::conditional_select(&tmp, &self, rhs.is_identity())
+        G2Projective::conditional_select(&tmp, self, rhs.is_identity())
     }
 
     fn multiply(&self, by: &[u8]) -> G2Projective {
@@ -959,7 +959,7 @@ impl G2Projective {
             q.y = p.y * tmp;
             q.infinity = Choice::from(0u8);
 
-            *q = G2Affine::conditional_select(&q, &G2Affine::identity(), skip);
+            *q = G2Affine::conditional_select(q, &G2Affine::identity(), skip);
         }
     }
 

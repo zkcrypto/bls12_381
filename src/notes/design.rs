@@ -25,7 +25,7 @@
 //! def q(x):
 //!     return (((x - 1) ** 2) * ((x**4) - (x**2) + 1) // 3) + x
 //! def g1_h(x):
-//! 	return ((x-1)**2) // 3
+//!     return ((x-1)**2) // 3
 //! def g2_h(x):
 //!     return ((x**8) - (4 * (x**7)) + (5 * (x**6)) - (4 * (x**4)) + (6 * (x**3)) - (4 * (x**2)) - (4*x) + 13) // 9
 //! q = q(param)
@@ -33,32 +33,32 @@
 //! Fq = GF(q)
 //! ec = EllipticCurve(Fq, [0, 4])
 //! def psqrt(v):
-//! 	assert(not v.is_zero())
-//! 	a = sqrt(v)
-//! 	b = -a
-//! 	if a < b:
-//! 		return a
-//! 	else:
-//! 		return b
+//!     assert(not v.is_zero())
+//!     a = sqrt(v)
+//!     b = -a
+//!     if a < b:
+//!         return a
+//!     else:
+//!         return b
 //! for x in range(0,100):
-//! 	rhs = Fq(x)^3 + 4
-//! 	if rhs.is_square():
-//! 		y = psqrt(rhs)
-//! 		p = ec(x, y) * g1_h(param)
-//! 		if (not p.is_zero()) and (p * r).is_zero():
-//! 			print("g1 generator: {}".format(p))
-//! 			break
+//!     rhs = Fq(x)^3 + 4
+//!     if rhs.is_square():
+//!         y = psqrt(rhs)
+//!         p = ec(x, y) * g1_h(param)
+//!         if (not p.is_zero()) and (p * r).is_zero():
+//!             print("g1 generator: {}".format(p))
+//!             break
 //! Fq2.<i> = GF(q^2, modulus=[1, 0, 1])
 //! ec2 = EllipticCurve(Fq2, [0, (4 * (1 + i))])
 //! assert(ec2.order() == (r * g2_h(param)))
 //! for x in range(0,100):
-//! 	rhs = (Fq2(x))^3 + (4 * (1 + i))
-//! 	if rhs.is_square():
-//! 		y = psqrt(rhs)
-//! 		p = ec2(Fq2(x), y) * g2_h(param)
-//! 		if not p.is_zero() and (p * r).is_zero():
-//! 			print("g2 generator: {}".format(p))
-//! 			break
+//!     rhs = (Fq2(x))^3 + (4 * (1 + i))
+//!     if rhs.is_square():
+//!         y = psqrt(rhs)
+//!         p = ec2(Fq2(x), y) * g2_h(param)
+//!         if not p.is_zero() and (p * r).is_zero():
+//!             print("g2 generator: {}".format(p))
+//!             break
 //! ```
 //!
 //! ## Nontrivial third root of unity

@@ -190,14 +190,14 @@ impl_add_binop_specify_output!(MillerLoopResult, MillerLoopResult, MillerLoopRes
 impl AddAssign<MillerLoopResult> for MillerLoopResult {
     #[inline]
     fn add_assign(&mut self, rhs: MillerLoopResult) {
-        *self = &*self + &rhs;
+        *self = *self + rhs;
     }
 }
 
 impl<'b> AddAssign<&'b MillerLoopResult> for MillerLoopResult {
     #[inline]
     fn add_assign(&mut self, rhs: &'b MillerLoopResult) {
-        *self = &*self + rhs;
+        *self = *self + rhs;
     }
 }
 
@@ -631,8 +631,8 @@ pub fn pairing(p: &G1Affine, q: &G2Affine) -> Gt {
     }
 
     let either_identity = p.is_identity() | q.is_identity();
-    let p = G1Affine::conditional_select(&p, &G1Affine::generator(), either_identity);
-    let q = G2Affine::conditional_select(&q, &G2Affine::generator(), either_identity);
+    let p = G1Affine::conditional_select(p, &G1Affine::generator(), either_identity);
+    let q = G2Affine::conditional_select(q, &G2Affine::generator(), either_identity);
 
     let mut adder = Adder {
         cur: G2Projective::from(q),
