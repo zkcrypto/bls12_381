@@ -1,5 +1,8 @@
+# 0.7.0
+
 ## Changed
 - MSRV bumped to `1.56.0`
+- Bumped dependencies to `ff 0.12`, `group 0.12`, `pairing 0.22`.
 
 # 0.6.1
 
