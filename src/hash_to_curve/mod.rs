@@ -20,7 +20,7 @@ use crate::generic_array::{typenum::Unsigned, ArrayLength, GenericArray};
 
 /// Enables a byte string to be hashed into one or more field elements for a given curve.
 ///
-/// Implements [section 5 of `draft-irtf-cfrg-hash-to-2`][hash_to_field].
+/// Implements [section 5 of `draft-irtf-cfrg-hash-to-curve-12`][hash_to_field].
 ///
 /// [hash_to_field]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-12#section-5
 pub trait HashToField: Sized {
