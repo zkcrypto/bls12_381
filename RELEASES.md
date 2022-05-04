@@ -1,3 +1,6 @@
+## Changed
+- MSRV bumped to `1.56.0`
+
 # 0.6.1
 
 ## Changed
