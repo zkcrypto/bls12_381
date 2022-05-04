@@ -1,7 +1,6 @@
 //! This module provides an implementation of the BLS12-381 base field `GF(p)`
 //! where `p = 0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab`
 
-use core::convert::TryFrom;
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand_core::RngCore;
@@ -209,7 +208,7 @@ impl Fp {
 
     /// Converts an element of `Fp` into a byte representation in
     /// big-endian byte order.
-    pub fn to_bytes(&self) -> [u8; 48] {
+    pub fn to_bytes(self) -> [u8; 48] {
         // Turn into canonical form by computing
         // (a.R) / R = a
         let tmp = Fp::montgomery_reduce(
