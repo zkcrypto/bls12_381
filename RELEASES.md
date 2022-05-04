@@ -1,3 +1,5 @@
+# 0.6.1
+
 ## Changed
 - G2 arithmetic is now 25-30% faster across the board.
 - Pairings are now 10-15% faster.
