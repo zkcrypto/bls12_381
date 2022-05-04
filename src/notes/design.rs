@@ -60,3 +60,49 @@
 //! 			print("g2 generator: {}".format(p))
 //! 			break
 //! ```
+//!
+//! ## Nontrivial third root of unity
+//!
+//! To use the fast subgroup check algorithm for $\mathbb{G_1}$ from https://eprint.iacr.org/2019/814.pdf and
+//! https://eprint.iacr.org/2021/1130, it is necessary to find a nontrivial cube root of
+//! unity β in Fp to define the endomorphism:
+//!        $$(x, y) \rightarrow (\beta x, y)$$
+//! which is equivalent to
+//!        $$P \rightarrow \lambda P$$
+//! where $\lambda$, a nontrivial cube root of unity in Fr, satisfies $\lambda^2 + \lambda +1 = 0 \pmod{r}.
+//!
+//! $$\beta = 793479390729215512621379701633421447060886740281060493010456487427281649075476305620758731620350$$
+//! can be derived using the following sage commands after running the above sage script:
+//!
+//! ```text
+//! # Prints the given field element in Montgomery form.
+//! def print_fq(a):
+//!     R = 1 << 384
+//!     tmp = ZZ(Fq(a*R))
+//!     while tmp > 0:
+//!         print("0x{:_x}, ".format(tmp % (1 << 64)))
+//!         tmp >>= 64
+//! β = (Fq.multiplicative_generator() ** ((q-1)/3))
+//! print_fq(β)
+//! ```
+//!
+//! ## Psi
+//!
+//! To use the fast subgroup check algorithm for $\mathbb{G_2}$ from https://eprint.iacr.org/2019/814.pdf and
+//! https://eprint.iacr.org/2021/1130, it is necessary to find the endomorphism:
+//!
+//! $$(x, y, z) \rightarrow (x^q \psi_x, y^q \psi_y, z^q)$$
+//!
+//! where:
+//!
+//! 1. $\psi_x = 1 / ((i+1) ^ ((q-1)/3)) \in \mathbb{F}_{q^2}$, and
+//! 2. $\psi_y = 1 / ((i+1) ^ ((q-1)/2)) \in \mathbb{F}_{q^2}$
+//!
+//! can be derived using the following sage commands after running the above script and commands:
+//! ```text
+//! psi_x = (1/((i+1)**((q-1)/3)))
+//! psi_y = (1/((i+1)**((q-1)/2)))
+//! print_fq(psi_x.polynomial().coefficients()[0])
+//! print_fq(psi_y.polynomial().coefficients()[0])
+//! print_fq(psi_y.polynomial().coefficients()[1])
+//! ```
