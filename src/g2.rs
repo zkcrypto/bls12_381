@@ -2076,9 +2076,9 @@ fn test_batch_normalize() {
     let b = a.double();
     let c = b.double();
 
-    for a_identity in (0..1).map(|n| n == 1) {
-        for b_identity in (0..1).map(|n| n == 1) {
-            for c_identity in (0..1).map(|n| n == 1) {
+    for a_identity in (0..=1).map(|n| n == 1) {
+        for b_identity in (0..=1).map(|n| n == 1) {
+            for c_identity in (0..=1).map(|n| n == 1) {
                 let mut v = [a, b, c];
                 if a_identity {
                     v[0] = G2Projective::identity()
