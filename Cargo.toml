@@ -9,8 +9,8 @@ homepage = "https://github.com/zkcrypto/bls12_381"
 license = "MIT/Apache-2.0"
 name = "bls12_381"
 repository = "https://github.com/zkcrypto/bls12_381"
-version = "0.5.0"
-edition = "2018"
+version = "0.7.0"
+edition = "2021"
 
 [package.metadata.docs.rs]
 rustdoc-args = [ "--html-in-header", "katex-header.html" ]
@@ -37,16 +37,18 @@ version = "0.9"
 optional = true
 
 [dependencies.ff]
-version = "0.10"
+version = "0.12"
 default-features = false
+features = ["derive"]
+
 
 [dependencies.group]
-version = "0.10"
+version = "0.12"
 default-features = false
 optional = true
 
 [dependencies.pairing]
-version = "0.20"
+version = "0.22"
 optional = true
 
 [dependencies.rand_core]
@@ -54,26 +56,19 @@ version = "0.6"
 default-features = false
 
 [dependencies.subtle]
-version = "2.2.1"
+version = "2.4.1"
 default-features = false
 
-[dependencies.serde]
-version = "1.0"
+[dependencies.zeroize]
+version = "1.4"
+default-features = false
 optional = true
-default-features = false
-
-[dev-dependencies.serde_test]
-version = "1.0"
 
 [features]
-default = ["groups", "pairings", "alloc", "bits", "endo"]
+default = ["groups", "pairings", "alloc", "bits"]
 bits = ["ff/bits"]
 groups = ["group"]
 pairings = ["groups", "pairing"]
 alloc = ["group/alloc"]
 experimental = ["digest"]
 nightly = ["subtle/nightly"]
-
-# Deprecated.
-# GLV patents US7110538B2 and US7995752B2 expired in September 2020.
-endo = []

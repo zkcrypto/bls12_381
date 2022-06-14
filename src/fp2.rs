@@ -25,6 +25,9 @@ impl Default for Fp2 {
     }
 }
 
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for Fp2 {}
+
 impl From<Fp> for Fp2 {
     fn from(f: Fp) -> Fp2 {
         Fp2 {
@@ -199,31 +202,23 @@ impl Fp2 {
         }
     }
 
-    pub const fn mul(&self, rhs: &Fp2) -> Fp2 {
-        // Karatsuba multiplication:
+    pub fn mul(&self, rhs: &Fp2) -> Fp2 {
+        // F_{p^2} x F_{p^2} multiplication implemented with operand scanning (schoolbook)
+        // computes the result as:
         //
-        // v0  = a0 * b0
-        // v1  = a1 * b1
-        // c0 = v0 + \beta * v1
-        // c1 = (a0 + a1) * (b0 + b1) - v0 - v1
+        //   a·b = (a_0 b_0 + a_1 b_1 β) + (a_0 b_1 + a_1 b_0)i
         //
-        // In BLS12-381's F_{p^2}, our \beta is -1 so we
-        // can modify this formula. (Also, since we always
-        // subtract v1, we can compute v1 = -a1 * b1.)
+        // In BLS12-381's F_{p^2}, our β is -1, so the resulting F_{p^2} element is:
         //
-        // v0  = a0 * b0
-        // v1  = (-a1) * b1
-        // c0 = v0 + v1
-        // c1 = (a0 + a1) * (b0 + b1) - v0 + v1
+        //   c_0 = a_0 b_0 - a_1 b_1
+        //   c_1 = a_0 b_1 + a_1 b_0
+        //
+        // Each of these is a "sum of products", which we can compute efficiently.
 
-        let v0 = (&self.c0).mul(&rhs.c0);
-        let v1 = (&(&self.c1).neg()).mul(&rhs.c1);
-        let c0 = (&v0).add(&v1);
-        let c1 = (&(&self.c0).add(&self.c1)).mul(&(&rhs.c0).add(&rhs.c1));
-        let c1 = (&c1).sub(&v0);
-        let c1 = (&c1).add(&v1);
-
-        Fp2 { c0, c1 }
+        Fp2 {
+            c0: Fp::sum_of_products([self.c0, -self.c1], [rhs.c0, rhs.c1]),
+            c1: Fp::sum_of_products([self.c0, self.c1], [rhs.c1, rhs.c0]),
+        }
     }
 
     pub const fn add(&self, rhs: &Fp2) -> Fp2 {
@@ -889,4 +884,14 @@ fn test_lexicographic_largest() {
         }
         .lexicographically_largest()
     ));
+}
+
+#[cfg(feature = "zeroize")]
+#[test]
+fn test_zeroize() {
+    use zeroize::Zeroize;
+
+    let mut a = Fp2::one();
+    a.zeroize();
+    assert!(bool::from(a.is_zero()));
 }

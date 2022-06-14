@@ -1,3 +1,33 @@
+# 0.7.0
+
+## Changed
+- MSRV bumped to `1.56.0`
+- Bumped dependencies to `ff 0.12`, `group 0.12`, `pairing 0.22`.
+
+# 0.6.1
+
+## Changed
+- G2 arithmetic is now 25-30% faster across the board.
+- Pairings are now 10-15% faster.
+
+# 0.6.0
+
+## Fixed
+- `bls12_381::Gt::default()` now returns `Gt::identity()` instead of a nonsensical value.
+
+## Added
+- Zeroization support for most public types, behind the `zeroize` feature flag.
+- `bls12_381::MillerLoopResult` trait implementations:
+  - `Default`
+  - `AddAssign<MillerLoopResult>`
+  - `AddAssign<&MillerLoopResult>`
+
+## Changed
+- Bumped dependencies to `ff 0.11`, `group 0.11`, `pairing 0.21`.
+
+## Removed
+- The deprecated `endo` feature flag.
+
 # 0.5.0
 
 ## Added

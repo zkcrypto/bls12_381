@@ -38,6 +38,9 @@ impl Default for G2Affine {
     }
 }
 
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for G2Affine {}
+
 impl fmt::Display for G2Affine {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
@@ -470,15 +473,12 @@ impl G2Affine {
     /// exists within the $q$-order subgroup $\mathbb{G}_2$. This should always return true
     /// unless an "unchecked" API was used.
     pub fn is_torsion_free(&self) -> Choice {
-        const FQ_MODULUS_BYTES: [u8; 32] = [
-            1, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
-            216, 57, 51, 72, 125, 157, 41, 83, 167, 237, 115,
-        ];
-
-        // Clear the r-torsion from the point and check if it is the identity
-        G2Projective::from(*self)
-            .multiply(&FQ_MODULUS_BYTES)
-            .is_identity()
+        // Algorithm from Section 4 of https://eprint.iacr.org/2021/1130
+        // Updated proof of correctness in https://eprint.iacr.org/2022/352
+        //
+        // Check that psi(P) == [x] P
+        let p = G2Projective::from(self);
+        p.psi().ct_eq(&p.mul_by_x())
     }
 
     /// Returns true if this point is on the curve. This should always return
@@ -503,6 +503,9 @@ impl Default for G2Projective {
         G2Projective::identity()
     }
 }
+
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for G2Projective {}
 
 impl fmt::Display for G2Projective {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -796,7 +799,7 @@ impl G2Projective {
             z: z3,
         };
 
-        G2Projective::conditional_select(&tmp, &self, rhs.is_identity())
+        G2Projective::conditional_select(&tmp, self, rhs.is_identity())
     }
 
     fn multiply(&self, by: &[u8]) -> G2Projective {
@@ -821,7 +824,6 @@ impl G2Projective {
         acc
     }
 
-    #[cfg(feature = "endo")]
     fn psi(&self) -> G2Projective {
         // 1 / ((u+1) ^ ((q-1)/3))
         let psi_coeff_x = Fp2 {
@@ -865,7 +867,6 @@ impl G2Projective {
         }
     }
 
-    #[cfg(feature = "endo")]
     fn psi2(&self) -> G2Projective {
         // 1 / 2 ^ ((q-1)/3)
         let psi2_coeff_x = Fp2 {
@@ -891,7 +892,6 @@ impl G2Projective {
     }
 
     /// Multiply `self` by `crate::BLS_X`, using double and add.
-    #[cfg(feature = "endo")]
     fn mul_by_x(&self) -> G2Projective {
         let mut xself = G2Projective::identity();
         // NOTE: in BLS12-381 we can just skip the first bit.
@@ -915,35 +915,15 @@ impl G2Projective {
     /// This is equivalent to multiplying by $h\_\textrm{eff} = 3(z^2 - 1) \cdot
     /// h_2$, where $h_2$ is the cofactor of $\mathbb{G}\_2$ and $z$ is the
     /// parameter of BLS12-381.
-    ///
-    /// The endomorphism is only actually used if the crate feature `endo` is
-    /// enabled, which it is by default.
     pub fn clear_cofactor(&self) -> G2Projective {
-        #[cfg(feature = "endo")]
-        fn clear_cofactor(this: &G2Projective) -> G2Projective {
-            let t1 = this.mul_by_x(); // [x] P
-            let t2 = this.psi(); // psi(P)
+        let t1 = self.mul_by_x(); // [x] P
+        let t2 = self.psi(); // psi(P)
 
-            this.double().psi2() // psi^2(2P)
-                + (t1 + t2).mul_by_x() // psi^2(2P) + [x^2] P + [x] psi(P)
-                - t1 // psi^2(2P) + [x^2 - x] P + [x] psi(P)
-                - t2 // psi^2(2P) + [x^2 - x] P + [x - 1] psi(P)
-                - this // psi^2(2P) + [x^2 - x - 1] P + [x - 1] psi(P)
-        }
-
-        #[cfg(not(feature = "endo"))]
-        fn clear_cofactor(this: &G2Projective) -> G2Projective {
-            this.multiply(&[
-                0x51, 0x55, 0xa9, 0xaa, 0x5, 0x0, 0x2, 0xe8, 0xb4, 0xf6, 0xbb, 0xde, 0xa, 0x4c,
-                0x89, 0x59, 0xa3, 0xf6, 0x89, 0x66, 0xc0, 0xcb, 0x54, 0xe9, 0x1a, 0x7c, 0x47, 0xd7,
-                0x69, 0xec, 0xc0, 0x2e, 0xb0, 0x12, 0x12, 0x5d, 0x1, 0xbf, 0x82, 0x6d, 0x95, 0xdb,
-                0x31, 0x87, 0x17, 0x2f, 0x9c, 0x32, 0xe1, 0xff, 0x8, 0x15, 0x3, 0xff, 0x86, 0x99,
-                0x68, 0xd7, 0x5a, 0x14, 0xe9, 0xa8, 0xe2, 0x88, 0x28, 0x35, 0x1b, 0xa9, 0xe, 0x6a,
-                0x4c, 0x58, 0xb3, 0x75, 0xee, 0xf2, 0x8, 0x9f, 0xc6, 0xb,
-            ])
-        }
-
-        clear_cofactor(self)
+        self.double().psi2() // psi^2(2P)
+            + (t1 + t2).mul_by_x() // psi^2(2P) + [x^2] P + [x] psi(P)
+            - t1 // psi^2(2P) + [x^2 - x] P + [x] psi(P)
+            - t2 // psi^2(2P) + [x^2 - x] P + [x - 1] psi(P)
+            - self // psi^2(2P) + [x^2 - x - 1] P + [x - 1] psi(P)
     }
 
     /// Converts a batch of `G2Projective` elements into `G2Affine` elements. This
@@ -979,7 +959,7 @@ impl G2Projective {
             q.y = p.y * tmp;
             q.infinity = Choice::from(0u8);
 
-            *q = G2Affine::conditional_select(&q, &G2Affine::identity(), skip);
+            *q = G2Affine::conditional_select(q, &G2Affine::identity(), skip);
         }
     }
 
@@ -999,6 +979,7 @@ impl G2Projective {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct G2Compressed([u8; 96]);
 
 impl fmt::Debug for G2Compressed {
@@ -1013,6 +994,9 @@ impl Default for G2Compressed {
     }
 }
 
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for G2Compressed {}
+
 impl AsRef<[u8]> for G2Compressed {
     fn as_ref(&self) -> &[u8] {
         &self.0
@@ -1025,6 +1009,21 @@ impl AsMut<[u8]> for G2Compressed {
     }
 }
 
+impl ConstantTimeEq for G2Compressed {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        self.0.ct_eq(&other.0)
+    }
+}
+
+impl Eq for G2Compressed {}
+impl PartialEq for G2Compressed {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        bool::from(self.ct_eq(other))
+    }
+}
+
+#[derive(Clone, Copy)]
 pub struct G2Uncompressed([u8; 192]);
 
 impl fmt::Debug for G2Uncompressed {
@@ -1039,6 +1038,9 @@ impl Default for G2Uncompressed {
     }
 }
 
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for G2Uncompressed {}
+
 impl AsRef<[u8]> for G2Uncompressed {
     fn as_ref(&self) -> &[u8] {
         &self.0
@@ -1048,6 +1050,20 @@ impl AsRef<[u8]> for G2Uncompressed {
 impl AsMut<[u8]> for G2Uncompressed {
     fn as_mut(&mut self) -> &mut [u8] {
         &mut self.0
+    }
+}
+
+impl ConstantTimeEq for G2Uncompressed {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        self.0.ct_eq(&other.0)
+    }
+}
+
+impl Eq for G2Uncompressed {}
+impl PartialEq for G2Uncompressed {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        bool::from(self.ct_eq(other))
     }
 }
 
@@ -1953,7 +1969,6 @@ fn test_is_torsion_free() {
     assert!(bool::from(G2Affine::generator().is_torsion_free()));
 }
 
-#[cfg(feature = "endo")]
 #[test]
 fn test_mul_by_x() {
     // multiplying by `x` a point in G2 is the same as multiplying by
@@ -1970,7 +1985,6 @@ fn test_mul_by_x() {
     assert_eq!(point.mul_by_x(), point * x);
 }
 
-#[cfg(feature = "endo")]
 #[test]
 fn test_psi() {
     let generator = G2Projective::generator();
@@ -2209,4 +2223,26 @@ fn test_projective_serde_serialization() {
         .collect::<alloc::vec::Vec<_>>();
 
     assert_tokens(&g, &expected_tokens);
+}
+
+#[cfg(feature = "zeroize")]
+#[test]
+fn test_zeroize() {
+    use zeroize::Zeroize;
+
+    let mut a = G2Affine::generator();
+    a.zeroize();
+    assert!(bool::from(a.is_identity()));
+
+    let mut a = G2Projective::generator();
+    a.zeroize();
+    assert!(bool::from(a.is_identity()));
+
+    let mut a = GroupEncoding::to_bytes(&G2Affine::generator());
+    a.zeroize();
+    assert_eq!(&a, &G2Compressed::default());
+
+    let mut a = UncompressedEncoding::to_uncompressed(&G2Affine::generator());
+    a.zeroize();
+    assert_eq!(&a, &G2Uncompressed::default());
 }

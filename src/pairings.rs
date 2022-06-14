@@ -25,6 +25,15 @@ use pairing::MultiMillerLoop;
 #[derive(Copy, Clone, Debug)]
 pub struct MillerLoopResult(pub(crate) Fp12);
 
+impl Default for MillerLoopResult {
+    fn default() -> Self {
+        MillerLoopResult(Fp12::one())
+    }
+}
+
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for MillerLoopResult {}
+
 impl ConditionallySelectable for MillerLoopResult {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
         MillerLoopResult(Fp12::conditional_select(&a.0, &b.0, choice))
@@ -178,14 +187,34 @@ impl<'a, 'b> Add<&'b MillerLoopResult> for &'a MillerLoopResult {
 
 impl_add_binop_specify_output!(MillerLoopResult, MillerLoopResult, MillerLoopResult);
 
+impl AddAssign<MillerLoopResult> for MillerLoopResult {
+    #[inline]
+    fn add_assign(&mut self, rhs: MillerLoopResult) {
+        *self = *self + rhs;
+    }
+}
+
+impl<'b> AddAssign<&'b MillerLoopResult> for MillerLoopResult {
+    #[inline]
+    fn add_assign(&mut self, rhs: &'b MillerLoopResult) {
+        *self = *self + rhs;
+    }
+}
+
 /// This is an element of $\mathbb{G}_T$, the target group of the pairing function. As with
 /// $\mathbb{G}_1$ and $\mathbb{G}_2$ this group has order $q$.
 ///
 /// Typically, $\mathbb{G}_T$ is written multiplicatively but we will write it additively to
 /// keep code and abstractions consistent.
 #[cfg_attr(docsrs, doc(cfg(feature = "pairings")))]
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug)]
 pub struct Gt(pub(crate) Fp12);
+
+impl Default for Gt {
+    fn default() -> Self {
+        Self::identity()
+    }
+}
 
 impl fmt::Display for Gt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -602,8 +631,8 @@ pub fn pairing(p: &G1Affine, q: &G2Affine) -> Gt {
     }
 
     let either_identity = p.is_identity() | q.is_identity();
-    let p = G1Affine::conditional_select(&p, &G1Affine::generator(), either_identity);
-    let q = G2Affine::conditional_select(&q, &G2Affine::generator(), either_identity);
+    let p = G1Affine::conditional_select(p, &G1Affine::generator(), either_identity);
+    let q = G2Affine::conditional_select(q, &G2Affine::generator(), either_identity);
 
     let mut adder = Adder {
         cur: G2Projective::from(q),
@@ -886,4 +915,53 @@ fn test_multi_miller_loop() {
     .final_exponentiation();
 
     assert_eq!(expected, test);
+}
+
+#[test]
+fn test_miller_loop_result_default() {
+    assert_eq!(
+        MillerLoopResult::default().final_exponentiation(),
+        Gt::identity(),
+    );
+}
+
+#[cfg(feature = "zeroize")]
+#[test]
+fn test_miller_loop_result_zeroize() {
+    use zeroize::Zeroize;
+
+    let mut m = multi_miller_loop(&[
+        (&G1Affine::generator(), &G2Affine::generator().into()),
+        (&-G1Affine::generator(), &G2Affine::generator().into()),
+    ]);
+    m.zeroize();
+    assert_eq!(m.0, MillerLoopResult::default().0);
+}
+
+#[test]
+fn tricking_miller_loop_result() {
+    assert_eq!(
+        multi_miller_loop(&[(&G1Affine::identity(), &G2Affine::generator().into())]).0,
+        Fp12::one()
+    );
+    assert_eq!(
+        multi_miller_loop(&[(&G1Affine::generator(), &G2Affine::identity().into())]).0,
+        Fp12::one()
+    );
+    assert_ne!(
+        multi_miller_loop(&[
+            (&G1Affine::generator(), &G2Affine::generator().into()),
+            (&-G1Affine::generator(), &G2Affine::generator().into())
+        ])
+        .0,
+        Fp12::one()
+    );
+    assert_eq!(
+        multi_miller_loop(&[
+            (&G1Affine::generator(), &G2Affine::generator().into()),
+            (&-G1Affine::generator(), &G2Affine::generator().into())
+        ])
+        .final_exponentiation(),
+        Gt::identity()
+    );
 }

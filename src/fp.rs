@@ -1,7 +1,6 @@
 //! This module provides an implementation of the BLS12-381 base field `GF(p)`
 //! where `p = 0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab`
 
-use core::convert::TryFrom;
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand_core::RngCore;
@@ -31,6 +30,9 @@ impl Default for Fp {
         Fp::zero()
     }
 }
+
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for Fp {}
 
 impl ConstantTimeEq for Fp {
     fn ct_eq(&self, other: &Self) -> Choice {
@@ -206,7 +208,7 @@ impl Fp {
 
     /// Converts an element of `Fp` into a byte representation in
     /// big-endian byte order.
-    pub fn to_bytes(&self) -> [u8; 48] {
+    pub fn to_bytes(self) -> [u8; 48] {
         // Turn into canonical form by computing
         // (a.R) / R = a
         let tmp = Fp::montgomery_reduce(
@@ -418,6 +420,67 @@ impl Fp {
     #[inline]
     pub const fn sub(&self, rhs: &Fp) -> Fp {
         (&rhs.neg()).add(self)
+    }
+
+    /// Returns `c = a.zip(b).fold(0, |acc, (a_i, b_i)| acc + a_i * b_i)`.
+    ///
+    /// Implements Algorithm 2 from Patrick Longa's
+    /// [ePrint 2022-367](https://eprint.iacr.org/2022/367) §3.
+    #[inline]
+    pub(crate) fn sum_of_products<const T: usize>(a: [Fp; T], b: [Fp; T]) -> Fp {
+        // For a single `a x b` multiplication, operand scanning (schoolbook) takes each
+        // limb of `a` in turn, and multiplies it by all of the limbs of `b` to compute
+        // the result as a double-width intermediate representation, which is then fully
+        // reduced at the end. Here however we have pairs of multiplications (a_i, b_i),
+        // the results of which are summed.
+        //
+        // The intuition for this algorithm is two-fold:
+        // - We can interleave the operand scanning for each pair, by processing the jth
+        //   limb of each `a_i` together. As these have the same offset within the overall
+        //   operand scanning flow, their results can be summed directly.
+        // - We can interleave the multiplication and reduction steps, resulting in a
+        //   single bitshift by the limb size after each iteration. This means we only
+        //   need to store a single extra limb overall, instead of keeping around all the
+        //   intermediate results and eventually having twice as many limbs.
+
+        // Algorithm 2, line 2
+        let (u0, u1, u2, u3, u4, u5) =
+            (0..6).fold((0, 0, 0, 0, 0, 0), |(u0, u1, u2, u3, u4, u5), j| {
+                // Algorithm 2, line 3
+                // For each pair in the overall sum of products:
+                let (t0, t1, t2, t3, t4, t5, t6) = (0..T).fold(
+                    (u0, u1, u2, u3, u4, u5, 0),
+                    |(t0, t1, t2, t3, t4, t5, t6), i| {
+                        // Compute digit_j x row and accumulate into `u`.
+                        let (t0, carry) = mac(t0, a[i].0[j], b[i].0[0], 0);
+                        let (t1, carry) = mac(t1, a[i].0[j], b[i].0[1], carry);
+                        let (t2, carry) = mac(t2, a[i].0[j], b[i].0[2], carry);
+                        let (t3, carry) = mac(t3, a[i].0[j], b[i].0[3], carry);
+                        let (t4, carry) = mac(t4, a[i].0[j], b[i].0[4], carry);
+                        let (t5, carry) = mac(t5, a[i].0[j], b[i].0[5], carry);
+                        let (t6, _) = adc(t6, 0, carry);
+
+                        (t0, t1, t2, t3, t4, t5, t6)
+                    },
+                );
+
+                // Algorithm 2, lines 4-5
+                // This is a single step of the usual Montgomery reduction process.
+                let k = t0.wrapping_mul(INV);
+                let (_, carry) = mac(t0, k, MODULUS[0], 0);
+                let (r1, carry) = mac(t1, k, MODULUS[1], carry);
+                let (r2, carry) = mac(t2, k, MODULUS[2], carry);
+                let (r3, carry) = mac(t3, k, MODULUS[3], carry);
+                let (r4, carry) = mac(t4, k, MODULUS[4], carry);
+                let (r5, carry) = mac(t5, k, MODULUS[5], carry);
+                let (r6, _) = adc(t6, 0, carry);
+
+                (r1, r2, r3, r4, r5, r6)
+            });
+
+        // Because we represent F_p elements in non-redundant form, we need a final
+        // conditional subtraction to ensure the output is in range.
+        (&Fp([u0, u1, u2, u3, u4, u5])).subtract_p()
     }
 
     #[inline(always)]
@@ -913,4 +976,14 @@ fn test_lexicographic_largest() {
         ])
         .lexicographically_largest()
     ));
+}
+
+#[cfg(feature = "zeroize")]
+#[test]
+fn test_zeroize() {
+    use zeroize::Zeroize;
+
+    let mut a = Fp::one();
+    a.zeroize();
+    assert!(bool::from(a.is_zero()));
 }

@@ -3,7 +3,7 @@
 This crate provides an implementation of the BLS12-381 pairing-friendly elliptic curve construction.
 
 * **This implementation has not been reviewed or audited. Use at your own risk.**
-* This implementation targets Rust `1.51` or later.
+* This implementation targets Rust `1.56` or later.
 * This implementation does not require the Rust standard library.
 * All operations are constant time unless explicitly noted.
 
@@ -14,9 +14,8 @@ This crate provides an implementation of the BLS12-381 pairing-friendly elliptic
 * `pairings` (on by default): Enables some APIs for performing pairings.
 * `alloc` (on by default): Enables APIs that require an allocator; these include pairing optimizations.
 * `nightly`: Enables `subtle/nightly` which tries to prevent compiler optimizations that could jeopardize constant time operations. Requires the nightly Rust compiler.
-* `endo` (on by default): Enables optimizations that leverage curve endomorphisms. Deprecated, will be removed in a future release.
 * `experimental`: Enables experimental features. These features have no backwards-compatibility guarantees and may change at any time; users that depend on specific behaviour should pin an exact version of this crate. The current list of experimental features:
-  * Hashing to curves ([Internet Draft v11](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11))
+  * Hashing to curves ([Internet Draft v12](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-12))
 
 ## [Documentation](https://docs.rs/bls12_381)
 

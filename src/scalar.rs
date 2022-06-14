@@ -1,16 +1,12 @@
 //! This module provides an implementation of the BLS12-381 scalar field $\mathbb{F}_q$
 //! where `q = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001`
 
-use core::convert::TryFrom;
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand_core::RngCore;
 
 use ff::{Field, PrimeField};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
-
-#[cfg(feature = "bits")]
-use core::convert::TryInto;
 
 #[cfg(feature = "bits")]
 use ff::{FieldBits, PrimeFieldBits};
@@ -206,6 +202,9 @@ impl Default for Scalar {
         Self::zero()
     }
 }
+
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for Scalar {}
 
 impl Scalar {
     /// Returns zero, the additive identity.
@@ -679,10 +678,6 @@ impl Field for Scalar {
         Self::one()
     }
 
-    fn is_zero(&self) -> bool {
-        self.ct_eq(&Self::zero()).into()
-    }
-
     #[must_use]
     fn square(&self) -> Self {
         self.square()
@@ -705,21 +700,16 @@ impl Field for Scalar {
 impl PrimeField for Scalar {
     type Repr = [u8; 32];
 
-    fn from_repr(r: Self::Repr) -> Option<Self> {
-        let res = Self::from_bytes(&r);
-        if res.is_some().into() {
-            Some(res.unwrap())
-        } else {
-            None
-        }
+    fn from_repr(r: Self::Repr) -> CtOption<Self> {
+        Self::from_bytes(&r)
     }
 
     fn to_repr(&self) -> Self::Repr {
         self.to_bytes()
     }
 
-    fn is_odd(&self) -> bool {
-        self.to_bytes()[0] & 1 == 1
+    fn is_odd(&self) -> Choice {
+        Choice::from(self.to_bytes()[0] & 1)
     }
 
     const NUM_BITS: u32 = MODULUS_BITS;
@@ -1319,4 +1309,19 @@ fn test_serde_serialization() {
         .collect::<alloc::vec::Vec<_>>();
 
     assert_tokens(&s, &expected_tokens)
+}
+
+#[cfg(feature = "zeroize")]
+#[test]
+fn test_zeroize() {
+    use zeroize::Zeroize;
+
+    let mut a = Scalar::from_raw([
+        0x1fff_3231_233f_fffd,
+        0x4884_b7fa_0003_4802,
+        0x998c_4fef_ecbc_4ff3,
+        0x1824_b159_acc5_0562,
+    ]);
+    a.zeroize();
+    assert!(bool::from(a.is_zero()));
 }
