@@ -1,104 +1,180 @@
 //! This module implements message expansion consistent with the
-//! hash-to-curve RFC drafts 7 through 10
+//! hash-to-curve RFC drafts 7 through 16
 
-use core::{
-    fmt::{self, Debug, Formatter},
-    marker::PhantomData,
+use core::fmt::{self, Debug, Formatter};
+
+use digest::{
+    generic_array::typenum::IsLess, BlockInput, ExtendableOutput, FixedOutput, Update, XofReader,
 };
 
-use digest::{BlockInput, Digest, ExtendableOutputDirty, Update, XofReader};
-
 use crate::generic_array::{
-    typenum::{Unsigned, U32},
+    typenum::{Unsigned, U256},
     ArrayLength, GenericArray,
 };
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
+const MAX_DST_LENGTH: usize = 255;
 const OVERSIZE_DST_SALT: &[u8] = b"H2C-OVERSIZE-DST-";
 
 /// The domain separation tag for a message expansion.
 ///
-/// Implements [section 5.4.3 of `draft-irtf-cfrg-hash-to-curve-12`][dst].
+/// Implements [section 5.3.3 of `draft-irtf-cfrg-hash-to-curve-16`][dst].
 ///
-/// [dst]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-12#section-5.4.3
+/// [dst]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-16#section-5.3.3
 #[derive(Debug)]
-enum ExpandMsgDst<'x, L: ArrayLength<u8>> {
-    /// DST produced by hashing a very long (> 255 chars) input DST.
-    Hashed(GenericArray<u8, L>),
-    /// A raw input DST (<= 255 chars).
-    Raw(&'x [u8]),
+struct ExpandMsgDst {
+    dst: [u8; MAX_DST_LENGTH],
+    len: usize,
 }
 
-impl<'x, L: ArrayLength<u8>> ExpandMsgDst<'x, L> {
+impl ExpandMsgDst {
+    #[inline]
+    fn new(init: impl FnOnce(&mut [u8; MAX_DST_LENGTH]) -> usize) -> Self {
+        let mut slf = ExpandMsgDst {
+            dst: [0u8; MAX_DST_LENGTH],
+            len: 0,
+        };
+        slf.len = init(&mut slf.dst);
+        assert!(slf.len <= MAX_DST_LENGTH);
+        slf
+    }
+
     /// Produces a DST for use with `expand_message_xof`.
-    pub fn process_xof<H>(dst: &'x [u8]) -> Self
+    pub fn for_xof<H, L>(dst: &[u8]) -> Self
     where
-        H: Default + Update + ExtendableOutputDirty,
+        H: Default + Update + ExtendableOutput,
+        L: ArrayLength<u8> + IsLess<U256>,
     {
-        if dst.len() > 255 {
-            let mut data = GenericArray::<u8, L>::default();
-            H::default()
-                .chain(OVERSIZE_DST_SALT)
-                .chain(&dst)
-                .finalize_xof_dirty()
-                .read(&mut data);
-            Self::Hashed(data)
-        } else {
-            Self::Raw(dst)
-        }
+        let input_len = dst.len();
+        ExpandMsgDst::new(|buf| {
+            if input_len > MAX_DST_LENGTH {
+                H::default()
+                    .chain(OVERSIZE_DST_SALT)
+                    .chain(&dst)
+                    .finalize_xof()
+                    .read(&mut buf[..L::USIZE]);
+                L::USIZE
+            } else {
+                buf[..input_len].copy_from_slice(dst);
+                input_len
+            }
+        })
     }
 
     /// Produces a DST for use with `expand_message_xmd`.
-    pub fn process_xmd<H>(dst: &'x [u8]) -> Self
+    pub fn for_xmd<H>(dst: &[u8]) -> Self
     where
-        H: Digest<OutputSize = L>,
+        H: Default + FixedOutput + Update,
     {
-        if dst.len() > 255 {
-            Self::Hashed(H::new().chain(OVERSIZE_DST_SALT).chain(&dst).finalize())
-        } else {
-            Self::Raw(dst)
-        }
+        let input_len = dst.len();
+        ExpandMsgDst::new(|buf| {
+            if input_len > MAX_DST_LENGTH {
+                let hashed = H::default()
+                    .chain(OVERSIZE_DST_SALT)
+                    .chain(&dst)
+                    .finalize_fixed();
+                let len = hashed.len().min(MAX_DST_LENGTH);
+                buf[..len].copy_from_slice(&hashed);
+                len
+            } else {
+                buf[..input_len].copy_from_slice(dst);
+                input_len
+            }
+        })
     }
 
     /// Returns the raw bytes of the DST.
-    pub fn data(&'x self) -> &'x [u8] {
-        match self {
-            Self::Hashed(arr) => &arr[..],
-            Self::Raw(buf) => buf,
-        }
+    pub fn data(&self) -> &[u8] {
+        &self.dst[..self.len]
     }
 
     /// Returns the length of the DST.
-    pub fn len(&'x self) -> usize {
-        match self {
-            Self::Hashed(_) => L::to_usize(),
-            Self::Raw(buf) => buf.len(),
+    pub fn len(&self) -> usize {
+        self.len
+    }
+}
+
+/// A trait allowing flexible support for message input types.
+pub trait Message {
+    /// Consume the message input.
+    ///
+    /// The parameters to successive calls to `f` are treated as a
+    /// single concatenated octet string.
+    fn consume(self, f: impl FnMut(&[u8]));
+}
+
+impl Message for &[u8] {
+    #[inline]
+    fn consume(self, mut f: impl FnMut(&[u8])) {
+        f(self)
+    }
+}
+
+impl<const N: usize> Message for &[u8; N] {
+    #[inline]
+    fn consume(self, mut f: impl FnMut(&[u8])) {
+        f(self)
+    }
+}
+
+impl Message for &str {
+    #[inline]
+    fn consume(self, mut f: impl FnMut(&[u8])) {
+        f(self.as_bytes())
+    }
+}
+
+impl Message for &[&[u8]] {
+    #[inline]
+    fn consume(self, mut f: impl FnMut(&[u8])) {
+        for msg in self {
+            f(msg);
         }
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl Message for Vec<u8> {
+    #[inline]
+    fn consume(self, mut f: impl FnMut(&[u8])) {
+        f(self.as_slice())
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl Message for &Vec<u8> {
+    #[inline]
+    fn consume(self, mut f: impl FnMut(&[u8])) {
+        f(self.as_slice())
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl Message for alloc::string::String {
+    #[inline]
+    fn consume(self, mut f: impl FnMut(&[u8])) {
+        f(self.as_bytes())
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl Message for &alloc::string::String {
+    #[inline]
+    fn consume(self, mut f: impl FnMut(&[u8])) {
+        f(self.as_bytes())
     }
 }
 
 /// A trait for message expansion methods supported by hash-to-curve.
-pub trait ExpandMessage: for<'x> InitExpandMessage<'x> {
-    // This intermediate is likely only necessary until GATs allow
-    // associated types with lifetimes.
-}
-
-/// Trait for constructing a new message expander.
-pub trait InitExpandMessage<'x> {
-    /// The state object used during message expansion.
-    type Expander: ExpandMessageState<'x>;
-
+pub trait ExpandMessage {
     /// Initializes a message expander.
-    fn init_expand(message: &[u8], dst: &'x [u8], len_in_bytes: usize) -> Self::Expander;
-}
+    fn init_expand<M, L>(message: M, dst: &[u8], len_in_bytes: usize) -> Self
+    where
+        M: Message,
+        L: ArrayLength<u8> + IsLess<U256>;
 
-// Automatically derive trait
-impl<X: for<'x> InitExpandMessage<'x>> ExpandMessage for X {}
-
-/// Trait for types implementing the `expand_message` interface for `hash_to_field`.
-pub trait ExpandMessageState<'x> {
     /// Reads bytes from the generated output.
     fn read_into(&mut self, output: &mut [u8]) -> usize;
 
@@ -120,16 +196,18 @@ pub trait ExpandMessageState<'x> {
 /// A generator for the output of `expand_message_xof` for a given
 /// extendable hash function, message, DST, and output length.
 ///
-/// Implements [section 5.4.2 of `draft-irtf-cfrg-hash-to-curve-12`][expand_message_xof]
-/// with `k = 128`.
+/// Implements [section 5.3.2 of `draft-irtf-cfrg-hash-to-curve-16`][expand_message_xof].
 ///
-/// [expand_message_xof]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-12#section-5.4.2
-pub struct ExpandMsgXof<H: ExtendableOutputDirty> {
-    hash: <H as ExtendableOutputDirty>::Reader,
+/// The length parameter L defaults to U32, corresponding to the target security level of
+/// k = 128 for both defined BLS12-381 ciphersuites.
+///
+/// [expand_message_xof]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-16#section-5.3.2
+pub struct ExpandMsgXof<H: ExtendableOutput> {
+    reader: <H as ExtendableOutput>::Reader,
     remain: usize,
 }
 
-impl<H: ExtendableOutputDirty> Debug for ExpandMsgXof<H> {
+impl<H: ExtendableOutput> Debug for ExpandMsgXof<H> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("ExpandMsgXof")
             .field("remain", &self.remain)
@@ -137,13 +215,36 @@ impl<H: ExtendableOutputDirty> Debug for ExpandMsgXof<H> {
     }
 }
 
-impl<'x, H> ExpandMessageState<'x> for ExpandMsgXof<H>
+impl<H> ExpandMessage for ExpandMsgXof<H>
 where
-    H: ExtendableOutputDirty,
+    H: Default + ExtendableOutput + Update,
 {
+    fn init_expand<M, L>(message: M, dst: &[u8], len_in_bytes: usize) -> Self
+    where
+        M: Message,
+        L: ArrayLength<u8> + IsLess<U256>,
+    {
+        if len_in_bytes > u16::MAX as usize {
+            panic!("Invalid ExpandMsgXof usage: len_in_bytes > u16::MAX");
+        }
+
+        let dst = ExpandMsgDst::for_xof::<H, L>(dst);
+        let mut hash = H::default();
+        message.consume(|m| hash.update(m));
+        let reader = hash
+            .chain((len_in_bytes as u16).to_be_bytes())
+            .chain(dst.data())
+            .chain([dst.len() as u8])
+            .finalize_xof();
+        Self {
+            reader,
+            remain: len_in_bytes,
+        }
+    }
+
     fn read_into(&mut self, output: &mut [u8]) -> usize {
         let len = self.remain.min(output.len());
-        self.hash.read(&mut output[..len]);
+        self.reader.read(&mut output[..len]);
         self.remain -= len;
         len
     }
@@ -153,45 +254,14 @@ where
     }
 }
 
-impl<'x, H> InitExpandMessage<'x> for ExpandMsgXof<H>
-where
-    H: Default + Update + ExtendableOutputDirty,
-{
-    type Expander = Self;
-
-    fn init_expand(message: &[u8], dst: &[u8], len_in_bytes: usize) -> Self {
-        // Use U32 here for k = 128.
-        let dst = ExpandMsgDst::<U32>::process_xof::<H>(dst);
-        let hash = H::default()
-            .chain(message)
-            .chain((len_in_bytes as u16).to_be_bytes())
-            .chain(dst.data())
-            .chain([dst.len() as u8])
-            .finalize_xof_dirty();
-        Self {
-            hash,
-            remain: len_in_bytes,
-        }
-    }
-}
-
-/// Constructor for `expand_message_xmd` for a given digest hash function, message, DST,
-/// and output length.
-///
-/// Implements [section 5.4.1 of `draft-irtf-cfrg-hash-to-curve-12`][expand_message_xmd].
-///
-/// [expand_message_xmd]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-12#section-5.4.1
-#[derive(Debug)]
-pub struct ExpandMsgXmd<H: Digest>(PhantomData<H>);
-
 /// A generator for the output of `expand_message_xmd` for a given
 /// digest hash function, message, DST, and output length.
 ///
-/// Implements [section 5.4.1 of `draft-irtf-cfrg-hash-to-curve-12`][expand_message_xmd].
+/// Implements [section 5.3.1 of `draft-irtf-cfrg-hash-to-curve-16`][expand_message_xmd].
 ///
-/// [expand_message_xmd]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-12#section-5.4.1
-pub struct ExpandMsgXmdState<'x, H: Digest> {
-    dst: ExpandMsgDst<'x, H::OutputSize>,
+/// [expand_message_xmd]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-16#section-5.3.1
+pub struct ExpandMsgXmd<H: FixedOutput> {
+    dst: ExpandMsgDst,
     b_0: GenericArray<u8, H::OutputSize>,
     b_i: GenericArray<u8, H::OutputSize>,
     i: usize,
@@ -199,43 +269,46 @@ pub struct ExpandMsgXmdState<'x, H: Digest> {
     remain: usize,
 }
 
-impl<H: Digest> Debug for ExpandMsgXmdState<'_, H> {
+impl<H: FixedOutput> Debug for ExpandMsgXmd<H> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ExpandMsgXmdState")
+        f.debug_struct("ExpandMsgXmd")
             .field("remain", &self.remain)
             .finish()
     }
 }
 
-impl<'x, H> InitExpandMessage<'x> for ExpandMsgXmd<H>
+impl<H> ExpandMessage for ExpandMsgXmd<H>
 where
-    H: Digest + BlockInput,
+    H: Default + BlockInput + FixedOutput + Update,
 {
-    type Expander = ExpandMsgXmdState<'x, H>;
-
-    fn init_expand(message: &[u8], dst: &'x [u8], len_in_bytes: usize) -> Self::Expander {
-        let hash_size = <H as Digest>::OutputSize::to_usize();
+    fn init_expand<M, L>(message: M, dst: &[u8], len_in_bytes: usize) -> Self
+    where
+        M: Message,
+        L: ArrayLength<u8> + IsLess<U256>,
+    {
+        let hash_size = <H as FixedOutput>::OutputSize::to_usize();
         let ell = (len_in_bytes + hash_size - 1) / hash_size;
         if ell > 255 {
             panic!("Invalid ExpandMsgXmd usage: ell > 255");
         }
-        let dst = ExpandMsgDst::process_xmd::<H>(dst);
-        let b_0 = H::new()
-            .chain(GenericArray::<u8, <H as BlockInput>::BlockSize>::default())
-            .chain(message)
+        let dst = ExpandMsgDst::for_xmd::<H>(dst);
+        let mut hash_b_0 =
+            H::default().chain(GenericArray::<u8, <H as BlockInput>::BlockSize>::default());
+        message.consume(|m| hash_b_0.update(m));
+        let b_0 = hash_b_0
             .chain((len_in_bytes as u16).to_be_bytes())
             .chain([0u8])
             .chain(dst.data())
             .chain([dst.len() as u8])
-            .finalize();
+            .finalize_fixed();
         // init with b_1
-        let b_i = H::new()
+        let b_i = H::default()
             .chain(&b_0)
             .chain([1u8])
             .chain(dst.data())
             .chain([dst.len() as u8])
-            .finalize();
-        ExpandMsgXmdState {
+            .finalize_fixed();
+        ExpandMsgXmd {
             dst,
             b_0,
             b_i,
@@ -244,12 +317,7 @@ where
             remain: len_in_bytes,
         }
     }
-}
 
-impl<'x, H> ExpandMessageState<'x> for ExpandMsgXmdState<'x, H>
-where
-    H: Digest + BlockInput,
-{
     fn read_into(&mut self, output: &mut [u8]) -> usize {
         let read_len = self.remain.min(output.len());
         let mut offs = 0;
@@ -268,12 +336,12 @@ where
                 for j in 0..hash_size {
                     b_prev_xor[j] ^= self.b_i[j];
                 }
-                self.b_i = H::new()
+                self.b_i = H::default()
                     .chain(b_prev_xor)
                     .chain([self.i as u8])
                     .chain(self.dst.data())
                     .chain([self.dst.len() as u8])
-                    .finalize();
+                    .finalize_fixed();
                 self.b_offs = 0;
                 self.i += 1;
             }

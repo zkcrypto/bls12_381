@@ -5,7 +5,7 @@ use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable, ConstantTi
 use super::chain::chain_p2m9div16;
 use super::{HashToField, MapToCurve, Sgn0};
 use crate::generic_array::{
-    typenum::{U128, U64},
+    typenum::{U128, U32, U64},
     GenericArray,
 };
 use crate::{fp::Fp, fp2::Fp2, g2::G2Projective};
@@ -367,6 +367,9 @@ const SSWU_RV1: Fp2 = Fp2 {
 impl HashToField for Fp2 {
     // ceil(log2(p)) = 381, m = 2, k = 128.
     type InputLength = U128;
+
+    // k = 128
+    type XofOutputLength = U32;
 
     fn from_okm(okm: &GenericArray<u8, U128>) -> Fp2 {
         let c0 = <Fp as HashToField>::from_okm(GenericArray::<u8, U64>::from_slice(&okm[..64]));

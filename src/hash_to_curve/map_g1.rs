@@ -6,7 +6,10 @@ use super::chain::chain_pm3div4;
 use super::{HashToField, MapToCurve, Sgn0};
 use crate::fp::Fp;
 use crate::g1::G1Projective;
-use crate::generic_array::{typenum::U64, GenericArray};
+use crate::generic_array::{
+    typenum::{U32, U64},
+    GenericArray,
+};
 
 /// Coefficients of the 11-isogeny x map's numerator
 const ISO11_XNUM: [Fp; 12] = [
@@ -504,6 +507,9 @@ impl HashToField for Fp {
     // ceil(log2(p)) = 381, m = 1, k = 128.
     type InputLength = U64;
 
+    // k = 128
+    type XofOutputLength = U32;
+
     fn from_okm(okm: &GenericArray<u8, U64>) -> Fp {
         const F_2_256: Fp = Fp::from_raw_unchecked([
             0x075b_3cd7_c5ce_820f,
@@ -538,9 +544,9 @@ impl Sgn0 for Fp {
 
 /// Maps an element of [`Fp`] to a point on iso-G1.
 ///
-/// Implements [section 6.6.2 of `draft-irtf-cfrg-hash-to-curve-12`][sswu].
+/// Implements [section 6.6.2 of `draft-irtf-cfrg-hash-to-curve-16`][sswu].
 ///
-/// [sswu]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-12#section-6.6.2
+/// [sswu]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-16#section-6.6.2
 fn map_to_curve_simple_swu(u: &Fp) -> G1Projective {
     let usq = u.square();
     let xi_usq = SSWU_XI * usq;
