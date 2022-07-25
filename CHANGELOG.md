@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Derive `Hash` for `BlsScalar`
 - Apply patches from `zkcrypto` to improve the efficiency [#86](https://github.com/dusk-network/bls12_381/issues/86)
 
 ## [0.10.0] - 2022-05-25

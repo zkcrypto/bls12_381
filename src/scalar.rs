@@ -21,7 +21,7 @@ use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 // The internal representation of this type is four 64-bit unsigned
 // integers in little-endian order. `Scalar` values are always in
 // Montgomery form; i.e., Scalar(a) = aR mod q, with R = 2^256.
-#[derive(Clone, Copy, Eq, HexDebug)]
+#[derive(Clone, Copy, Eq, Hash, HexDebug)]
 #[cfg_attr(feature = "canon", derive(Canon))]
 pub struct Scalar(pub [u64; 4]);
 
