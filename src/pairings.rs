@@ -15,6 +15,13 @@ use serde::{
     self, de::Visitor, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer,
 };
 
+#[cfg(feature = "rkyv")]
+use rkyv::{
+    out_field,
+    ser::{ScratchSpace, Serializer as RkyvSerializer},
+    Archive, Deserialize as RkyvDeserialize, Fallible, Serialize as RkyvSerialize,
+};
+
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
@@ -22,6 +29,7 @@ use alloc::vec::Vec;
 /// of the pairing function. `MillerLoopResult`s cannot be compared with each
 /// other until `.final_exponentiation()` is called, which is also expensive.
 #[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "rkyv", derive(Archive, RkyvDeserialize, RkyvSerialize))]
 pub struct MillerLoopResult(pub(crate) Fp12);
 
 impl ConditionallySelectable for MillerLoopResult {
@@ -183,6 +191,7 @@ impl_add_binop_specify_output!(MillerLoopResult, MillerLoopResult, MillerLoopRes
 /// Typically, $\mathbb{G}_T$ is written multiplicatively but we will write it additively to
 /// keep code and abstractions consistent.
 #[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "rkyv", derive(Archive, RkyvDeserialize, RkyvSerialize))]
 pub struct Gt(pub(crate) Fp12);
 
 impl ConstantTimeEq for Gt {
@@ -284,8 +293,6 @@ impl<'a, 'b> Mul<&'b BlsScalar> for &'a Gt {
 impl_binops_additive!(Gt, Gt);
 impl_binops_multiplicative!(Gt, BlsScalar);
 
-#[cfg(feature = "alloc")]
-#[derive(Clone, Debug)]
 /// This structure contains cached computations pertaining to a $\mathbb{G}_2$
 /// element as part of the pairing function (specifically, the Miller loop) and
 /// so should be computed whenever a $\mathbb{G}_2$ element is being used in
@@ -294,9 +301,75 @@ impl_binops_multiplicative!(Gt, BlsScalar);
 /// function provided by this crate.
 ///
 /// Requires the `alloc` and `pairing` crate features to be enabled.
+#[cfg(feature = "alloc")]
+#[derive(Clone, Debug)]
+// #[cfg_attr(feature = "rkyv", derive(Archive, RkyvDeserialize, RkyvSerialize))]
 pub struct G2Prepared {
     infinity: Choice,
     coeffs: Vec<(Fp2, Fp2, Fp2)>,
+}
+
+#[cfg(feature = "rkyv")]
+#[allow(missing_docs)]
+#[allow(missing_debug_implementations)]
+pub struct ArchivedG2Prepared {
+    infinity: <u8 as Archive>::Archived,
+    coeffs: <Vec<(Fp2, Fp2, Fp2)> as Archive>::Archived,
+}
+
+#[cfg(feature = "rkyv")]
+#[allow(missing_docs)]
+#[allow(missing_debug_implementations)]
+pub struct G2PreparedResolver {
+    infinity: <u8 as Archive>::Resolver,
+    coeffs: <Vec<(Fp2, Fp2, Fp2)> as Archive>::Resolver,
+}
+
+#[cfg(feature = "rkyv")]
+impl Archive for G2Prepared {
+    type Archived = ArchivedG2Prepared;
+    type Resolver = G2PreparedResolver;
+
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
+        let (fp, fo) = out_field!(out.infinity);
+        let infinity = self.infinity.unwrap_u8();
+        #[allow(clippy::unit_arg)]
+        infinity.resolve(pos + fp, resolver.infinity, fo);
+
+        let (fp, fo) = out_field!(out.coeffs);
+        self.coeffs.resolve(pos + fp, resolver.coeffs, fo);
+    }
+}
+
+#[cfg(feature = "rkyv")]
+impl<S> RkyvSerialize<S> for G2Prepared
+where
+    S: RkyvSerializer + ScratchSpace,
+{
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        let choice = self.infinity.unwrap_u8();
+
+        Ok(Self::Resolver {
+            infinity: <u8 as RkyvSerialize<S>>::serialize(&choice, serializer)?,
+            coeffs: <Vec<(Fp2, Fp2, Fp2)> as RkyvSerialize<S>>::serialize(
+                &self.coeffs,
+                serializer,
+            )?,
+        })
+    }
+}
+
+#[cfg(feature = "rkyv")]
+impl<D: Fallible + ?Sized> RkyvDeserialize<G2Prepared, D> for ArchivedG2Prepared {
+    fn deserialize(&self, deserializer: &mut D) -> Result<G2Prepared, D::Error> {
+        let infinity = <u8 as RkyvDeserialize<u8, D>>::deserialize(&self.infinity, deserializer)?;
+        let infinity = Choice::from(infinity);
+
+        Ok(G2Prepared {
+            infinity,
+            coeffs: self.coeffs.deserialize(deserializer)?,
+        })
+    }
 }
 
 #[cfg(feature = "alloc")]

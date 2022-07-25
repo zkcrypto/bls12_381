@@ -16,6 +16,11 @@ use canonical_derive::Canon;
 #[cfg(feature = "serde_req")]
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
+#[cfg(feature = "rkyv")]
+use rkyv::{
+    out_field, Archive, Deserialize as RkyvDeserialize, Fallible, Serialize as RkyvSerialize,
+};
+
 /// This is an element of $\mathbb{G}_1$ represented in the affine coordinate space.
 /// It is ideal to keep elements in this representation to reduce memory usage and
 /// improve performance through the use of mixed curve model arithmetic.
@@ -27,6 +32,70 @@ pub struct G1Affine {
     pub(crate) x: Fp,
     pub(crate) y: Fp,
     infinity: Choice,
+}
+
+#[cfg(feature = "rkyv")]
+#[allow(missing_docs)]
+#[allow(missing_debug_implementations)]
+pub struct ArchivedG1Affine {
+    x: <Fp as Archive>::Archived,
+    y: <Fp as Archive>::Archived,
+    infinity: <u8 as Archive>::Archived,
+}
+
+#[cfg(feature = "rkyv")]
+#[allow(missing_docs)]
+#[allow(missing_debug_implementations)]
+pub struct G1AffineResolver {
+    x: <Fp as Archive>::Resolver,
+    y: <Fp as Archive>::Resolver,
+    infinity: <u8 as Archive>::Resolver,
+}
+
+#[cfg(feature = "rkyv")]
+impl Archive for G1Affine {
+    type Archived = ArchivedG1Affine;
+    type Resolver = G1AffineResolver;
+
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
+        let (fp, fo) = out_field!(out.x);
+        self.x.resolve(pos + fp, resolver.x, fo);
+
+        let (fp, fo) = out_field!(out.y);
+        self.y.resolve(pos + fp, resolver.y, fo);
+
+        let (fp, fo) = out_field!(out.infinity);
+        let infinity = self.infinity.unwrap_u8();
+        #[allow(clippy::unit_arg)]
+        infinity.resolve(pos + fp, resolver.infinity, fo);
+    }
+}
+
+#[cfg(feature = "rkyv")]
+impl<S: Fallible + ?Sized> RkyvSerialize<S> for G1Affine {
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        let choice = self.infinity.unwrap_u8();
+
+        Ok(Self::Resolver {
+            x: <Fp as RkyvSerialize<S>>::serialize(&self.x, serializer)?,
+            y: <Fp as RkyvSerialize<S>>::serialize(&self.y, serializer)?,
+            infinity: <u8 as RkyvSerialize<S>>::serialize(&choice, serializer)?,
+        })
+    }
+}
+
+#[cfg(feature = "rkyv")]
+impl<D: Fallible + ?Sized> RkyvDeserialize<G1Affine, D> for ArchivedG1Affine {
+    fn deserialize(&self, deserializer: &mut D) -> Result<G1Affine, D::Error> {
+        let infinity = <u8 as RkyvDeserialize<u8, D>>::deserialize(&self.infinity, deserializer)?;
+        let infinity = Choice::from(infinity);
+
+        Ok(G1Affine {
+            x: self.x.deserialize(deserializer)?,
+            y: self.y.deserialize(deserializer)?,
+            infinity,
+        })
+    }
 }
 
 #[cfg(feature = "canon")]
@@ -479,6 +548,7 @@ fn endomorphism(p: &G1Affine) -> G1Affine {
 /// This is an element of $\mathbb{G}_1$ represented in the projective coordinate space.
 #[derive(Copy, Clone, Debug)]
 #[cfg_attr(feature = "canon", derive(Canon))]
+#[cfg_attr(feature = "rkyv", derive(Archive, RkyvSerialize, RkyvDeserialize))]
 pub struct G1Projective {
     x: Fp,
     y: Fp,

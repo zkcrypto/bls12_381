@@ -48,6 +48,9 @@ mod scalar;
 pub use scalar::Scalar as BlsScalar;
 pub use scalar::{GENERATOR, ROOT_OF_UNITY, TWO_ADACITY};
 
+#[cfg(feature = "rkyv")]
+pub use scalar::{ArchivedScalar as ArchivedBlsScalar, ScalarResolver as BlsScalarResolver};
+
 #[cfg(feature = "groups")]
 mod fp;
 #[cfg(feature = "groups")]
@@ -59,8 +62,15 @@ mod g2;
 
 #[cfg(feature = "groups")]
 pub use g1::{G1Affine, G1Projective};
+
+#[cfg(all(feature = "groups", feature = "rkyv"))]
+pub use g1::{ArchivedG1Affine, G1AffineResolver};
+
 #[cfg(feature = "groups")]
 pub use g2::{G2Affine, G2Projective};
+
+#[cfg(all(feature = "groups", feature = "rkyv"))]
+pub use g2::{ArchivedG2Affine, G2AffineResolver};
 
 #[cfg(feature = "groups")]
 mod fp12;
@@ -79,8 +89,14 @@ mod pairings;
 #[cfg(feature = "pairings")]
 pub use pairings::{pairing, Gt, MillerLoopResult};
 
+#[cfg(all(feature = "pairings", feature = "rkyv"))]
+pub use pairings::{ArchivedGt, ArchivedMillerLoopResult, GtResolver, MillerLoopResultResolver};
+
 #[cfg(all(feature = "pairings", feature = "alloc"))]
 pub use pairings::{multi_miller_loop, G2Prepared};
+
+#[cfg(all(feature = "pairings", feature = "rkyv"))]
+pub use pairings::{ArchivedG2Prepared, G2PreparedResolver};
 
 #[cfg(all(feature = "groups", feature = "alloc"))]
 pub mod multiscalar_mul;

@@ -12,6 +12,9 @@ use serde::{
     self, de::Visitor, ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer,
 };
 
+#[cfg(feature = "rkyv")]
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
+
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::util::{adc, mac, sbb};
@@ -21,6 +24,7 @@ use crate::util::{adc, mac, sbb};
 // Montgomery form; i.e., Scalar(a) = aR mod p, with R = 2^384.
 #[derive(Copy, Clone)]
 #[cfg_attr(feature = "canon", derive(Canon))]
+#[cfg_attr(feature = "rkyv", derive(Archive, RkyvSerialize, RkyvDeserialize))]
 pub struct Fp([u64; 6]);
 
 impl fmt::Debug for Fp {
