@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] - 2022-07-27
+
 ### Added
 - `rkyv` implementation behind feature gate [#90](https://github.com/dusk-network/bls12_381/issues/90)
 - Derive `Hash` for `BlsScalar`
@@ -140,7 +142,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rename `S` to `TWO_ADACITY` and export it
 
 <!-- Versions -->
-[unreleased]: https://github.com/dusk-network/bls12_381/compare/v0.10.0...HEAD
+[unreleased]: https://github.com/dusk-network/bls12_381/compare/v0.10.1...HEAD
+[0.10.1]: https://github.com/dusk-network/bls12_381/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/dusk-network/bls12_381/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/dusk-network/bls12_381/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/dusk-network/bls12_381/compare/v0.7.0...v0.8.0
