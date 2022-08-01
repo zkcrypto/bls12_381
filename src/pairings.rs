@@ -344,7 +344,7 @@ impl Archive for G2Prepared {
 #[cfg(feature = "rkyv")]
 impl<S> RkyvSerialize<S> for G2Prepared
 where
-    S: RkyvSerializer + ScratchSpace,
+    S: RkyvSerializer + ScratchSpace + ?Sized,
 {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         let choice = self.infinity.unwrap_u8();
