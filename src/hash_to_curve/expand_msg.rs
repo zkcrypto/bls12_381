@@ -102,68 +102,18 @@ pub trait Message {
     ///
     /// The parameters to successive calls to `f` are treated as a
     /// single concatenated octet string.
-    fn consume(self, f: impl FnMut(&[u8]));
+    fn input_message(self, f: impl FnMut(&[u8]));
 }
 
-impl Message for &[u8] {
-    #[inline]
-    fn consume(self, mut f: impl FnMut(&[u8])) {
-        f(self)
-    }
-}
-
-impl<const N: usize> Message for &[u8; N] {
-    #[inline]
-    fn consume(self, mut f: impl FnMut(&[u8])) {
-        f(self)
-    }
-}
-
-impl Message for &str {
-    #[inline]
-    fn consume(self, mut f: impl FnMut(&[u8])) {
-        f(self.as_bytes())
-    }
-}
-
-impl Message for &[&[u8]] {
-    #[inline]
-    fn consume(self, mut f: impl FnMut(&[u8])) {
+impl<M, I> Message for I
+where
+    M: AsRef<[u8]>,
+    I: IntoIterator<Item = M>,
+{
+    fn input_message(self, mut f: impl FnMut(&[u8])) {
         for msg in self {
-            f(msg);
+            f(msg.as_ref())
         }
-    }
-}
-
-#[cfg(feature = "alloc")]
-impl Message for Vec<u8> {
-    #[inline]
-    fn consume(self, mut f: impl FnMut(&[u8])) {
-        f(self.as_slice())
-    }
-}
-
-#[cfg(feature = "alloc")]
-impl Message for &Vec<u8> {
-    #[inline]
-    fn consume(self, mut f: impl FnMut(&[u8])) {
-        f(self.as_slice())
-    }
-}
-
-#[cfg(feature = "alloc")]
-impl Message for alloc::string::String {
-    #[inline]
-    fn consume(self, mut f: impl FnMut(&[u8])) {
-        f(self.as_bytes())
-    }
-}
-
-#[cfg(feature = "alloc")]
-impl Message for &alloc::string::String {
-    #[inline]
-    fn consume(self, mut f: impl FnMut(&[u8])) {
-        f(self.as_bytes())
     }
 }
 
@@ -230,7 +180,7 @@ where
 
         let dst = ExpandMsgDst::for_xof::<H, L>(dst);
         let mut hash = H::default();
-        message.consume(|m| hash.update(m));
+        message.input_message(|m| hash.update(m));
         let reader = hash
             .chain((len_in_bytes as u16).to_be_bytes())
             .chain(dst.data())
@@ -294,7 +244,7 @@ where
         let dst = ExpandMsgDst::for_xmd::<H>(dst);
         let mut hash_b_0 =
             H::default().chain(GenericArray::<u8, <H as BlockInput>::BlockSize>::default());
-        message.consume(|m| hash_b_0.update(m));
+        message.input_message(|m| hash_b_0.update(m));
         let b_0 = hash_b_0
             .chain((len_in_bytes as u16).to_be_bytes())
             .chain([0u8])

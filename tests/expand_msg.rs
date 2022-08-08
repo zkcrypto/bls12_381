@@ -4,6 +4,22 @@ use hex_literal::hex;
 use sha2::{Sha256, Sha512};
 use sha3::{Shake128, Shake256};
 
+#[test]
+fn test_expand_message_parts() {
+    const EXPAND_LEN: usize = 16;
+    let mut b1 = [0u8; EXPAND_LEN];
+    let mut b2 = [0u8; EXPAND_LEN];
+    <ExpandMsgXmd<Sha256> as ExpandMessage>::init_expand::<_, U32>(
+        [b"sig" as &[u8], b"nature"],
+        &[],
+        EXPAND_LEN,
+    )
+    .read_into(&mut b1);
+    <ExpandMsgXmd<Sha256> as ExpandMessage>::init_expand::<_, U32>([b"signature"], &[], EXPAND_LEN)
+        .read_into(&mut b2);
+    assert_eq!(b1, b2);
+}
+
 struct TestCase {
     msg: &'static [u8],
     dst: &'static [u8],
@@ -16,7 +32,7 @@ impl TestCase {
     pub fn run<E: ExpandMessage>(self) {
         let mut buf = [0u8; 128];
         let output = &mut buf[..self.len_in_bytes];
-        E::init_expand::<_, U32>(self.msg, self.dst, self.len_in_bytes).read_into(output);
+        E::init_expand::<_, U32>([self.msg], self.dst, self.len_in_bytes).read_into(output);
         if output != self.uniform_bytes {
             panic!(
                 "Failed: expand_message.\n\
