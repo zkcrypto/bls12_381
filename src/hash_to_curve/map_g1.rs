@@ -505,23 +505,10 @@ impl HashToField for Fp {
     type InputLength = U64;
 
     fn from_okm(okm: &GenericArray<u8, U64>) -> Fp {
-        const F_2_256: Fp = Fp::from_raw_unchecked([
-            0x075b_3cd7_c5ce_820f,
-            0x3ec6_ba62_1c3e_db0b,
-            0x168a_13d8_2bff_6bce,
-            0x8766_3c4b_f8c4_49d2,
-            0x15f3_4c83_ddc8_d830,
-            0x0f96_28b4_9caa_2e85,
-        ]);
-
-        let mut bs = [0u8; 48];
-        bs[16..].copy_from_slice(&okm[..32]);
-        let db = Fp::from_bytes(&bs).unwrap();
-
-        bs[16..].copy_from_slice(&okm[32..]);
-        let da = Fp::from_bytes(&bs).unwrap();
-
-        db * F_2_256 + da
+        let mut bs = [0u8; 96];
+        bs[32..].copy_from_slice(&okm);
+        bs.reverse(); // into little endian
+        Fp::from_bytes_wide(&bs)
     }
 }
 
@@ -529,10 +516,8 @@ impl Sgn0 for Fp {
     fn sgn0(&self) -> Choice {
         // Turn into canonical form by computing
         // (a.R) / R = a
-        let tmp = Fp::montgomery_reduce(
-            self.0[0], self.0[1], self.0[2], self.0[3], self.0[4], self.0[5], 0, 0, 0, 0, 0, 0,
-        );
-        Choice::from((tmp.0[0] & 1) as u8)
+        let tmp = self.to_canonical();
+        Choice::from((tmp.as_words()[0] & 1) as u8)
     }
 }
 
