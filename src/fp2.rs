@@ -11,14 +11,17 @@ use serde::{
     self, de::Visitor, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer,
 };
 
-#[cfg(feature = "rkyv")]
+#[cfg(feature = "rkyv-impl")]
+use bytecheck::CheckBytes;
+#[cfg(feature = "rkyv-impl")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 
 use crate::fp::Fp;
 
 #[derive(Copy, Clone)]
 #[cfg_attr(feature = "canon", derive(Canon))]
-#[cfg_attr(feature = "rkyv", derive(Archive, RkyvSerialize, RkyvDeserialize))]
+#[cfg_attr(feature = "rkyv-impl", derive(Archive, RkyvSerialize, RkyvDeserialize))]
+#[cfg_attr(feature = "rkyv-impl", archive_attr(derive(CheckBytes)))]
 pub struct Fp2 {
     pub c0: Fp,
     pub c1: Fp,

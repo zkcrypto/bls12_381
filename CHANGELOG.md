@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add `rkyv-impl` feature
+- Add implementation of `CheckBytes`
+
+### Change
+- Move `rkyv`-related implementations behind the `rkyv-impl` feature
+
 ### Remove
 - `Sized` bound from `G2Prepared` `rkyv::Serialize` implementation [#94](https://github.com/dusk-network/bls12_381/issues/94)
 

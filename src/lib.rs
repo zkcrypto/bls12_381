@@ -48,7 +48,7 @@ mod scalar;
 pub use scalar::Scalar as BlsScalar;
 pub use scalar::{GENERATOR, ROOT_OF_UNITY, TWO_ADACITY};
 
-#[cfg(feature = "rkyv")]
+#[cfg(feature = "rkyv-impl")]
 pub use scalar::{ArchivedScalar as ArchivedBlsScalar, ScalarResolver as BlsScalarResolver};
 
 #[cfg(feature = "groups")]

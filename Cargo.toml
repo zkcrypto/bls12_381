@@ -6,7 +6,7 @@ homepage = "https://github.com/dusk-network/bls12_381"
 license = "MIT/Apache-2.0"
 name = "dusk-bls12_381"
 repository = "https://github.com/dusk-network/bls12_381"
-version = "0.10.1"
+version = "0.11.0-rc.0"
 keywords = ["cryptography", "bls12_381", "zk-snarks", "ecc", "elliptic-curve"]
 categories =["Algorithms", "Cryptography", "Development tools"]
 edition = "2021"
@@ -22,6 +22,7 @@ rand_core = {version = "0.6", default-features = false}
 canonical = {version = "0.7", optional = true}
 canonical_derive = {version = "0.7", optional = true}
 rkyv = {version = "0.7", optional = true}
+bytecheck = {version = "0.6", optional = true}
 dusk-bytes = "0.1"
 
 [package.metadata.docs.rs]
@@ -57,5 +58,6 @@ pairings = ["groups"]
 alloc = []
 nightly = ["subtle/nightly"]
 canon = ["canonical", "canonical_derive"]
+rkyv-impl = ["rkyv/validation", "bytecheck"]
 serde_req = ["serde", "std"]
 endo = []
