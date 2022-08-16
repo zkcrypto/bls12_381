@@ -16,7 +16,9 @@ use canonical_derive::Canon;
 #[cfg(feature = "serde_req")]
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
-#[cfg(feature = "rkyv")]
+#[cfg(feature = "rkyv-impl")]
+use bytecheck::{CheckBytes, ErrorBox, StructCheckError};
+#[cfg(feature = "rkyv-impl")]
 use rkyv::{
     out_field, Archive, Deserialize as RkyvDeserialize, Fallible, Serialize as RkyvSerialize,
 };
@@ -34,7 +36,7 @@ pub struct G1Affine {
     infinity: Choice,
 }
 
-#[cfg(feature = "rkyv")]
+#[cfg(feature = "rkyv-impl")]
 #[allow(missing_docs)]
 #[allow(missing_debug_implementations)]
 pub struct ArchivedG1Affine {
@@ -43,7 +45,36 @@ pub struct ArchivedG1Affine {
     infinity: <u8 as Archive>::Archived,
 }
 
-#[cfg(feature = "rkyv")]
+#[cfg(feature = "rkyv-impl")]
+impl<C> CheckBytes<C> for ArchivedG1Affine {
+    type Error = StructCheckError;
+
+    unsafe fn check_bytes<'a>(
+        value: *const Self,
+        context: &mut C,
+    ) -> Result<&'a Self, Self::Error> {
+        <<Fp as Archive>::Archived as CheckBytes<C>>::check_bytes(&(*value).x, context).map_err(
+            |e| StructCheckError {
+                field_name: "x",
+                inner: ErrorBox::new(e),
+            },
+        )?;
+        <<Fp as Archive>::Archived as CheckBytes<C>>::check_bytes(&(*value).y, context).map_err(
+            |e| StructCheckError {
+                field_name: "y",
+                inner: ErrorBox::new(e),
+            },
+        )?;
+        <<u8 as Archive>::Archived as CheckBytes<C>>::check_bytes(&(*value).infinity, context)
+            .map_err(|e| StructCheckError {
+                field_name: "infinity",
+                inner: ErrorBox::new(e),
+            })?;
+        Ok(&*value)
+    }
+}
+
+#[cfg(feature = "rkyv-impl")]
 #[allow(missing_docs)]
 #[allow(missing_debug_implementations)]
 pub struct G1AffineResolver {
@@ -52,7 +83,7 @@ pub struct G1AffineResolver {
     infinity: <u8 as Archive>::Resolver,
 }
 
-#[cfg(feature = "rkyv")]
+#[cfg(feature = "rkyv-impl")]
 impl Archive for G1Affine {
     type Archived = ArchivedG1Affine;
     type Resolver = G1AffineResolver;
@@ -71,7 +102,7 @@ impl Archive for G1Affine {
     }
 }
 
-#[cfg(feature = "rkyv")]
+#[cfg(feature = "rkyv-impl")]
 impl<S: Fallible + ?Sized> RkyvSerialize<S> for G1Affine {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         let choice = self.infinity.unwrap_u8();
@@ -84,7 +115,7 @@ impl<S: Fallible + ?Sized> RkyvSerialize<S> for G1Affine {
     }
 }
 
-#[cfg(feature = "rkyv")]
+#[cfg(feature = "rkyv-impl")]
 impl<D: Fallible + ?Sized> RkyvDeserialize<G1Affine, D> for ArchivedG1Affine {
     fn deserialize(&self, deserializer: &mut D) -> Result<G1Affine, D::Error> {
         let infinity = <u8 as RkyvDeserialize<u8, D>>::deserialize(&self.infinity, deserializer)?;
@@ -548,7 +579,8 @@ fn endomorphism(p: &G1Affine) -> G1Affine {
 /// This is an element of $\mathbb{G}_1$ represented in the projective coordinate space.
 #[derive(Copy, Clone, Debug)]
 #[cfg_attr(feature = "canon", derive(Canon))]
-#[cfg_attr(feature = "rkyv", derive(Archive, RkyvSerialize, RkyvDeserialize))]
+#[cfg_attr(feature = "rkyv-impl", derive(Archive, RkyvSerialize, RkyvDeserialize))]
+#[cfg_attr(feature = "rkyv-impl", archive_attr(derive(CheckBytes)))]
 pub struct G1Projective {
     x: Fp,
     y: Fp,

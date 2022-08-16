@@ -15,7 +15,9 @@ use serde::{
     self, de::Visitor, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer,
 };
 
-#[cfg(feature = "rkyv")]
+#[cfg(feature = "rkyv-impl")]
+use bytecheck::{CheckBytes, ErrorBox, StructCheckError};
+#[cfg(feature = "rkyv-impl")]
 use rkyv::{
     out_field,
     ser::{ScratchSpace, Serializer as RkyvSerializer},
@@ -29,7 +31,8 @@ use alloc::vec::Vec;
 /// of the pairing function. `MillerLoopResult`s cannot be compared with each
 /// other until `.final_exponentiation()` is called, which is also expensive.
 #[derive(Copy, Clone, Debug)]
-#[cfg_attr(feature = "rkyv", derive(Archive, RkyvDeserialize, RkyvSerialize))]
+#[cfg_attr(feature = "rkyv-impl", derive(Archive, RkyvDeserialize, RkyvSerialize))]
+#[cfg_attr(feature = "rkyv-impl", archive_attr(derive(CheckBytes)))]
 pub struct MillerLoopResult(pub(crate) Fp12);
 
 impl ConditionallySelectable for MillerLoopResult {
@@ -191,7 +194,8 @@ impl_add_binop_specify_output!(MillerLoopResult, MillerLoopResult, MillerLoopRes
 /// Typically, $\mathbb{G}_T$ is written multiplicatively but we will write it additively to
 /// keep code and abstractions consistent.
 #[derive(Copy, Clone, Debug)]
-#[cfg_attr(feature = "rkyv", derive(Archive, RkyvDeserialize, RkyvSerialize))]
+#[cfg_attr(feature = "rkyv-impl", derive(Archive, RkyvDeserialize, RkyvSerialize))]
+#[cfg_attr(feature = "rkyv-impl", archive_attr(derive(CheckBytes)))]
 pub struct Gt(pub(crate) Fp12);
 
 impl ConstantTimeEq for Gt {
@@ -303,13 +307,12 @@ impl_binops_multiplicative!(Gt, BlsScalar);
 /// Requires the `alloc` and `pairing` crate features to be enabled.
 #[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
-// #[cfg_attr(feature = "rkyv", derive(Archive, RkyvDeserialize, RkyvSerialize))]
 pub struct G2Prepared {
     infinity: Choice,
     coeffs: Vec<(Fp2, Fp2, Fp2)>,
 }
 
-#[cfg(feature = "rkyv")]
+#[cfg(feature = "rkyv-impl")]
 #[allow(missing_docs)]
 #[allow(missing_debug_implementations)]
 pub struct ArchivedG2Prepared {
@@ -317,7 +320,36 @@ pub struct ArchivedG2Prepared {
     coeffs: <Vec<(Fp2, Fp2, Fp2)> as Archive>::Archived,
 }
 
-#[cfg(feature = "rkyv")]
+#[cfg(feature = "rkyv-impl")]
+impl<C> CheckBytes<C> for ArchivedG2Prepared
+where
+    C: rkyv::validation::ArchiveContext + ?Sized,
+    C::Error: bytecheck::Error,
+{
+    type Error = StructCheckError;
+
+    unsafe fn check_bytes<'a>(
+        value: *const Self,
+        context: &mut C,
+    ) -> Result<&'a Self, Self::Error> {
+        <<u8 as Archive>::Archived as CheckBytes<C>>::check_bytes(&(*value).infinity, context)
+            .map_err(|e| StructCheckError {
+                field_name: "infinity",
+                inner: ErrorBox::new(e),
+            })?;
+        <<Vec<(Fp2, Fp2, Fp2)> as Archive>::Archived as CheckBytes<C>>::check_bytes(
+            &(*value).coeffs,
+            context,
+        )
+        .map_err(|e| StructCheckError {
+            field_name: "coeffs",
+            inner: ErrorBox::new(e),
+        })?;
+        Ok(&*value)
+    }
+}
+
+#[cfg(feature = "rkyv-impl")]
 #[allow(missing_docs)]
 #[allow(missing_debug_implementations)]
 pub struct G2PreparedResolver {
@@ -325,7 +357,7 @@ pub struct G2PreparedResolver {
     coeffs: <Vec<(Fp2, Fp2, Fp2)> as Archive>::Resolver,
 }
 
-#[cfg(feature = "rkyv")]
+#[cfg(feature = "rkyv-impl")]
 impl Archive for G2Prepared {
     type Archived = ArchivedG2Prepared;
     type Resolver = G2PreparedResolver;
@@ -341,7 +373,7 @@ impl Archive for G2Prepared {
     }
 }
 
-#[cfg(feature = "rkyv")]
+#[cfg(feature = "rkyv-impl")]
 impl<S> RkyvSerialize<S> for G2Prepared
 where
     S: RkyvSerializer + ScratchSpace + ?Sized,
@@ -359,7 +391,7 @@ where
     }
 }
 
-#[cfg(feature = "rkyv")]
+#[cfg(feature = "rkyv-impl")]
 impl<D: Fallible + ?Sized> RkyvDeserialize<G2Prepared, D> for ArchivedG2Prepared {
     fn deserialize(&self, deserializer: &mut D) -> Result<G2Prepared, D::Error> {
         let infinity = <u8 as RkyvDeserialize<u8, D>>::deserialize(&self.infinity, deserializer)?;
