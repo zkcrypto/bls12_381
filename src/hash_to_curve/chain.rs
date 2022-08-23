@@ -876,14 +876,15 @@ mod tests {
     #[test]
     fn test_fp_chain() {
         let mut rng = rand_xorshift::XorShiftRng::from_seed(SEED);
-        let p_m3_over4 = [
-            0xee7f_bfff_ffff_eaaa,
-            0x07aa_ffff_ac54_ffff,
-            0xd9cc_34a8_3dac_3d89,
-            0xd91d_d2e1_3ce1_44af,
-            0x92c6_e9ed_90d2_eb35,
-            0x0680_447a_8e5f_f9a6,
-        ];
+        use crypto_bigint::U384;
+        let p_m3_over4 = U384::from_be_hex(
+            "0680447a8e5ff9a6\
+             92c6e9ed90d2eb35\
+             d91dd2e13ce144af\
+             d9cc34a83dac3d89\
+             07aaffffac54ffff\
+             ee7fbfffffffeaaa",
+        );
 
         for _ in 0..32 {
             let input = Fp::random(&mut rng);

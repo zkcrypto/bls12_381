@@ -3,21 +3,20 @@
 
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use crypto_bigint::{Encoding, Limb, U384};
+use crypto_bigint::{nlimbs, CheckedSub, Encoding, UInt, Zero, U384};
 use rand_core::RngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
-use crate::util::{
-    uint_montgomery_reduce, uint_mul_mod, uint_pow_vartime, uint_reduction_inv, uint_square_mod,
-    uint_sum_of_products_mod, uint_try_sub,
-};
+use crate::util::Montgomery;
+
+type Inner = U384;
 
 // The internal representation of this type is six 64-bit unsigned
 // integers in little-endian order. `Fp` values are always in
 // Montgomery form; i.e., Scalar(a) = aR mod p, with R = 2^384.
 #[derive(Copy, Clone, Eq)]
 #[repr(transparent)]
-pub struct Fp(pub(crate) U384);
+pub struct Fp(pub(crate) Inner);
 
 impl fmt::Debug for Fp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -54,52 +53,19 @@ impl PartialEq for Fp {
 
 impl ConditionallySelectable for Fp {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
-        Fp(U384::conditional_select(&a.0, &b.0, choice))
+        Fp(Inner::conditional_select(&a.0, &b.0, choice))
     }
 }
 
-/// Constant representing the modulus (p)
-const MODULUS: U384 = U384::from_be_hex(
+/// The field definition with associated helper functions.
+const FIELD: Montgomery<{ nlimbs!(384) }> = Montgomery::new(Inner::from_be_hex(
     "1a0111ea397fe69a\
      4b1ba7b6434bacd7\
      64774b84f38512bf\
      6730d2a0f6b0f624\
      1eabfffeb153ffff\
      b9feffffffffaaab",
-);
-
-/// INV = -(p^{-1} mod 2^64) mod 2^64
-const INV: Limb = uint_reduction_inv(&MODULUS);
-
-/// R = 2^384 mod p
-const R: U384 = U384::from_be_hex(
-    "15f65ec3fa80e493\
-     5c071a97a256ec6d\
-     77ce585370525745\
-     5f48985753c758ba\
-     ebf4000bc40c0002\
-     760900000002fffd",
-);
-
-/// R2 = 2^(384*2) mod p
-const R2: U384 = U384::from_be_hex(
-    "11988fe592cae3aa\
-     9a793e85b519952d\
-     67eb88a9939d83c0\
-     8de5476c4c95b6d5\
-     0a76e6a609d104f1\
-     f4df1f341c341746",
-);
-
-/// R3 = 2^(384*3) mod p
-const R3: U384 = U384::from_be_hex(
-    "0aa6346091755d4d\
-     2512d43565724728\
-     34c04e5e921e1761\
-     9a53352a615e29dd\
-     315f831e03a7adf8\
-     ed48ac6bd94ca1e0",
-);
+));
 
 impl<'a> Neg for &'a Fp {
     type Output = Fp;
@@ -153,33 +119,26 @@ impl Fp {
     /// Returns zero, the additive identity.
     #[inline]
     pub const fn zero() -> Fp {
-        Fp(U384::ZERO)
+        Fp(Inner::ZERO)
     }
 
     /// Returns one, the multiplicative identity.
     #[inline]
     pub const fn one() -> Fp {
-        Fp(R)
+        Fp(FIELD.one())
     }
 
+    #[inline]
     pub fn is_zero(&self) -> Choice {
-        self.0.ct_eq(&U384::ZERO)
+        self.0.is_zero()
     }
 
     /// Attempts to convert a big-endian byte representation of
     /// a scalar into an `Fp`, failing if the input is not canonical.
     pub fn from_bytes(bytes: &[u8; 48]) -> CtOption<Fp> {
-        let tmp = U384::from_be_bytes(*bytes);
-
-        // Is the value smaller than the modulus?
-        let (_, borrow) = tmp.sbb(&MODULUS, Limb::ZERO);
-        let is_some = Choice::from((borrow.0 as u8) & 1);
-
-        // Convert to Montgomery form by computing
-        // (a.R^0 * R^2) / R = a.R
-        let res = Self::from_canonical(tmp);
-
-        CtOption::new(res, is_some)
+        FIELD
+            .try_from_canonical(&Inner::from_be_bytes(*bytes))
+            .map(|s| Fp(s))
     }
 
     /// Converts an element of `Fp` into a byte representation in
@@ -188,28 +147,26 @@ impl Fp {
         self.to_canonical().to_be_bytes()
     }
 
+    /// Converts a 768-bit little endian integer into a `Fp` by
+    /// reducing by the modulus.
     pub fn from_bytes_wide(bytes: &[u8; 96]) -> Self {
-        let d0 = U384::from_le_bytes(bytes[0..48].try_into().unwrap());
-        let d1 = U384::from_le_bytes(bytes[48..96].try_into().unwrap());
-        let (l0, h0) = d0.mul_wide(&R2);
-        let (l1, h1) = d1.mul_wide(&R3);
-        let (lo, carry) = l0.adc(&l1, crypto_bigint::Limb::ZERO);
-        // will not carry because R2 and R3 are both mod p
-        let (hi, _) = h0.adc(&h1, carry);
-        Fp(uint_montgomery_reduce(lo, hi, &MODULUS, INV))
+        let lo = Inner::from_le_bytes(bytes[0..48].try_into().unwrap());
+        let hi = Inner::from_le_bytes(bytes[48..96].try_into().unwrap());
+        Fp(FIELD.from_canonical_wide(lo, hi))
     }
 
     /// Converts from a canonical element represented by a U384.
     #[inline]
-    pub(crate) const fn from_canonical(val: U384) -> Self {
-        Fp(uint_mul_mod(&val, &R2, &MODULUS, INV))
+    #[allow(unused)]
+    pub(crate) const fn from_canonical(val: Inner) -> Self {
+        Fp(FIELD.from_canonical(&val))
     }
 
     /// Turn into canonical form by computing
     /// (a.R) / R = a
     #[inline]
-    pub(crate) const fn to_canonical(&self) -> U384 {
-        uint_montgomery_reduce(self.0, U384::ZERO, &MODULUS, INV)
+    pub(crate) const fn to_canonical(&self) -> Inner {
+        FIELD.to_canonical(&self.0)
     }
 
     pub(crate) fn random(mut rng: impl RngCore) -> Fp {
@@ -225,7 +182,7 @@ impl Fp {
         // larger than (p - 1) // 2. If we subtract by ((p - 1) // 2) + 1
         // and there is no underflow, then the element must be larger than
         // (p - 1) // 2.
-        const SUB_BY: U384 = U384::from_be_hex(
+        const SUB_BY: Inner = Inner::from_be_hex(
             "0d0088f51cbff34d\
              258dd3db21a5d66b\
              b23ba5c279c2895f\
@@ -237,33 +194,27 @@ impl Fp {
         // First, because self is in Montgomery form we need to reduce it
         let tmp = self.to_canonical();
 
-        let (_, borrow) = tmp.sbb(&SUB_BY, Limb::ZERO);
-
-        // If the element was smaller, the subtraction will underflow
-        // producing a borrow value of 0xffff...ffff, otherwise it will
-        // be zero. We create a Choice representing true if there was
-        // overflow (and so this element is not lexicographically larger
-        // than its negation) and then negate it.
-        !Choice::from((borrow.0 as u8) & 1)
+        // The checked sub will be defined when tmp >= SUB_BY.
+        tmp.checked_sub(&SUB_BY).is_some()
     }
 
     /// Constructs an element of `Fp` without checking that it is
     /// canonical.
     pub const fn from_raw_unchecked(v: [u64; 6]) -> Fp {
-        Fp(uint_from_raw(v))
+        Fp(inner_from_raw(v))
     }
 
     #[inline]
     #[allow(unused)]
     pub(crate) const fn to_raw(&self) -> [u64; 6] {
-        uint_to_raw(self.0)
+        inner_to_raw(self.0)
     }
 
     /// Although this is labeled "vartime", it is only
     /// variable time with respect to the exponent. It
     /// is also not exposed in the public API.
-    pub const fn pow_vartime(&self, by: &[u64; 6]) -> Self {
-        Fp(uint_pow_vartime(&self.0, by, &R, &MODULUS, INV))
+    pub const fn pow_vartime<const T: usize>(&self, by: &UInt<T>) -> Self {
+        Fp(FIELD.pow_vartime(&self.0, by))
     }
 
     #[inline]
@@ -272,15 +223,16 @@ impl Fp {
         // we only need to exponentiate by (p+1)/4. This only
         // works for elements that are actually quadratic residue,
         // so we check that we got the correct result at the end.
+        const EXP: Inner = Inner::from_be_hex(
+            "0680447a8e5ff9a6\
+             92c6e9ed90d2eb35\
+             d91dd2e13ce144af\
+             d9cc34a83dac3d89\
+             07aaffffac54ffff\
+             ee7fbfffffffeaab",
+        );
 
-        let sqrt = self.pow_vartime(&[
-            0xee7f_bfff_ffff_eaab,
-            0x07aa_ffff_ac54_ffff,
-            0xd9cc_34a8_3dac_3d89,
-            0xd91d_d2e1_3ce1_44af,
-            0x92c6_e9ed_90d2_eb35,
-            0x0680_447a_8e5f_f9a6,
-        ]);
+        let sqrt = self.pow_vartime(&EXP);
 
         CtOption::new(sqrt, sqrt.square().ct_eq(self))
     }
@@ -291,63 +243,67 @@ impl Fp {
     /// is zero.
     pub fn invert(&self) -> CtOption<Self> {
         // Exponentiate by p - 2
-        let t = self.pow_vartime(&[
-            0xb9fe_ffff_ffff_aaa9,
-            0x1eab_fffe_b153_ffff,
-            0x6730_d2a0_f6b0_f624,
-            0x6477_4b84_f385_12bf,
-            0x4b1b_a7b6_434b_acd7,
-            0x1a01_11ea_397f_e69a,
-        ]);
+        const EXP: Inner = Inner::from_be_hex(
+            "1a0111ea397fe69a\
+             4b1ba7b6434bacd7\
+             64774b84f38512bf\
+             6730d2a0f6b0f624\
+             1eabfffeb153ffff\
+             b9feffffffffaaa9",
+        );
 
-        CtOption::new(t, !self.is_zero())
+        let inv = self.pow_vartime(&EXP);
+
+        CtOption::new(inv, !self.is_zero())
     }
 
     #[inline]
     pub const fn add(&self, rhs: &Fp) -> Fp {
-        // Because self + rhs never carries (we assume that both are < p),
-        // this is more efficient than U384::add_mod.
-        let (sum, _) = self.0.adc(&rhs.0, Limb::ZERO);
-        Fp(uint_try_sub(&sum, &MODULUS))
+        Fp(FIELD.add(&self.0, &rhs.0))
+    }
+
+    #[inline]
+    pub const fn double(&self) -> Fp {
+        Fp(FIELD.double(&self.0))
     }
 
     #[inline]
     pub const fn neg(&self) -> Fp {
-        Fp(self.0.neg_mod(&MODULUS))
+        Fp(FIELD.neg(&self.0))
     }
 
     #[inline]
     pub const fn sub(&self, rhs: &Fp) -> Fp {
-        Fp(self.0.sub_mod(&rhs.0, &MODULUS))
+        Fp(FIELD.sub(&self.0, &rhs.0))
     }
 
     /// Returns `c = a.zip(b).fold(0, |acc, (a_i, b_i)| acc + a_i * b_i)`.
     #[inline]
     pub(crate) fn sum_of_products<const T: usize>(a: [Fp; T], b: [Fp; T]) -> Fp {
         #[allow(unsafe_code)]
-        let ar = unsafe { &*((&a) as *const Fp as *const [U384; T]) };
+        let ar = unsafe { &*((&a) as *const Fp as *const [Inner; T]) };
         #[allow(unsafe_code)]
-        let br = unsafe { &*((&b) as *const Fp as *const [U384; T]) };
-        return Fp(uint_sum_of_products_mod(ar, br, &MODULUS, INV));
+        let br = unsafe { &*((&b) as *const Fp as *const [Inner; T]) };
+        return Fp(FIELD.sum_of_products(ar, br));
     }
 
     #[inline]
     pub const fn mul(&self, rhs: &Fp) -> Fp {
-        Fp(uint_mul_mod(&self.0, &rhs.0, &MODULUS, INV))
+        Fp(FIELD.mul(&self.0, &rhs.0))
     }
 
     /// Squares this element.
     #[inline]
     pub const fn square(&self) -> Self {
-        Fp(uint_square_mod(&self.0, &MODULUS, INV))
+        Fp(FIELD.square(&self.0))
     }
 }
 
 #[inline]
 #[cfg(target_pointer_width = "32")]
-const fn uint_from_raw(arr: [u64; 6]) -> U384 {
+const fn inner_from_raw(arr: [u64; 6]) -> Inner {
     const MASK: u64 = u32::MAX as u64;
-    U384::from_words([
+    Inner::from_words([
         (arr[0] & MASK) as u32,
         (arr[0] >> 32) as u32,
         (arr[1] & MASK) as u32,
@@ -365,13 +321,13 @@ const fn uint_from_raw(arr: [u64; 6]) -> U384 {
 
 #[inline]
 #[cfg(target_pointer_width = "64")]
-const fn uint_from_raw(arr: [u64; 6]) -> U384 {
-    U384::from_words(arr)
+const fn inner_from_raw(arr: [u64; 6]) -> Inner {
+    Inner::from_words(arr)
 }
 
 #[inline]
 #[cfg(target_pointer_width = "32")]
-const fn uint_to_raw(uint: U384) -> [u64; 6] {
+const fn inner_to_raw(uint: Inner) -> [u64; 6] {
     let words = uint.as_words();
     [
         (words[0] as u64) | ((words[1] as u64) << 32),
@@ -385,40 +341,23 @@ const fn uint_to_raw(uint: U384) -> [u64; 6] {
 
 #[inline]
 #[cfg(target_pointer_width = "64")]
-const fn uint_to_raw(uint: U384) -> [u64; 6] {
+const fn inner_to_raw(uint: Inner) -> [u64; 6] {
     uint.to_words()
 }
 
-#[cfg(target_pointer_width = "32")]
 #[test]
 fn test_inv() {
-    // Compute -(q^{-1} mod 2^32) mod 2^32 by exponentiating
-    // by totient(2**32) - 1
+    // Compute -(q^{-1} mod 2^{Limb::BIT_SIZE}) mod 2^{Limb::BIT_SIZE} by
+    // exponentiating by totient(2**{Limb::BIT_SIZE}) - 1
+    use crypto_bigint::Limb;
 
-    let mut inv = 1u32;
-    for _ in 0..31 {
+    let mut inv = Limb::ONE;
+    for _ in 0..(Limb::BIT_SIZE - 1) {
         inv = inv.wrapping_mul(inv);
-        inv = inv.wrapping_mul(MODULUS.as_words()[0]);
+        inv = inv.wrapping_mul(FIELD.modulus.limbs()[0]);
     }
-    inv = inv.wrapping_neg();
-
-    assert_eq!(Limb(inv), INV);
-}
-
-#[cfg(target_pointer_width = "64")]
-#[test]
-fn test_inv() {
-    // Compute -(q^{-1} mod 2^64) mod 2^64 by exponentiating
-    // by totient(2**64) - 1
-
-    let mut inv = 1u64;
-    for _ in 0..63 {
-        inv = inv.wrapping_mul(inv);
-        inv = inv.wrapping_mul(MODULUS.as_words()[0]);
-    }
-    inv = inv.wrapping_neg();
-
-    assert_eq!(Limb(inv), INV);
+    inv = Limb::ZERO.wrapping_sub(inv);
+    assert_eq!(inv, FIELD.inv);
 }
 
 #[test]

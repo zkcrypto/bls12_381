@@ -40,7 +40,7 @@ harness = false
 version = "0.4"
 default-features = false
 git = "https://github.com/RustCrypto/crypto-bigint"
-rev = "6f6245992ce9e2f1cdcedb75bf9c0c8e35fda3ad"
+rev = "2d0f41584890b8d097299da88887bbbdfb4ff2ad"
 
 [dependencies.digest]
 version = "0.9"

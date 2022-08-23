@@ -25,14 +25,17 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("Scalar square", move |b| b.iter(|| black_box(x).square()));
     c.bench_function("Scalar sqrt", move |b| b.iter(|| black_box(x).sqrt()));
     c.bench_function("Scalar invert", move |b| b.iter(|| black_box(x).invert()));
+    c.bench_function("Scalar pow", move |b| {
+        b.iter(|| black_box(x).pow(&[1111111, 22222222, 33333333, 44444444]))
+    });
     c.bench_function("Scalar from_bytes", move |b| {
         b.iter(|| Scalar::from_bytes(black_box(narrow)))
     });
-    c.bench_function("Scalar to_bytes", move |b| {
-        b.iter(|| black_box(x).to_bytes())
-    });
     c.bench_function("Scalar from_bytes_wide", move |b| {
         b.iter(|| Scalar::from_bytes_wide(black_box(&wide)))
+    });
+    c.bench_function("Scalar to_bytes", move |b| {
+        b.iter(|| black_box(x).to_bytes())
     });
 }
 
