@@ -254,6 +254,16 @@ impl Gt {
     }
 }
 
+impl Gt {
+    /// Serialize this element to an arbitrary unique bytestring
+    ///
+    /// No meaning should be ascribed to these bytes; they serve
+    /// only to identify this group element.
+    pub fn to_bytes(self) -> [u8; 576] {
+        self.0.to_bytes()
+    }
+}
+
 impl<'a> Neg for &'a Gt {
     type Output = Gt;
 
