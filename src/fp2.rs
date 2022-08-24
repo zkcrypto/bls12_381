@@ -353,6 +353,16 @@ impl Fp2 {
     }
 }
 
+impl Fp2 {
+    pub fn to_bytes(self) -> [u8; 2*48] {
+        let mut res = [0; 2*48];
+        res[..48].copy_from_slice(&self.c0.to_bytes());
+        res[48..].copy_from_slice(&self.c1.to_bytes());
+
+        res
+    }
+}
+
 #[test]
 fn test_conditional_selection() {
     let a = Fp2 {

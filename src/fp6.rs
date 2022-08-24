@@ -320,6 +320,16 @@ impl Fp6 {
     }
 }
 
+impl Fp6 {
+    pub fn to_bytes(self) -> [u8; 3*96] {
+        let mut res = [0; 3*96];
+        res[..96].copy_from_slice(&self.c0.to_bytes());
+        res[96..192].copy_from_slice(&self.c1.to_bytes());
+        res[192..].copy_from_slice(&self.c2.to_bytes());
+        res
+    }
+}
+
 impl<'a, 'b> Mul<&'b Fp6> for &'a Fp6 {
     type Output = Fp6;
 
