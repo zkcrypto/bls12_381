@@ -80,7 +80,7 @@ const MODULUS: Scalar = Scalar([
     0x73ed_a753_299d_7d48,
 ]);
 
-/// Constant representing (p - 1) / 2
+/// Constant representing (q - 1) / 2
 /// (q - 1) / 2 = 0x39f6d3a994cebea4199cec0404d0ec02a9ded2017fff2dff7fffffff80000000
 const MODULUES_MINUS_ONE_OVER_TWO: [u64; 4] = [
     0x7fffffff80000000,
