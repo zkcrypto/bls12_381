@@ -331,7 +331,7 @@ impl Fp {
     }
 
     #[inline]
-    /// Computes the legendre symbol of this element
+    /// Computes the legendre symbol of this element.
     pub fn legendre_symbol(&self) -> isize {
     let legendre = self.pow_vartime(&MODULUES_MINUS_ONE_OVER_TWO);
     if legendre == Fp::zero() {
