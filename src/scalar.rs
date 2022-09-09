@@ -80,6 +80,15 @@ const MODULUS: Scalar = Scalar([
     0x73ed_a753_299d_7d48,
 ]);
 
+/// Constant representing (p - 1) / 2
+/// (q - 1) / 2 = 0x39f6d3a994cebea4199cec0404d0ec02a9ded2017fff2dff7fffffff80000000
+const MODULUES_MINUS_ONE_OVER_TWO: [u64; 4] = [
+    0x7fffffff80000000,
+    0xa9ded2017fff2dff,
+    0x199cec0404d0ec02,
+    0x39f6d3a994cebea4
+];
+
 /// The modulus as u32 limbs.
 #[cfg(all(feature = "bits", not(target_pointer_width = "64")))]
 const MODULUS_LIMBS_32: [u32; 8] = [
@@ -341,6 +350,20 @@ impl Scalar {
         let (r7, _) = adc(0, r7, carry);
 
         Scalar::montgomery_reduce(r0, r1, r2, r3, r4, r5, r6, r7)
+    }
+
+    /// Computes the legendre symbol of this element
+    pub fn legendre_symbol(&self) -> isize {
+        let legendre = self.pow(&MODULUES_MINUS_ONE_OVER_TWO);
+        if legendre == Scalar::zero() {
+            0
+        }
+        else if legendre == Scalar::one() {
+            1
+        }
+        else {
+            -1
+        }
     }
 
     /// Computes the square root of this element, if it exists.
@@ -1172,6 +1195,16 @@ fn test_invert_is_pow() {
         r2 = r1;
         r3 = r1;
     }
+}
+
+#[test]
+fn test_legendre() {
+    let five = Scalar([5, 0, 0, 0]);
+
+    assert_eq!(Scalar::zero().legendre_symbol(), 0);
+    assert_eq!(Scalar::one().legendre_symbol(), 1);
+    assert_eq!((Scalar::one() + Scalar::one()).legendre_symbol(), 1);
+    assert_eq!(five.legendre_symbol(), -1);
 }
 
 #[test]
