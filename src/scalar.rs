@@ -352,7 +352,7 @@ impl Scalar {
         Scalar::montgomery_reduce(r0, r1, r2, r3, r4, r5, r6, r7)
     }
 
-    /// Computes the legendre symbol of this element
+    /// Computes the legendre symbol of this element.
     pub fn legendre_symbol(&self) -> isize {
         let legendre = self.pow(&MODULUES_MINUS_ONE_OVER_TWO);
         if legendre == Scalar::zero() {
