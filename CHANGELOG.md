@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Add support for `rkyv-impl` under `no_std`
+- Add wrapper type for `subtle::Choice`
+
+### Change
+- Derive manual implementations of `rkyv` trait by introducing a wrapper for the
+  `subtle::Choice` type
 
 ## [0.11.0] - 2022-08-17
 

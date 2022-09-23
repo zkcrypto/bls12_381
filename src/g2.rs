@@ -19,11 +19,9 @@ use canonical_derive::Canon;
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
 #[cfg(feature = "rkyv-impl")]
-use bytecheck::{CheckBytes, ErrorBox, StructCheckError};
+use bytecheck::CheckBytes;
 #[cfg(feature = "rkyv-impl")]
-use rkyv::{
-    out_field, Archive, Deserialize as RkyvDeserialize, Fallible, Serialize as RkyvSerialize,
-};
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 
 /// This is an element of $\mathbb{G}_2$ represented in the affine coordinate space.
 /// It is ideal to keep elements in this representation to reduce memory usage and
@@ -32,103 +30,12 @@ use rkyv::{
 /// Values of `G2Affine` are guaranteed to be in the $q$-order subgroup unless an
 /// "unchecked" API was misused.
 #[derive(Copy, Clone, HexDebug)]
+#[cfg_attr(feature = "rkyv-impl", derive(Archive, RkyvSerialize, RkyvDeserialize))]
+#[cfg_attr(feature = "rkyv-impl", archive_attr(derive(CheckBytes)))]
 pub struct G2Affine {
     pub(crate) x: Fp2,
     pub(crate) y: Fp2,
     infinity: choice::Choice,
-}
-
-#[cfg(feature = "rkyv-impl")]
-#[allow(missing_docs)]
-#[allow(missing_debug_implementations)]
-pub struct ArchivedG2Affine {
-    x: <Fp2 as Archive>::Archived,
-    y: <Fp2 as Archive>::Archived,
-    infinity: <u8 as Archive>::Archived,
-}
-
-#[cfg(feature = "rkyv-impl")]
-impl<C> CheckBytes<C> for ArchivedG2Affine {
-    type Error = StructCheckError;
-
-    unsafe fn check_bytes<'a>(
-        value: *const Self,
-        context: &mut C,
-    ) -> Result<&'a Self, Self::Error> {
-        <<Fp2 as Archive>::Archived as CheckBytes<C>>::check_bytes(&(*value).x, context).map_err(
-            |e| StructCheckError {
-                field_name: "x",
-                inner: ErrorBox::new(e),
-            },
-        )?;
-        <<Fp2 as Archive>::Archived as CheckBytes<C>>::check_bytes(&(*value).y, context).map_err(
-            |e| StructCheckError {
-                field_name: "y",
-                inner: ErrorBox::new(e),
-            },
-        )?;
-        <<u8 as Archive>::Archived as CheckBytes<C>>::check_bytes(&(*value).infinity, context)
-            .map_err(|e| StructCheckError {
-                field_name: "infinity",
-                inner: ErrorBox::new(e),
-            })?;
-        Ok(&*value)
-    }
-}
-
-#[cfg(feature = "rkyv-impl")]
-#[allow(missing_docs)]
-#[allow(missing_debug_implementations)]
-pub struct G2AffineResolver {
-    x: <Fp2 as Archive>::Resolver,
-    y: <Fp2 as Archive>::Resolver,
-    infinity: <u8 as Archive>::Resolver,
-}
-
-#[cfg(feature = "rkyv-impl")]
-impl Archive for G2Affine {
-    type Archived = ArchivedG2Affine;
-    type Resolver = G2AffineResolver;
-
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
-        let (fp, fo) = out_field!(out.x);
-        self.x.resolve(pos + fp, resolver.x, fo);
-
-        let (fp, fo) = out_field!(out.y);
-        self.y.resolve(pos + fp, resolver.y, fo);
-
-        let (fp, fo) = out_field!(out.infinity);
-        let infinity = self.infinity.unwrap_u8();
-        #[allow(clippy::unit_arg)]
-        infinity.resolve(pos + fp, resolver.infinity, fo);
-    }
-}
-
-#[cfg(feature = "rkyv-impl")]
-impl<S: Fallible + ?Sized> RkyvSerialize<S> for G2Affine {
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        let choice = self.infinity.unwrap_u8();
-
-        Ok(Self::Resolver {
-            x: <Fp2 as RkyvSerialize<S>>::serialize(&self.x, serializer)?,
-            y: <Fp2 as RkyvSerialize<S>>::serialize(&self.y, serializer)?,
-            infinity: <u8 as RkyvSerialize<S>>::serialize(&choice, serializer)?,
-        })
-    }
-}
-
-#[cfg(feature = "rkyv-impl")]
-impl<D: Fallible + ?Sized> RkyvDeserialize<G2Affine, D> for ArchivedG2Affine {
-    fn deserialize(&self, deserializer: &mut D) -> Result<G2Affine, D::Error> {
-        let infinity = <u8 as RkyvDeserialize<u8, D>>::deserialize(&self.infinity, deserializer)?;
-        let infinity = Choice::from(infinity);
-
-        Ok(G2Affine {
-            x: self.x.deserialize(deserializer)?,
-            y: self.y.deserialize(deserializer)?,
-            infinity,
-        })
-    }
 }
 
 #[cfg(feature = "canon")]
