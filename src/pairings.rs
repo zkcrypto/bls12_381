@@ -1,3 +1,4 @@
+use crate::choice;
 use crate::fp::Fp;
 use crate::fp12::Fp12;
 use crate::fp2::Fp2;
@@ -308,7 +309,7 @@ impl_binops_multiplicative!(Gt, BlsScalar);
 #[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
 pub struct G2Prepared {
-    infinity: Choice,
+    infinity: choice::Choice,
     coeffs: Vec<(Fp2, Fp2, Fp2)>,
 }
 
@@ -620,7 +621,7 @@ impl From<G2Affine> for G2Prepared {
         assert_eq!(adder.coeffs.len(), 68);
 
         G2Prepared {
-            infinity: is_identity,
+            infinity: is_identity.into(),
             coeffs: adder.coeffs,
         }
     }
@@ -643,7 +644,7 @@ pub fn multi_miller_loop(terms: &[(&G1Affine, &G2Prepared)]) -> MillerLoopResult
         fn doubling_step(&mut self, mut f: Self::Output) -> Self::Output {
             let index = self.index;
             for term in self.terms {
-                let either_identity = term.0.is_identity() | term.1.infinity;
+                let either_identity = term.0.is_identity() | Choice::from(term.1.infinity);
 
                 let new_f = ell(f, &term.1.coeffs[index], term.0);
                 f = Fp12::conditional_select(&new_f, &f, either_identity);
@@ -655,7 +656,7 @@ pub fn multi_miller_loop(terms: &[(&G1Affine, &G2Prepared)]) -> MillerLoopResult
         fn addition_step(&mut self, mut f: Self::Output) -> Self::Output {
             let index = self.index;
             for term in self.terms {
-                let either_identity = term.0.is_identity() | term.1.infinity;
+                let either_identity = term.0.is_identity() | Choice::from(term.1.infinity);
 
                 let new_f = ell(f, &term.1.coeffs[index], term.0);
                 f = Fp12::conditional_select(&new_f, &f, either_identity);

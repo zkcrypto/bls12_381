@@ -1,5 +1,6 @@
 //! This module provides an implementation of the $\mathbb{G}_1$ group of BLS12-381.
 
+use crate::choice;
 use crate::fp::Fp;
 use crate::BlsScalar;
 
@@ -33,7 +34,7 @@ use rkyv::{
 pub struct G1Affine {
     pub(crate) x: Fp,
     pub(crate) y: Fp,
-    infinity: Choice,
+    infinity: choice::Choice,
 }
 
 #[cfg(feature = "rkyv-impl")]
@@ -165,7 +166,7 @@ impl<'a> From<&'a G1Projective> for G1Affine {
         let tmp = G1Affine {
             x,
             y,
-            infinity: Choice::from(0u8),
+            infinity: From::from(0u8),
         };
 
         G1Affine::conditional_select(&tmp, &G1Affine::identity(), zinv.is_zero())
@@ -186,13 +187,13 @@ impl Serializable<48> for G1Affine {
     fn to_bytes(&self) -> [u8; Self::SIZE] {
         // Strictly speaking, self.x is zero already when self.infinity is true, but
         // to guard against implementation mistakes we do not assume this.
-        let mut res = Fp::conditional_select(&self.x, &Fp::zero(), self.infinity).to_bytes();
+        let mut res = Fp::conditional_select(&self.x, &Fp::zero(), self.infinity.into()).to_bytes();
 
         // This point is in compressed form, so we set the most significant bit.
         res[0] |= 1u8 << 7;
 
         // Is this point at infinity? If so, set the second-most significant bit.
-        res[0] |= u8::conditional_select(&0u8, &(1u8 << 6), self.infinity);
+        res[0] |= u8::conditional_select(&0u8, &(1u8 << 6), self.infinity.into());
 
         // Is the y-coordinate the lexicographically largest of the two associated with the
         // x-coordinate? If so, set the third-most significant bit so long as this is not
@@ -200,7 +201,7 @@ impl Serializable<48> for G1Affine {
         res[0] |= u8::conditional_select(
             &0u8,
             &(1u8 << 5),
-            (!self.infinity) & self.y.lexicographically_largest(),
+            (!Choice::from(self.infinity)) & self.y.lexicographically_largest(),
         );
 
         res
@@ -256,7 +257,7 @@ impl Serializable<48> for G1Affine {
                             G1Affine {
                                 x,
                                 y,
-                                infinity: infinity_flag_set,
+                                infinity: infinity_flag_set.into(),
                             },
                             (!infinity_flag_set) & // Infinity flag should not be set
                         compression_flag_set, // Compression flag should be set
@@ -327,12 +328,11 @@ impl ConstantTimeEq for G1Affine {
         // The only cases in which two points are equal are
         // 1. infinity is set on both
         // 2. infinity is not set on both, and their coordinates are equal
+        let infinity = Choice::from(self.infinity);
+        let other_infinity = Choice::from(other.infinity);
 
-        (self.infinity & other.infinity)
-            | ((!self.infinity)
-                & (!other.infinity)
-                & self.x.ct_eq(&other.x)
-                & self.y.ct_eq(&other.y))
+        (infinity & other_infinity)
+            | ((!infinity) & (!other_infinity) & self.x.ct_eq(&other.x) & self.y.ct_eq(&other.y))
     }
 }
 
@@ -341,7 +341,7 @@ impl ConditionallySelectable for G1Affine {
         G1Affine {
             x: Fp::conditional_select(&a.x, &b.x, choice),
             y: Fp::conditional_select(&a.y, &b.y, choice),
-            infinity: Choice::conditional_select(&a.infinity, &b.infinity, choice),
+            infinity: ConditionallySelectable::conditional_select(&a.infinity, &b.infinity, choice),
         }
     }
 }
@@ -361,7 +361,7 @@ impl<'a> Neg for &'a G1Affine {
     fn neg(self) -> G1Affine {
         G1Affine {
             x: self.x,
-            y: Fp::conditional_select(&-self.y, &Fp::one(), self.infinity),
+            y: Fp::conditional_select(&-self.y, &Fp::one(), self.infinity.into()),
             infinity: self.infinity,
         }
     }
@@ -445,7 +445,7 @@ impl G1Affine {
         G1Affine {
             x: Fp::zero(),
             y: Fp::one(),
-            infinity: Choice::from(1u8),
+            infinity: 1u8.into(),
         }
     }
 
@@ -469,7 +469,7 @@ impl G1Affine {
                 0xe1c8c3fad0059c0,
                 0xbbc3efc5008a26a,
             ]),
-            infinity: Choice::from(0u8),
+            infinity: 0u8.into(),
         }
     }
 
@@ -490,7 +490,7 @@ impl G1Affine {
             .zip(chunks)
             .for_each(|(n, c)| c.copy_from_slice(&n.to_le_bytes()));
 
-        bytes[Self::RAW_SIZE - 1] = self.infinity.unwrap_u8();
+        bytes[Self::RAW_SIZE - 1] = self.infinity.into();
 
         bytes
     }
@@ -532,7 +532,7 @@ impl G1Affine {
     /// Returns true if this element is the identity (the point at infinity).
     #[inline]
     pub fn is_identity(&self) -> Choice {
-        self.infinity
+        self.infinity.into()
     }
 
     /// Returns true if this point is free of an $h$-torsion component, and so it
@@ -553,7 +553,8 @@ impl G1Affine {
     /// true unless an "unchecked" API was used.
     pub fn is_on_curve(&self) -> Choice {
         // y^2 - x^3 ?= 4
-        (self.y.square() - (self.x.square() * self.x)).ct_eq(&B) | self.infinity
+        let infinity = Choice::from(self.infinity);
+        (self.y.square() - (self.x.square() * self.x)).ct_eq(&B) | infinity
     }
 }
 
@@ -592,7 +593,7 @@ impl<'a> From<&'a G1Affine> for G1Projective {
         G1Projective {
             x: p.x,
             y: p.y,
-            z: Fp::conditional_select(&Fp::one(), &Fp::zero(), p.infinity),
+            z: Fp::conditional_select(&Fp::one(), &Fp::zero(), p.infinity.into()),
         }
     }
 }
@@ -989,7 +990,7 @@ impl G1Projective {
 
             q.x = p.x * tmp2;
             q.y = p.y * tmp3;
-            q.infinity = Choice::from(0u8);
+            q.infinity = 0u8.into();
 
             *q = G1Affine::conditional_select(&q, &G1Affine::identity(), skip);
         }
@@ -1214,7 +1215,7 @@ mod tests {
                         0x25cfc2b522d11720,
                         0x6361c83f8d09b15
                     ]),
-                    infinity: Choice::from(0u8)
+                    infinity: 0u8.into()
                 }
             );
         }
@@ -1536,7 +1537,7 @@ mod tests {
                 0xf6a63f6f07f60961,
                 0xc53b5b97e634df3,
             ]),
-            infinity: Choice::from(0u8),
+            infinity: 0u8.into(),
         };
         assert!(!bool::from(a.is_torsion_free()));
 
