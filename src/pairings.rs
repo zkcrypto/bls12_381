@@ -210,6 +210,9 @@ impl<'b> AddAssign<&'b MillerLoopResult> for MillerLoopResult {
 #[derive(Copy, Clone, Debug)]
 pub struct Gt(pub(crate) Fp12);
 
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for Gt {}
+
 impl Default for Gt {
     fn default() -> Self {
         Self::identity()
@@ -974,4 +977,15 @@ fn tricking_miller_loop_result() {
         .final_exponentiation(),
         Gt::identity()
     );
+}
+
+#[cfg(feature = "zeroize")]
+#[test]
+fn test_gt_zeroize() {
+    use zeroize::Zeroize;
+
+    let mut gt = Gt::generator();
+
+    gt.zeroize();
+    assert_eq!(gt, Gt::identity());
 }
