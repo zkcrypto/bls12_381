@@ -1,4 +1,8 @@
-# bls12_381 [![Crates.io](https://img.shields.io/crates/v/bls12_381.svg)](https://crates.io/crates/bls12_381) #
+# ic_bls12_381 [![Crates.io](https://img.shields.io/crates/v/ic_bls12_381.svg)](https://crates.io/crates/ic_bls12_381) #
+
+This is a fork of the excellent [zkcrypto/bls12_381](https://github.com/zkcrypto/bls12_381) containing
+some modifications required to implement the Internet Computer's Non-Interactive Distributed Key Generation
+algorithm.
 
 This crate provides an implementation of the BLS12-381 pairing-friendly elliptic curve construction.
 
