@@ -43,6 +43,7 @@ pub mod notes {
     pub mod serialization;
 }
 
+mod choice;
 mod scalar;
 
 pub use scalar::Scalar as BlsScalar;

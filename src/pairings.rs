@@ -1,3 +1,4 @@
+use crate::choice;
 use crate::fp::Fp;
 use crate::fp12::Fp12;
 use crate::fp2::Fp2;
@@ -16,13 +17,9 @@ use serde::{
 };
 
 #[cfg(feature = "rkyv-impl")]
-use bytecheck::{CheckBytes, ErrorBox, StructCheckError};
+use bytecheck::CheckBytes;
 #[cfg(feature = "rkyv-impl")]
-use rkyv::{
-    out_field,
-    ser::{ScratchSpace, Serializer as RkyvSerializer},
-    Archive, Deserialize as RkyvDeserialize, Fallible, Serialize as RkyvSerialize,
-};
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
@@ -307,101 +304,11 @@ impl_binops_multiplicative!(Gt, BlsScalar);
 /// Requires the `alloc` and `pairing` crate features to be enabled.
 #[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "rkyv-impl", derive(Archive, RkyvSerialize, RkyvDeserialize))]
+#[cfg_attr(feature = "rkyv-impl", archive_attr(derive(CheckBytes)))]
 pub struct G2Prepared {
-    infinity: Choice,
+    infinity: choice::Choice,
     coeffs: Vec<(Fp2, Fp2, Fp2)>,
-}
-
-#[cfg(feature = "rkyv-impl")]
-#[allow(missing_docs)]
-#[allow(missing_debug_implementations)]
-pub struct ArchivedG2Prepared {
-    infinity: <u8 as Archive>::Archived,
-    coeffs: <Vec<(Fp2, Fp2, Fp2)> as Archive>::Archived,
-}
-
-#[cfg(feature = "rkyv-impl")]
-impl<C> CheckBytes<C> for ArchivedG2Prepared
-where
-    C: rkyv::validation::ArchiveContext + ?Sized,
-    C::Error: bytecheck::Error,
-{
-    type Error = StructCheckError;
-
-    unsafe fn check_bytes<'a>(
-        value: *const Self,
-        context: &mut C,
-    ) -> Result<&'a Self, Self::Error> {
-        <<u8 as Archive>::Archived as CheckBytes<C>>::check_bytes(&(*value).infinity, context)
-            .map_err(|e| StructCheckError {
-                field_name: "infinity",
-                inner: ErrorBox::new(e),
-            })?;
-        <<Vec<(Fp2, Fp2, Fp2)> as Archive>::Archived as CheckBytes<C>>::check_bytes(
-            &(*value).coeffs,
-            context,
-        )
-        .map_err(|e| StructCheckError {
-            field_name: "coeffs",
-            inner: ErrorBox::new(e),
-        })?;
-        Ok(&*value)
-    }
-}
-
-#[cfg(feature = "rkyv-impl")]
-#[allow(missing_docs)]
-#[allow(missing_debug_implementations)]
-pub struct G2PreparedResolver {
-    infinity: <u8 as Archive>::Resolver,
-    coeffs: <Vec<(Fp2, Fp2, Fp2)> as Archive>::Resolver,
-}
-
-#[cfg(feature = "rkyv-impl")]
-impl Archive for G2Prepared {
-    type Archived = ArchivedG2Prepared;
-    type Resolver = G2PreparedResolver;
-
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
-        let (fp, fo) = out_field!(out.infinity);
-        let infinity = self.infinity.unwrap_u8();
-        #[allow(clippy::unit_arg)]
-        infinity.resolve(pos + fp, resolver.infinity, fo);
-
-        let (fp, fo) = out_field!(out.coeffs);
-        self.coeffs.resolve(pos + fp, resolver.coeffs, fo);
-    }
-}
-
-#[cfg(feature = "rkyv-impl")]
-impl<S> RkyvSerialize<S> for G2Prepared
-where
-    S: RkyvSerializer + ScratchSpace + ?Sized,
-{
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        let choice = self.infinity.unwrap_u8();
-
-        Ok(Self::Resolver {
-            infinity: <u8 as RkyvSerialize<S>>::serialize(&choice, serializer)?,
-            coeffs: <Vec<(Fp2, Fp2, Fp2)> as RkyvSerialize<S>>::serialize(
-                &self.coeffs,
-                serializer,
-            )?,
-        })
-    }
-}
-
-#[cfg(feature = "rkyv-impl")]
-impl<D: Fallible + ?Sized> RkyvDeserialize<G2Prepared, D> for ArchivedG2Prepared {
-    fn deserialize(&self, deserializer: &mut D) -> Result<G2Prepared, D::Error> {
-        let infinity = <u8 as RkyvDeserialize<u8, D>>::deserialize(&self.infinity, deserializer)?;
-        let infinity = Choice::from(infinity);
-
-        Ok(G2Prepared {
-            infinity,
-            coeffs: self.coeffs.deserialize(deserializer)?,
-        })
-    }
 }
 
 #[cfg(feature = "alloc")]
@@ -564,7 +471,7 @@ impl<'de> Deserialize<'de> for G2Prepared {
                     .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
                 let choice: Choice = Choice::from(choice_as_u8);
                 Ok(G2Prepared {
-                    infinity: choice,
+                    infinity: choice.into(),
                     coeffs,
                 })
             }
@@ -620,7 +527,7 @@ impl From<G2Affine> for G2Prepared {
         assert_eq!(adder.coeffs.len(), 68);
 
         G2Prepared {
-            infinity: is_identity,
+            infinity: is_identity.into(),
             coeffs: adder.coeffs,
         }
     }
@@ -643,7 +550,7 @@ pub fn multi_miller_loop(terms: &[(&G1Affine, &G2Prepared)]) -> MillerLoopResult
         fn doubling_step(&mut self, mut f: Self::Output) -> Self::Output {
             let index = self.index;
             for term in self.terms {
-                let either_identity = term.0.is_identity() | term.1.infinity;
+                let either_identity = term.0.is_identity() | Choice::from(term.1.infinity);
 
                 let new_f = ell(f, &term.1.coeffs[index], term.0);
                 f = Fp12::conditional_select(&new_f, &f, either_identity);
@@ -655,7 +562,7 @@ pub fn multi_miller_loop(terms: &[(&G1Affine, &G2Prepared)]) -> MillerLoopResult
         fn addition_step(&mut self, mut f: Self::Output) -> Self::Output {
             let index = self.index;
             for term in self.terms {
-                let either_identity = term.0.is_identity() | term.1.infinity;
+                let either_identity = term.0.is_identity() | Choice::from(term.1.infinity);
 
                 let new_f = ell(f, &term.1.coeffs[index], term.0);
                 f = Fp12::conditional_select(&new_f, &f, either_identity);

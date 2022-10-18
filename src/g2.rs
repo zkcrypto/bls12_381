@@ -1,5 +1,6 @@
 //! This module provides an implementation of the $\mathbb{G}_2$ group of BLS12-381.
 
+use crate::choice;
 use crate::fp::Fp;
 use crate::fp2::Fp2;
 use crate::BlsScalar;
@@ -18,11 +19,9 @@ use canonical_derive::Canon;
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
 #[cfg(feature = "rkyv-impl")]
-use bytecheck::{CheckBytes, ErrorBox, StructCheckError};
+use bytecheck::CheckBytes;
 #[cfg(feature = "rkyv-impl")]
-use rkyv::{
-    out_field, Archive, Deserialize as RkyvDeserialize, Fallible, Serialize as RkyvSerialize,
-};
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 
 /// This is an element of $\mathbb{G}_2$ represented in the affine coordinate space.
 /// It is ideal to keep elements in this representation to reduce memory usage and
@@ -31,103 +30,12 @@ use rkyv::{
 /// Values of `G2Affine` are guaranteed to be in the $q$-order subgroup unless an
 /// "unchecked" API was misused.
 #[derive(Copy, Clone, HexDebug)]
+#[cfg_attr(feature = "rkyv-impl", derive(Archive, RkyvSerialize, RkyvDeserialize))]
+#[cfg_attr(feature = "rkyv-impl", archive_attr(derive(CheckBytes)))]
 pub struct G2Affine {
     pub(crate) x: Fp2,
     pub(crate) y: Fp2,
-    infinity: Choice,
-}
-
-#[cfg(feature = "rkyv-impl")]
-#[allow(missing_docs)]
-#[allow(missing_debug_implementations)]
-pub struct ArchivedG2Affine {
-    x: <Fp2 as Archive>::Archived,
-    y: <Fp2 as Archive>::Archived,
-    infinity: <u8 as Archive>::Archived,
-}
-
-#[cfg(feature = "rkyv-impl")]
-impl<C> CheckBytes<C> for ArchivedG2Affine {
-    type Error = StructCheckError;
-
-    unsafe fn check_bytes<'a>(
-        value: *const Self,
-        context: &mut C,
-    ) -> Result<&'a Self, Self::Error> {
-        <<Fp2 as Archive>::Archived as CheckBytes<C>>::check_bytes(&(*value).x, context).map_err(
-            |e| StructCheckError {
-                field_name: "x",
-                inner: ErrorBox::new(e),
-            },
-        )?;
-        <<Fp2 as Archive>::Archived as CheckBytes<C>>::check_bytes(&(*value).y, context).map_err(
-            |e| StructCheckError {
-                field_name: "y",
-                inner: ErrorBox::new(e),
-            },
-        )?;
-        <<u8 as Archive>::Archived as CheckBytes<C>>::check_bytes(&(*value).infinity, context)
-            .map_err(|e| StructCheckError {
-                field_name: "infinity",
-                inner: ErrorBox::new(e),
-            })?;
-        Ok(&*value)
-    }
-}
-
-#[cfg(feature = "rkyv-impl")]
-#[allow(missing_docs)]
-#[allow(missing_debug_implementations)]
-pub struct G2AffineResolver {
-    x: <Fp2 as Archive>::Resolver,
-    y: <Fp2 as Archive>::Resolver,
-    infinity: <u8 as Archive>::Resolver,
-}
-
-#[cfg(feature = "rkyv-impl")]
-impl Archive for G2Affine {
-    type Archived = ArchivedG2Affine;
-    type Resolver = G2AffineResolver;
-
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
-        let (fp, fo) = out_field!(out.x);
-        self.x.resolve(pos + fp, resolver.x, fo);
-
-        let (fp, fo) = out_field!(out.y);
-        self.y.resolve(pos + fp, resolver.y, fo);
-
-        let (fp, fo) = out_field!(out.infinity);
-        let infinity = self.infinity.unwrap_u8();
-        #[allow(clippy::unit_arg)]
-        infinity.resolve(pos + fp, resolver.infinity, fo);
-    }
-}
-
-#[cfg(feature = "rkyv-impl")]
-impl<S: Fallible + ?Sized> RkyvSerialize<S> for G2Affine {
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        let choice = self.infinity.unwrap_u8();
-
-        Ok(Self::Resolver {
-            x: <Fp2 as RkyvSerialize<S>>::serialize(&self.x, serializer)?,
-            y: <Fp2 as RkyvSerialize<S>>::serialize(&self.y, serializer)?,
-            infinity: <u8 as RkyvSerialize<S>>::serialize(&choice, serializer)?,
-        })
-    }
-}
-
-#[cfg(feature = "rkyv-impl")]
-impl<D: Fallible + ?Sized> RkyvDeserialize<G2Affine, D> for ArchivedG2Affine {
-    fn deserialize(&self, deserializer: &mut D) -> Result<G2Affine, D::Error> {
-        let infinity = <u8 as RkyvDeserialize<u8, D>>::deserialize(&self.infinity, deserializer)?;
-        let infinity = Choice::from(infinity);
-
-        Ok(G2Affine {
-            x: self.x.deserialize(deserializer)?,
-            y: self.y.deserialize(deserializer)?,
-            infinity,
-        })
-    }
+    infinity: choice::Choice,
 }
 
 #[cfg(feature = "canon")]
@@ -166,7 +74,7 @@ impl<'a> From<&'a G2Projective> for G2Affine {
         let tmp = G2Affine {
             x,
             y,
-            infinity: Choice::from(0u8),
+            infinity: 0u8.into(),
         };
 
         G2Affine::conditional_select(&tmp, &G2Affine::identity(), zinv.is_zero())
@@ -185,11 +93,11 @@ impl ConstantTimeEq for G2Affine {
         // 1. infinity is set on both
         // 2. infinity is not set on both, and their coordinates are equal
 
-        (self.infinity & other.infinity)
-            | ((!self.infinity)
-                & (!other.infinity)
-                & self.x.ct_eq(&other.x)
-                & self.y.ct_eq(&other.y))
+        let infinity = Choice::from(self.infinity);
+        let other_infinity = Choice::from(other.infinity);
+
+        (infinity & other_infinity)
+            | ((!infinity) & (!other_infinity) & self.x.ct_eq(&other.x) & self.y.ct_eq(&other.y))
     }
 }
 
@@ -198,7 +106,7 @@ impl ConditionallySelectable for G2Affine {
         G2Affine {
             x: Fp2::conditional_select(&a.x, &b.x, choice),
             y: Fp2::conditional_select(&a.y, &b.y, choice),
-            infinity: Choice::conditional_select(&a.infinity, &b.infinity, choice),
+            infinity: ConditionallySelectable::conditional_select(&a.infinity, &b.infinity, choice),
         }
     }
 }
@@ -217,9 +125,11 @@ impl Serializable<96> for G2Affine {
     /// Serializes this element into compressed form. See [`notes::serialization`](crate::notes::serialization)
     /// for details about how group elements are serialized.
     fn to_bytes(&self) -> [u8; Self::SIZE] {
+        let infinity = self.infinity.into();
+
         // Strictly speaking, self.x is zero already when self.infinity is true, but
         // to guard against implementation mistakes we do not assume this.
-        let x = Fp2::conditional_select(&self.x, &Fp2::zero(), self.infinity);
+        let x = Fp2::conditional_select(&self.x, &Fp2::zero(), infinity);
 
         let mut res = [0; Self::SIZE];
 
@@ -230,7 +140,7 @@ impl Serializable<96> for G2Affine {
         res[0] |= 1u8 << 7;
 
         // Is this point at infinity? If so, set the second-most significant bit.
-        res[0] |= u8::conditional_select(&0u8, &(1u8 << 6), self.infinity);
+        res[0] |= u8::conditional_select(&0u8, &(1u8 << 6), infinity);
 
         // Is the y-coordinate the lexicographically largest of the two associated with the
         // x-coordinate? If so, set the third-most significant bit so long as this is not
@@ -238,7 +148,7 @@ impl Serializable<96> for G2Affine {
         res[0] |= u8::conditional_select(
             &0u8,
             &(1u8 << 5),
-            (!self.infinity) & self.y.lexicographically_largest(),
+            (!infinity) & self.y.lexicographically_largest(),
         );
 
         res
@@ -304,7 +214,7 @@ impl Serializable<96> for G2Affine {
                                 G2Affine {
                                     x,
                                     y,
-                                    infinity: infinity_flag_set,
+                                    infinity: infinity_flag_set.into(),
                                 },
                                 (!infinity_flag_set) & // Infinity flag should not be set
                             compression_flag_set, // Compression flag should be set
@@ -380,7 +290,7 @@ impl<'a> Neg for &'a G2Affine {
     fn neg(self) -> G2Affine {
         G2Affine {
             x: self.x,
-            y: Fp2::conditional_select(&-self.y, &Fp2::one(), self.infinity),
+            y: Fp2::conditional_select(&-self.y, &Fp2::one(), self.infinity.into()),
             infinity: self.infinity,
         }
     }
@@ -474,7 +384,7 @@ impl G2Affine {
         G2Affine {
             x: Fp2::zero(),
             y: Fp2::one(),
-            infinity: Choice::from(1u8),
+            infinity: 1u8.into(),
         }
     }
 
@@ -518,7 +428,7 @@ impl G2Affine {
                     0xb2bc2a163de1bf2,
                 ]),
             },
-            infinity: Choice::from(0u8),
+            infinity: 0u8.into(),
         }
     }
 
@@ -542,7 +452,7 @@ impl G2Affine {
             .zip(chunks)
             .for_each(|(n, c)| c.copy_from_slice(&n.to_le_bytes()));
 
-        bytes[Self::RAW_SIZE - 1] = self.infinity.unwrap_u8();
+        bytes[Self::RAW_SIZE - 1] = self.infinity.into();
 
         bytes
     }
@@ -593,7 +503,7 @@ impl G2Affine {
     /// Returns true if this element is the identity (the point at infinity).
     #[inline]
     pub fn is_identity(&self) -> Choice {
-        self.infinity
+        self.infinity.into()
     }
 
     /// Returns true if this point is free of an $h$-torsion component, and so it
@@ -612,7 +522,8 @@ impl G2Affine {
     /// true unless an "unchecked" API was used.
     pub fn is_on_curve(&self) -> Choice {
         // y^2 - x^3 ?= 4(u + 1)
-        (self.y.square() - (self.x.square() * self.x)).ct_eq(&B) | self.infinity
+        let infinity = Choice::from(self.infinity);
+        (self.y.square() - (self.x.square() * self.x)).ct_eq(&B) | infinity
     }
 }
 
@@ -632,7 +543,7 @@ impl<'a> From<&'a G2Affine> for G2Projective {
         G2Projective {
             x: p.x,
             y: p.y,
-            z: Fp2::conditional_select(&Fp2::one(), &Fp2::zero(), p.infinity),
+            z: Fp2::conditional_select(&Fp2::one(), &Fp2::zero(), p.infinity.into()),
         }
     }
 }
@@ -1147,7 +1058,7 @@ impl G2Projective {
 
             q.x = p.x * tmp2;
             q.y = p.y * tmp3;
-            q.infinity = Choice::from(0u8);
+            q.infinity = 0u8.into();
 
             *q = G2Affine::conditional_select(&q, &G2Affine::identity(), skip);
         }
@@ -1405,7 +1316,7 @@ mod tests {
                             0xacf7d325cb89cf
                         ]),
                     },
-                    infinity: Choice::from(0u8)
+                    infinity: 0u8.into()
                 }
             );
         }
@@ -1833,7 +1744,7 @@ mod tests {
                     0x156944c4dfe92bbb,
                 ]),
             },
-            infinity: Choice::from(0u8),
+            infinity: 0u8.into(),
         };
         assert!(!bool::from(a.is_torsion_free()));
 
