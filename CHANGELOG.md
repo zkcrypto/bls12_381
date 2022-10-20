@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed `rkyv-impl` feature by bringing in `rkyv/alloc`
+- Make `g1` and `g2` `Archived*` structs only available on `rkyv-impl` 
+
 ## [0.11.1] - 2022-10-19
 
 ### Added
