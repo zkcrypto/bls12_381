@@ -64,13 +64,13 @@ mod g2;
 #[cfg(feature = "groups")]
 pub use g1::{G1Affine, G1Projective};
 
-#[cfg(all(feature = "groups", feature = "rkyv"))]
+#[cfg(all(feature = "groups", feature = "rkyv-impl"))]
 pub use g1::{ArchivedG1Affine, G1AffineResolver};
 
 #[cfg(feature = "groups")]
 pub use g2::{G2Affine, G2Projective};
 
-#[cfg(all(feature = "groups", feature = "rkyv"))]
+#[cfg(all(feature = "groups", feature = "rkyv-impl"))]
 pub use g2::{ArchivedG2Affine, G2AffineResolver};
 
 #[cfg(feature = "groups")]
@@ -90,13 +90,13 @@ mod pairings;
 #[cfg(feature = "pairings")]
 pub use pairings::{pairing, Gt, MillerLoopResult};
 
-#[cfg(all(feature = "pairings", feature = "rkyv"))]
+#[cfg(all(feature = "pairings", feature = "rkyv-impl"))]
 pub use pairings::{ArchivedGt, ArchivedMillerLoopResult, GtResolver, MillerLoopResultResolver};
 
 #[cfg(all(feature = "pairings", feature = "alloc"))]
 pub use pairings::{multi_miller_loop, G2Prepared};
 
-#[cfg(all(feature = "pairings", feature = "rkyv"))]
+#[cfg(all(feature = "pairings", feature = "rkyv-impl"))]
 pub use pairings::{ArchivedG2Prepared, G2PreparedResolver};
 
 #[cfg(all(feature = "groups", feature = "alloc"))]
