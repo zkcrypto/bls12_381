@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.2] - 2022-10-26
+
 ### Fixed
 
 - Fixed `rkyv-impl` feature by bringing in `rkyv/alloc` on `alloc` feature
@@ -169,8 +171,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rename `S` to `TWO_ADACITY` and export it
 
 <!-- Versions -->
-[Unreleased]: https://github.com/dusk-network/bls12_381/compare/v0.11.1...HEAD
-[0.11.0]: https://github.com/dusk-network/bls12_381/compare/v0.11.0...v0.11.1
+[Unreleased]: https://github.com/dusk-network/bls12_381/compare/v0.11.2...HEAD
+[0.11.2]: https://github.com/dusk-network/bls12_381/compare/v0.11.1...v0.11.2
+[0.11.1]: https://github.com/dusk-network/bls12_381/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/dusk-network/bls12_381/compare/v0.10.1...v0.11.0
 [0.10.1]: https://github.com/dusk-network/bls12_381/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/dusk-network/bls12_381/compare/v0.9.0...v0.10.0
