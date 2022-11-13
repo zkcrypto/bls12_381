@@ -561,11 +561,29 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a G1Projective {
     }
 }
 
+impl<'a, 'b> Mul<&'b G1Projective> for &'a Scalar {
+    type Output = G1Projective;
+
+    #[inline]
+    fn mul(self, rhs: &'b G1Projective) -> Self::Output {
+        rhs * self
+    }
+}
+
 impl<'a, 'b> Mul<&'b Scalar> for &'a G1Affine {
     type Output = G1Projective;
 
     fn mul(self, other: &'b Scalar) -> Self::Output {
         G1Projective::from(self).multiply(&other.to_bytes())
+    }
+}
+
+impl<'a, 'b> Mul<&'b G1Affine> for &'a Scalar {
+    type Output = G1Projective;
+
+    #[inline]
+    fn mul(self, rhs: &'b G1Affine) -> Self::Output {
+        rhs * self
     }
 }
 
@@ -1726,4 +1744,20 @@ fn test_zeroize() {
     let mut a = UncompressedEncoding::to_uncompressed(&G1Affine::generator());
     a.zeroize();
     assert_eq!(&a, &G1Uncompressed::default());
+}
+
+#[test]
+fn test_commutative_scalar_subgroup_multiplication() {
+    let a = Scalar::from_raw([
+        0x1fff_3231_233f_fffd,
+        0x4884_b7fa_0003_4802,
+        0x998c_4fef_ecbc_4ff3,
+        0x1824_b159_acc5_0562,
+    ]);
+
+    let g1_a = G1Affine::generator();
+    let g1_p = G1Projective::generator();
+
+    assert_eq!(&g1_a * &a, &a * &g1_a);
+    assert_eq!(&g1_p * &a, &a * &g1_p);
 }
