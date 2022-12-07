@@ -1,3 +1,6 @@
+## Added
+- Zeroization support for `Gt`.
+
 # 0.7.0
 
 ## Changed
