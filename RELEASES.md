@@ -1,3 +1,4 @@
+# 0.7.1
 ## Added
 - `Mul` implementations for `{G1Affine, G1Projective, G2Affine, G2Projective}`
   with `Scalar` on the left-hand side. These enable code to be written matching
