@@ -39,6 +39,8 @@ optional = true
 [dependencies.ff]
 version = "0.12"
 default-features = false
+features = ["derive"]
+
 
 [dependencies.group]
 version = "0.12"
@@ -54,7 +56,7 @@ version = "0.6"
 default-features = false
 
 [dependencies.subtle]
-version = "2.2.1"
+version = "2.4.1"
 default-features = false
 
 [dependencies.zeroize]

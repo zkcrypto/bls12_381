@@ -1091,6 +1091,89 @@ impl UncompressedEncoding for G1Affine {
     }
 }
 
+#[cfg(feature = "serde")]
+mod serde_support {
+    use super::{fmt, G1Affine, G1Projective};
+
+    use serde::de::Visitor;
+    use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+
+    impl Serialize for G1Affine {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            use serde::ser::SerializeTuple;
+            let mut tup = serializer.serialize_tuple(48)?;
+            for byte in self.to_compressed().iter() {
+                tup.serialize_element(byte)?;
+            }
+            tup.end()
+        }
+    }
+
+    impl<'de> Deserialize<'de> for G1Affine {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            struct G1AffineVisitor;
+
+            impl<'de> Visitor<'de> for G1AffineVisitor {
+                type Value = G1Affine;
+
+                fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                    formatter.write_str("a 48-byte compressed canonical bls12_381 G1 point")
+                }
+
+                fn visit_seq<A>(self, mut seq: A) -> Result<G1Affine, A::Error>
+                where
+                    A: serde::de::SeqAccess<'de>,
+                {
+                    let mut bytes = [0u8; 48];
+                    for i in 0..48 {
+                        bytes[i] = seq.next_element()?.ok_or_else(|| {
+                            serde::de::Error::invalid_length(i, &"expected 48 bytes")
+                        })?;
+                    }
+
+                    let res = G1Affine::from_compressed(&bytes);
+                    if res.is_some().into() {
+                        Ok(res.unwrap())
+                    } else {
+                        Err(serde::de::Error::custom(
+                            &"G1 point was not canonically encoded",
+                        ))
+                    }
+                }
+            }
+
+            deserializer.deserialize_tuple(48, G1AffineVisitor)
+        }
+    }
+
+    impl Serialize for G1Projective {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            G1Affine::from(*self).serialize(serializer)
+        }
+    }
+
+    impl<'de> Deserialize<'de> for G1Projective {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            G1Affine::deserialize(deserializer).map(G1Projective::from)
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+pub use self::serde_support::*;
+
 #[test]
 fn test_beta() {
     assert_eq!(
@@ -1724,6 +1807,38 @@ fn test_batch_normalize() {
             }
         }
     }
+}
+
+#[test]
+#[cfg(feature = "serde")]
+fn test_affine_serde_serialization() {
+    use serde_test::{assert_tokens, Token};
+
+    let g = G1Affine::generator();
+    let raw_bytes = g.to_compressed();
+
+    let expected_tokens = std::iter::once(Token::Tuple { len: 48 })
+        .chain(raw_bytes.iter().map(|&b| Token::U8(b)))
+        .chain(std::iter::once(Token::TupleEnd))
+        .collect::<alloc::vec::Vec<_>>();
+
+    assert_tokens(&g, &expected_tokens);
+}
+
+#[test]
+#[cfg(feature = "serde")]
+fn test_projective_serde_serialization() {
+    use serde_test::{assert_tokens, Token};
+
+    let g = G1Projective::generator();
+    let raw_bytes = G1Affine::from(g).to_compressed();
+
+    let expected_tokens = std::iter::once(Token::Tuple { len: 48 })
+        .chain(raw_bytes.iter().map(|&b| Token::U8(b)))
+        .chain(std::iter::once(Token::TupleEnd))
+        .collect::<alloc::vec::Vec<_>>();
+
+    assert_tokens(&g, &expected_tokens);
 }
 
 #[cfg(feature = "zeroize")]
