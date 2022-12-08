@@ -76,6 +76,16 @@ const MODULUS: [u64; 6] = [
     0x1a01_11ea_397f_e69a,
 ];
 
+/// (p - 1) / 2 = 0xd0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd555
+const MODULUES_MINUS_ONE_OVER_TWO: [u64; 6] = [
+    0xdcff7fffffffd555,
+    0xf55ffff58a9ffff,
+    0xb39869507b587b12,
+    0xb23ba5c279c2895f,
+    0x258dd3db21a5d66b,
+    0xd0088f51cbff34d
+];
+
 /// INV = -(p^{-1} mod 2^64) mod 2^64
 const INV: u64 = 0x89f3_fffc_fffc_fffd;
 
@@ -319,6 +329,21 @@ impl Fp {
         }
         res
     }
+
+    #[inline]
+    /// Computes the legendre symbol of this element.
+    pub fn legendre_symbol(&self) -> isize {
+    let legendre = self.pow_vartime(&MODULUES_MINUS_ONE_OVER_TWO);
+    if legendre == Fp::zero() {
+        0
+    }
+    else if legendre == Fp::one() {
+        1
+    }
+    else {
+        -1
+    }
+}
 
     #[inline]
     pub fn sqrt(&self) -> CtOption<Self> {
@@ -887,6 +912,16 @@ fn test_from_bytes() {
     ));
 
     assert!(bool::from(Fp::from_bytes(&[0xff; 48]).is_none()));
+}
+
+#[test]
+fn test_legendre() {
+    let four = Fp([4, 0, 0, 0, 0, 0]);
+
+    assert_eq!(Fp::zero().legendre_symbol(), 0);
+    assert_eq!(Fp::one().legendre_symbol(), 1);
+    assert_eq!((Fp::one() + Fp::one()).legendre_symbol(), -1);
+    assert_eq!(four.legendre_symbol(), 1);
 }
 
 #[test]
