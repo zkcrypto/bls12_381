@@ -643,6 +643,8 @@ impl<'a, 'b> Mul<&'b G2Affine> for &'a Scalar {
 impl_binops_additive!(G2Projective, G2Projective);
 impl_binops_multiplicative!(G2Projective, Scalar);
 impl_binops_multiplicative_mixed!(G2Affine, Scalar, G2Projective);
+impl_binops_multiplicative_mixed!(Scalar, G2Affine, G2Projective);
+impl_binops_multiplicative_mixed!(Scalar, G2Projective, G2Projective);
 
 #[inline(always)]
 fn mul_by_3b(x: Fp2) -> Fp2 {
@@ -2161,6 +2163,17 @@ fn test_commutative_scalar_subgroup_multiplication() {
     let g2_a = G2Affine::generator();
     let g2_p = G2Projective::generator();
 
+    // By reference.
     assert_eq!(&g2_a * &a, &a * &g2_a);
     assert_eq!(&g2_p * &a, &a * &g2_p);
+
+    // Mixed
+    assert_eq!(&g2_a * a.clone(), a.clone() * &g2_a);
+    assert_eq!(&g2_p * a.clone(), a.clone() * &g2_p);
+    assert_eq!(g2_a.clone() * &a, &a * g2_a.clone());
+    assert_eq!(g2_p.clone() * &a, &a * g2_p.clone());
+
+    // By value.
+    assert_eq!(g2_p * a, a * g2_p);
+    assert_eq!(g2_a * a, a * g2_a);
 }
