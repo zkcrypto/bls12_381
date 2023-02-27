@@ -3,25 +3,6 @@ name: CI checks
 on: [push, pull_request]
 
 jobs:
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: 1.56.0
-          override: true
-
-      # Ensure all code has been formatted with rustfmt
-      - run: rustup component add rustfmt
-      - name: Check formatting
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: -- --check --color always
-
   test:
     name: Test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -30,25 +11,9 @@ jobs:
         os: [ubuntu-latest, windows-latest, macOS-latest]
 
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: 1.56.0
-          override: true
-      - name: cargo fetch
-        uses: actions-rs/cargo@v1
-        with:
-          command: fetch
-      - name: Build tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --verbose --release --tests --features experimental,zeroize
+      - uses: actions/checkout@v3
       - name: Run tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --verbose --release --features experimental,zeroize
+        run: cargo test --verbose --release --features experimental,zeroize
 
   no-std:
     name: Check no-std target ${{ matrix.target }}
@@ -61,41 +26,41 @@ jobs:
           - wasm32-wasi
 
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: 1.56.0
-          override: true
+      - uses: actions/checkout@v3
       - run: rustup target add ${{ matrix.target }}
-      - name: cargo fetch
-        uses: actions-rs/cargo@v1
-        with:
-          command: fetch
+      - run: cargo fetch
       - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --verbose --target ${{ matrix.target }} --no-default-features --features groups,pairings
+        run: >
+          cargo build
+          --verbose
+          --target ${{ matrix.target }}
+          --no-default-features
+          --features groups,pairings
+
+  bitrot:
+    name: Bitrot check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      # Build benchmarks and all-features to prevent bitrot
+      - name: Build benchmarks
+        run: cargo build --benches --examples --all-features
 
   doc-links:
-    name: Nightly lint
+    name: Intra-doc links
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-      - name: cargo fetch
-        uses: actions-rs/cargo@v1
-        with:
-          command: fetch
-
-      # Ensure intra-documentation links all resolve correctly
-      # Requires #![deny(intra_doc_link_resolution_failure)] in crate.
+      - uses: actions/checkout@v3
+      - run: cargo fetch
+      # Requires #![deny(rustdoc::broken_intra_doc_links)] in crate.
       - name: Check intra-doc links
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --document-private-items
+        run: cargo doc --document-private-items
+
+  fmt:
+    name: Rustfmt
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Check formatting
+        run: cargo fmt --all -- --check
