@@ -1,3 +1,7 @@
+# Unreleased
+## Changed
+- Bumped dependencies to `ff 0.13`, `group 0.13`, `pairing 0.23`.
+
 # 0.7.1
 ## Added
 - `Mul` implementations for `{G1Affine, G1Projective, G2Affine, G2Projective}`
