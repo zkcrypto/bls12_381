@@ -695,6 +695,10 @@ impl Field for Scalar {
     fn sqrt(&self) -> CtOption<Self> {
         self.sqrt()
     }
+
+    fn is_zero_vartime(&self) -> bool {
+        self.0 == Self::zero().0
+    }
 }
 
 impl PrimeField for Scalar {
