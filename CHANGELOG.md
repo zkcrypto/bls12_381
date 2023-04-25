@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Update issue links in CHANGELOG [#84]
+
 ## [0.11.2] - 2022-10-26
 
 ### Fixed
@@ -34,22 +37,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move `rkyv`-related implementations behind the `rkyv-impl` feature
 
 ### Remove
-- `Sized` bound from `G2Prepared` `rkyv::Serialize` implementation [#94](https://github.com/dusk-network/bls12_381/issues/94)
+- `Sized` bound from `G2Prepared` `rkyv::Serialize` implementation [#94]
 
 ## [0.10.1] - 2022-07-27
 
 ### Added
-- `rkyv` implementation behind feature gate [#90](https://github.com/dusk-network/bls12_381/issues/90)
+- `rkyv` implementation behind feature gate [#90]
 - Derive `Hash` for `BlsScalar`
-- Apply patches from `zkcrypto` to improve the efficiency [#86](https://github.com/dusk-network/bls12_381/issues/86)
+- Apply patches from `zkcrypto` to improve the efficiency [#86]
 
 ## [0.10.0] - 2022-05-25
 
 ### Changed
-- `invert` Scalar function signature [#78](https://github.com/dusk-network/bls12_381/issues/78)
+- Change `invert` Scalar function signature [#78]
 
 ### Added
-- `invert_ct` constant time Scalar inversion calculation [#78](https://github.com/dusk-network/bls12_381/issues/78)
+- Add `invert_ct` constant time Scalar inversion calculation [#78]
 
 ## [0.9.0] - 2022-02-24
 
@@ -61,38 +64,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Fix `canonical-0.6` impl bugs. [#61](https://github.com/dusk-network/bls12_381/issues/61)
+- Fix `canonical-0.6` impl bugs. [#61]
 
 ### Removed
 
-- Remove unnecessary `.into()` calls. [#67](https://github.com/dusk-network/bls12_381/issues/67)
+- Remove unnecessary `.into()` calls. [#67]
 
 ## [0.7.0] - 2021-04-12
 
 ### Added
 
-- `parallel` feature inclusion. [#54](https://github.com/dusk-network/bls12_381/issues/54)
+- `parallel` feature inclusion. [#54]
 
 ### Fixed
 
-- No_std support fixes. [#54](https://github.com/dusk-network/bls12_381/issues/54)
-- Fix crate benchmarks. [#59](https://github.com/dusk-network/bls12_381/issues/59)
+- No_std support fixes. [#54]
+- Fix crate benchmarks. [#59]
 
 ### Changed
 
-- Update `canonical` to `0.6`. [#58](https://github.com/dusk-network/bls12_381/issues/58)
+- Update `canonical` to `0.6`. [#58]
 
 ## [0.6.0] - 2021-01-27
 
 ### Changed
 
-- Canonical updated to v0.5 [#52](https://github.com/dusk-network/bls12_381/issues/52)
+- Canonical updated to v0.5 [#52]
 
 ## [0.5.2] - 2021-01-25
 
 ### Fixed
 
-- Incorrect encoding for unchecked bytes serialization [#50](https://github.com/dusk-network/bls12_381/issues/50)
+- Incorrect encoding for unchecked bytes serialization [#50]
 
 ## [0.5.1] - 2021-01-22
 
@@ -169,6 +172,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Change `to_base_4` method of `Scalar`
 - Rename `S` to `TWO_ADACITY` and export it
+
+<!-- Issues -->
+[#84]: (https://github.com/dusk-network/bls12_381/issues/84)
+[#94]: (https://github.com/dusk-network/bls12_381/issues/94)
+[#90]: (https://github.com/dusk-network/bls12_381/issues/90)
+[#86]: (https://github.com/dusk-network/bls12_381/issues/86)
+[#78]: (https://github.com/dusk-network/bls12_381/issues/78)
+[#61]: (https://github.com/dusk-network/bls12_381/issues/61)
+[#67]: (https://github.com/dusk-network/bls12_381/issues/67)
+[#54]: (https://github.com/dusk-network/bls12_381/issues/54)
+[#59]: (https://github.com/dusk-network/bls12_381/issues/59)
+[#58]: (https://github.com/dusk-network/bls12_381/issues/58)
+[#52]: (https://github.com/dusk-network/bls12_381/issues/52)
+[#50]: (https://github.com/dusk-network/bls12_381/issues/50)
 
 <!-- Versions -->
 [Unreleased]: https://github.com/dusk-network/bls12_381/compare/v0.11.2...HEAD
