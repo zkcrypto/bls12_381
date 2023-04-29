@@ -1,7 +1,6 @@
 [package]
 authors = ["Sean Bowe <ewillbefull@gmail.com>, CPerezz <carlos@dusk.network>"]
 description = "Fork of the implementation of the BLS12-381 pairing-friendly elliptic curve construction with some extra tooling needed by the Dusk team"
-documentation = "https://docs.rs/dusk-bls12_381"
 homepage = "https://github.com/dusk-network/bls12_381"
 license = "MIT/Apache-2.0"
 name = "dusk-bls12_381"
