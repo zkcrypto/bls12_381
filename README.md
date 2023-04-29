@@ -1,6 +1,6 @@
 ![Build Status](https://github.com/dusk-network/bls12_381/workflows/Continuous%20integration/badge.svg)
 [![Repository](https://img.shields.io/badge/github-dusk--bls12_381-blueviolet?logo=github)](https://github.com/dusk-network/bls12_381)
-[![Documentation](https://img.shields.io/badge/docs-dusk--bls12_381-blue?logo=rust)](https://docs.rs/bls12_381/)
+[![Documentation](https://img.shields.io/badge/docs-dusk--bls12_381-blue?logo=rust)](https://docs.rs/dusk-bls12_381/)
 
 
 **THIS CRATE IS A FORK OF [https://github.com/zkcrypto/bls12_381](https://github.com/zkcrypto/bls12_381/) where the Dusk-Network team has added a variety of tools required by other libraries built on the top of this one.
@@ -37,7 +37,7 @@ This crate provides an implementation of the BLS12-381 pairing-friendly elliptic
 * `parallel` (on by default): Enables `rayon` usage for higly parallelizable ops such as multiscalar multiplication.
 * `canon`: Enables the usage of `canonical` for WASM-related serialization usages.
 
-## [Documentation](https://docs.rs/bls12_381)
+## [Documentation](https://docs.rs/dusk-bls12_381)
 
 ## Curve Description
 

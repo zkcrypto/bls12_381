@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Update issue links in CHANGELOG [#84]
 
+### Fixed
+
+- Fix documentation links [#93]
+- Fix `Cargo.toml` invalid categories [#75]
+
 ## [0.11.2] - 2022-10-26
 
 ### Fixed
@@ -174,6 +179,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rename `S` to `TWO_ADACITY` and export it
 
 <!-- Issues -->
+[#93]: (https://github.com/dusk-network/bls12_381/issues/93)
+[#75]: (https://github.com/dusk-network/bls12_381/issues/75)
 [#84]: (https://github.com/dusk-network/bls12_381/issues/84)
 [#94]: (https://github.com/dusk-network/bls12_381/issues/94)
 [#90]: (https://github.com/dusk-network/bls12_381/issues/90)
