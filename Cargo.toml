@@ -8,7 +8,7 @@ name = "dusk-bls12_381"
 repository = "https://github.com/dusk-network/bls12_381"
 version = "0.11.2"
 keywords = ["cryptography", "bls12_381", "zk-snarks", "ecc", "elliptic-curve"]
-categories =["Algorithms", "Cryptography", "Development tools"]
+categories =["algorithms", "cryptography", "development-tools"]
 edition = "2021"
 exclude = [".github/workflows/ci.yml",
 ".gitignore", 
