@@ -353,9 +353,6 @@ pub const ROOT_OF_UNITY: Scalar = Scalar([
     0x5bf3adda19e9b27b,
 ]);
 
-/// Generator of the Scalar field
-pub const GENERATOR: Scalar = Scalar([7, 0, 0, 0]);
-
 impl<T> Product<T> for Scalar
 where
     T: Borrow<Scalar>,

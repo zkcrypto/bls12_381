@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Remove scalar field generator [#100]
+
 ## [0.11.3] - 2023-05-17
 
 ### Changed
@@ -181,6 +185,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rename `S` to `TWO_ADACITY` and export it
 
 <!-- Issues -->
+[#100]: (https://github.com/dusk-network/bls12_381/issues/100)
 [#93]: (https://github.com/dusk-network/bls12_381/issues/93)
 [#75]: (https://github.com/dusk-network/bls12_381/issues/75)
 [#84]: (https://github.com/dusk-network/bls12_381/issues/84)
