@@ -47,7 +47,7 @@ mod choice;
 mod scalar;
 
 pub use scalar::Scalar as BlsScalar;
-pub use scalar::{GENERATOR, ROOT_OF_UNITY, TWO_ADACITY};
+pub use scalar::{ROOT_OF_UNITY, TWO_ADACITY};
 
 #[cfg(feature = "rkyv-impl")]
 pub use scalar::{ArchivedScalar as ArchivedBlsScalar, ScalarResolver as BlsScalarResolver};
