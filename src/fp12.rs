@@ -2,8 +2,6 @@ use crate::fp::*;
 use crate::fp2::*;
 use crate::fp6::*;
 
-#[cfg(feature = "canon")]
-use canonical_derive::Canon;
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
@@ -14,7 +12,6 @@ use bytecheck::CheckBytes;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 
 /// This represents an element $c_0 + c_1 w$ of $\mathbb{F}_{p^12} = \mathbb{F}_{p^6} / w^2 - v$.
-#[cfg_attr(feature = "canon", derive(Canon))]
 #[cfg_attr(feature = "rkyv-impl", derive(Archive, RkyvSerialize, RkyvDeserialize))]
 #[cfg_attr(feature = "rkyv-impl", archive_attr(derive(CheckBytes)))]
 pub struct Fp12 {

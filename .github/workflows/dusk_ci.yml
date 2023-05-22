@@ -54,19 +54,6 @@ jobs:
             command: test
             args: --release --features serde_req
 
-  test_nightly_canon:
-    name: Nightly tests canon
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --release --features canon
-
   fmt:
     name: Rustfmt
     runs-on: ubuntu-latest

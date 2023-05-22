@@ -3,9 +3,6 @@ use core::convert::Infallible;
 use dusk_bytes::{HexDebug, Serializable};
 use subtle::ConditionallySelectable;
 
-#[cfg(feature = "canon")]
-use canonical_derive::Canon;
-
 #[cfg(feature = "rkyv-impl")]
 use bytecheck::CheckBytes;
 #[cfg(feature = "rkyv-impl")]
@@ -13,7 +10,6 @@ use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 
 /// Wrapper for a [`subtle::Choice`]
 #[derive(Copy, Clone, HexDebug)]
-#[cfg_attr(feature = "canon", derive(Canon))]
 #[cfg_attr(feature = "rkyv-impl", derive(Archive, RkyvSerialize, RkyvDeserialize))]
 #[cfg_attr(feature = "rkyv-impl", archive_attr(derive(CheckBytes)))]
 pub struct Choice(u8);

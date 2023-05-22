@@ -10,10 +10,6 @@ use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use dusk_bytes::{Error as BytesError, HexDebug, Serializable};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
-#[cfg(feature = "canon")]
-use canonical::{Canon, CanonError, Sink, Source};
-#[cfg(feature = "canon")]
-use canonical_derive::Canon;
 #[cfg(feature = "serde_req")]
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -35,25 +31,6 @@ pub struct G1Affine {
     pub(crate) x: Fp,
     pub(crate) y: Fp,
     infinity: choice::Choice,
-}
-
-#[cfg(feature = "canon")]
-impl Canon for G1Affine {
-    fn encode(&self, sink: &mut Sink) {
-        sink.copy_bytes(&self.to_bytes());
-    }
-
-    fn decode(source: &mut Source) -> Result<Self, CanonError> {
-        let mut bytes = [0u8; Self::SIZE];
-
-        bytes.copy_from_slice(source.read_bytes(Self::SIZE));
-
-        Self::from_bytes(&bytes).map_err(|_| CanonError::InvalidEncoding)
-    }
-
-    fn encoded_len(&self) -> usize {
-        Self::SIZE
-    }
 }
 
 impl Default for G1Affine {
@@ -486,7 +463,6 @@ fn endomorphism(p: &G1Affine) -> G1Affine {
 
 /// This is an element of $\mathbb{G}_1$ represented in the projective coordinate space.
 #[derive(Copy, Clone, Debug)]
-#[cfg_attr(feature = "canon", derive(Canon))]
 #[cfg_attr(feature = "rkyv-impl", derive(Archive, RkyvSerialize, RkyvDeserialize))]
 #[cfg_attr(feature = "rkyv-impl", archive_attr(derive(CheckBytes)))]
 pub struct G1Projective {
