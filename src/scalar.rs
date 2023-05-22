@@ -2,8 +2,6 @@
 //! where `q = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001`
 
 use crate::util::{adc, mac, sbb};
-#[cfg(feature = "canon")]
-use canonical_derive::Canon;
 use core::borrow::Borrow;
 use core::cmp::{Ord, Ordering, PartialOrd};
 use core::convert::TryFrom;
@@ -27,7 +25,6 @@ use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 // integers in little-endian order. `Scalar` values are always in
 // Montgomery form; i.e., Scalar(a) = aR mod q, with R = 2^256.
 #[derive(Clone, Copy, Eq, Hash, HexDebug)]
-#[cfg_attr(feature = "canon", derive(Canon))]
 #[cfg_attr(feature = "rkyv-impl", derive(Archive, RkyvSerialize, RkyvDeserialize))]
 #[cfg_attr(feature = "rkyv-impl", archive_attr(derive(CheckBytes)))]
 pub struct Scalar(pub [u64; 4]);

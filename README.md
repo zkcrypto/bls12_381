@@ -35,7 +35,6 @@ This crate provides an implementation of the BLS12-381 pairing-friendly elliptic
 * `nightly`: Enables `subtle/nightly` which tries to prevent compiler optimizations that could jeopardize constant time operations. Requires the nightly Rust compiler.
 * `endo`: Enables optimizations that leverage curve endomorphisms, which may run foul of patents US7110538B2 and US7995752B2 set to expire in September 2020.
 * `parallel` (on by default): Enables `rayon` usage for higly parallelizable ops such as multiscalar multiplication.
-* `canon`: Enables the usage of `canonical` for WASM-related serialization usages.
 
 ## [Documentation](https://docs.rs/dusk-bls12_381)
 
