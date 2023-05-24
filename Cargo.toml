@@ -15,6 +15,23 @@ edition = "2021"
 [package.metadata.docs.rs]
 rustdoc-args = [ "--html-in-header", "katex-header.html" ]
 
+[dependencies]
+digest = {version = "0.9", optional = true }
+ff = { version = "0.13", default-features = false }
+group = { version = "0.13", default-features = false, optional = true }
+pairing = { version = "0.23", optional = true }
+rand_core = { version = "0.6", default-features = false }
+subtle = { version = "2.2.1", default-features = false }
+zeroize = { version = "1.4", default-features = false, optional = true }
+sp-crypto-ec-utils = { git = "https://github.com/paritytech/substrate.git", branch = "achimcc/arkworks-integration", version = "0.4.0", default-features = false, features = ["ec-utils-experimental"] }
+ark-scale = { version = "0.0.3", features = ["hazmat"], default-features = false }
+ark-serialize = { version = "0.4.2", default-features = false }
+ark-ff = { version = "0.4.2", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false }
+ark-ec = { version = "0.4.2", default-features = false }
+ark-bls12-381 = { version = "0.4.0",features = [ "curve" ], default-features = false }
+ark-std = { version = "0.4.0", default-features = false }
+
 [dev-dependencies]
 csv = ">= 1.0, < 1.2" # csv 1.2 has MSRV 1.60
 criterion = "0.3"
@@ -33,41 +50,14 @@ name = "hash_to_curve"
 harness = false
 required-features = ["experimental"]
 
-[dependencies.digest]
-version = "0.9"
-optional = true
-
-[dependencies.ff]
-version = "0.13"
-default-features = false
-
-[dependencies.group]
-version = "0.13"
-default-features = false
-optional = true
-
-[dependencies.pairing]
-version = "0.23"
-optional = true
-
-[dependencies.rand_core]
-version = "0.6"
-default-features = false
-
-[dependencies.subtle]
-version = "2.2.1"
-default-features = false
-
-[dependencies.zeroize]
-version = "1.4"
-default-features = false
-optional = true
-
 [features]
 default = ["groups", "pairings", "alloc", "bits"]
+std = [
+    "sp-crypto-ec-utils/std",
+]
 bits = ["ff/bits"]
 groups = ["group"]
-pairings = ["groups", "pairing"]
+pairings = ["groups", "pairing", "std"]
 alloc = ["group/alloc"]
 experimental = ["digest"]
 nightly = ["subtle/nightly"]

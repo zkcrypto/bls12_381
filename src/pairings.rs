@@ -4,6 +4,7 @@ use crate::fp2::Fp2;
 use crate::fp6::Fp6;
 use crate::{G1Affine, G1Projective, G2Affine, G2Projective, Scalar, BLS_X, BLS_X_IS_NEGATIVE};
 
+use codec::{Decode, Encode};
 use core::borrow::Borrow;
 use core::fmt;
 use core::iter::Sum;
@@ -21,6 +22,10 @@ use pairing::MultiMillerLoop;
 /// Represents results of a Miller loop, one of the most expensive portions
 /// of the pairing function. `MillerLoopResult`s cannot be compared with each
 /// other until `.final_exponentiation()` is called, which is also expensive.
+
+const HOST_CALL: ark_scale::Usage = ark_scale::HOST_CALL;
+pub type ArkScale<T> = ark_scale::ArkScale<T, HOST_CALL>;
+
 #[cfg_attr(docsrs, doc(cfg(feature = "pairings")))]
 #[derive(Copy, Clone, Debug)]
 pub struct MillerLoopResult(pub(crate) Fp12);
@@ -496,52 +501,13 @@ impl Group for Gt {
 ///
 /// Requires the `alloc` and `pairing` crate features to be enabled.
 pub struct G2Prepared {
-    infinity: Choice,
-    coeffs: Vec<(Fp2, Fp2, Fp2)>,
+    point: G2Affine,
 }
 
 #[cfg(feature = "alloc")]
 impl From<G2Affine> for G2Prepared {
     fn from(q: G2Affine) -> G2Prepared {
-        struct Adder {
-            cur: G2Projective,
-            base: G2Affine,
-            coeffs: Vec<(Fp2, Fp2, Fp2)>,
-        }
-
-        impl MillerLoopDriver for Adder {
-            type Output = ();
-
-            fn doubling_step(&mut self, _: Self::Output) -> Self::Output {
-                let coeffs = doubling_step(&mut self.cur);
-                self.coeffs.push(coeffs);
-            }
-            fn addition_step(&mut self, _: Self::Output) -> Self::Output {
-                let coeffs = addition_step(&mut self.cur, &self.base);
-                self.coeffs.push(coeffs);
-            }
-            fn square_output(_: Self::Output) -> Self::Output {}
-            fn conjugate(_: Self::Output) -> Self::Output {}
-            fn one() -> Self::Output {}
-        }
-
-        let is_identity = q.is_identity();
-        let q = G2Affine::conditional_select(&q, &G2Affine::generator(), is_identity);
-
-        let mut adder = Adder {
-            cur: G2Projective::from(q),
-            base: q,
-            coeffs: Vec::with_capacity(68),
-        };
-
-        miller_loop(&mut adder);
-
-        assert_eq!(adder.coeffs.len(), 68);
-
-        G2Prepared {
-            infinity: is_identity,
-            coeffs: adder.coeffs,
-        }
+        G2Prepared { point: q }
     }
 }
 
@@ -552,54 +518,95 @@ impl From<G2Affine> for G2Prepared {
 ///
 /// Requires the `alloc` and `pairing` crate features to be enabled.
 pub fn multi_miller_loop(terms: &[(&G1Affine, &G2Prepared)]) -> MillerLoopResult {
-    struct Adder<'a, 'b, 'c> {
-        terms: &'c [(&'a G1Affine, &'b G2Prepared)],
-        index: usize,
-    }
+    let mut a: Vec<&G1Affine> = Vec::new();
+    let mut b: Vec<&G2Prepared> = Vec::new();
+    terms.into_iter().for_each(|(point_a, point_b)| {
+        a.push(*point_a);
+        b.push(*point_b);
+    });
+    let a = a
+        .iter()
+        .map(|point_a| ark_bls12_381::G1Affine {
+            x: ark_bls12_381::fq::Fq {
+                0: ark_ff::biginteger::BigInt::<6>(point_a.x.0),
+                1: ark_std::marker::PhantomData,
+            },
+            y: ark_bls12_381::fq::Fq {
+                0: ark_ff::biginteger::BigInt::<6>(point_a.y.0),
+                1: ark_std::marker::PhantomData,
+            },
+            infinity: point_a.is_identity().into(),
+        })
+        .collect::<Vec<_>>();
+    let a: ArkScale<Vec<ark_bls12_381::G1Affine>> = a.into();
 
-    impl<'a, 'b, 'c> MillerLoopDriver for Adder<'a, 'b, 'c> {
-        type Output = Fp12;
+    let b = b
+        .iter()
+        .map(|point_b| ark_bls12_381::G2Affine {
+            x: ark_bls12_381::fq2::Fq2 {
+                c0: ark_ff::Fp {
+                    0: ark_ff::BigInt(point_b.point.x.c0.0),
+                    1: ark_std::marker::PhantomData,
+                },
+                c1: ark_ff::Fp {
+                    0: ark_ff::BigInt(point_b.point.x.c1.0),
+                    1: ark_std::marker::PhantomData,
+                },
+            },
+            y: ark_bls12_381::fq2::Fq2 {
+                c0: ark_ff::Fp {
+                    0: ark_ff::BigInt(point_b.point.y.c0.0),
+                    1: ark_std::marker::PhantomData,
+                },
+                c1: ark_ff::Fp {
+                    0: ark_ff::BigInt(point_b.point.y.c1.0),
+                    1: ark_std::marker::PhantomData,
+                },
+            },
+            infinity: point_b.point.is_identity().into(),
+        })
+        .collect::<Vec<_>>();
+    let b: ArkScale<Vec<ark_bls12_381::G2Affine>> = b.into();
+    let result = sp_crypto_ec_utils::bls12_381::multi_miller_loop(a.encode(), b.encode()).unwrap();
 
-        fn doubling_step(&mut self, mut f: Self::Output) -> Self::Output {
-            let index = self.index;
-            for term in self.terms {
-                let either_identity = term.0.is_identity() | term.1.infinity;
+    let result = <ArkScale<
+        <ark_ec::bls12::Bls12<ark_bls12_381::Config> as ark_ec::pairing::Pairing>::TargetField,
+    > as Decode>::decode(&mut result.as_slice())
+    .unwrap()
+    .0;
 
-                let new_f = ell(f, &term.1.coeffs[index], term.0);
-                f = Fp12::conditional_select(&new_f, &f, either_identity);
-            }
-            self.index += 1;
-
-            f
-        }
-        fn addition_step(&mut self, mut f: Self::Output) -> Self::Output {
-            let index = self.index;
-            for term in self.terms {
-                let either_identity = term.0.is_identity() | term.1.infinity;
-
-                let new_f = ell(f, &term.1.coeffs[index], term.0);
-                f = Fp12::conditional_select(&new_f, &f, either_identity);
-            }
-            self.index += 1;
-
-            f
-        }
-        fn square_output(f: Self::Output) -> Self::Output {
-            f.square()
-        }
-        fn conjugate(f: Self::Output) -> Self::Output {
-            f.conjugate()
-        }
-        fn one() -> Self::Output {
-            Fp12::one()
-        }
-    }
-
-    let mut adder = Adder { terms, index: 0 };
-
-    let tmp = miller_loop(&mut adder);
-
-    MillerLoopResult(tmp)
+    let fp12 = Fp12 {
+        c0: Fp6 {
+            c0: Fp2 {
+                c0: Fp(result.c0.c0.c0.0 .0),
+                c1: Fp(result.c0.c0.c1.0 .0),
+            },
+            c1: Fp2 {
+                c0: Fp(result.c0.c1.c0.0 .0),
+                c1: Fp(result.c0.c1.c1.0 .0),
+            },
+            c2: Fp2 {
+                c0: Fp(result.c0.c2.c0.0 .0),
+                c1: Fp(result.c0.c2.c1.0 .0),
+            },
+        },
+        c1: Fp6 {
+            c0: Fp2 {
+                c0: Fp(result.c1.c0.c0.0 .0),
+                c1: Fp(result.c1.c0.c1.0 .0),
+            },
+            c1: Fp2 {
+                c0: Fp(result.c1.c1.c0.0 .0),
+                c1: Fp(result.c1.c1.c1.0 .0),
+            },
+            c2: Fp2 {
+                c0: Fp(result.c1.c2.c0.0 .0),
+                c1: Fp(result.c1.c2.c1.0 .0),
+            },
+        },
+    };
+    let fp12 = Fp12::from(fp12);
+    MillerLoopResult(fp12)
 }
 
 /// Invoke the pairing function without the use of precomputation and other optimizations.

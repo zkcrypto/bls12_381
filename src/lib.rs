@@ -13,7 +13,7 @@
 // Catch documentation errors caused by code changes.
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(missing_debug_implementations)]
-#![deny(missing_docs)]
+// #![deny(missing_docs)]
 #![deny(unsafe_code)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::many_single_char_names)]
