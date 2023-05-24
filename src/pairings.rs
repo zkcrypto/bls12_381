@@ -51,133 +51,118 @@ impl MillerLoopResult {
     /// operation in the so-called `cyclotomic subgroup` of `Fq6` so that
     /// it can be compared with other elements of `Gt`.
     pub fn final_exponentiation(&self) -> Gt {
-        #[must_use]
-        fn fp4_square(a: Fp2, b: Fp2) -> (Fp2, Fp2) {
-            let t0 = a.square();
-            let t1 = b.square();
-            let mut t2 = t1.mul_by_nonresidue();
-            let c0 = t2 + t0;
-            t2 = a + b;
-            t2 = t2.square();
-            t2 -= t0;
-            let c1 = t2 - t1;
+        let target = <ark_ec::bls12::Bls12<ark_bls12_381::Config> as ark_ec::pairing::Pairing>::TargetField {
+            c0: ark_bls12_381::Fq6 {
+                c0: ark_bls12_381::Fq2 {
+                    c0: ark_ff::Fp {
+                        0: ark_ff::BigInt(self.0.c0.c0.c0.0),
+                        1: ark_std::marker::PhantomData,
+                    },
+                    c1: ark_ff::Fp {
+                        0: ark_ff::BigInt(self.0.c0.c0.c1.0),
+                        1: ark_std::marker::PhantomData,
+                    },
+                },
+                c1: ark_bls12_381::Fq2 {
+                    c0: ark_ff::Fp {
+                        0: ark_ff::BigInt(self.0.c0.c1.c0.0),
+                        1: ark_std::marker::PhantomData,
+                    },
+                    c1: ark_ff::Fp {
+                        0: ark_ff::BigInt(self.0.c0.c1.c1.0),
+                        1: ark_std::marker::PhantomData,
+                    },
+                },
+                c2: ark_bls12_381::Fq2 {
+                    c0: ark_ff::Fp {
+                        0: ark_ff::BigInt(self.0.c0.c2.c0.0),
+                        1: ark_std::marker::PhantomData,
+                    },
+                    c1: ark_ff::Fp {
+                        0: ark_ff::BigInt(self.0.c0.c2.c1.0),
+                        1: ark_std::marker::PhantomData,
+                    },
+                },
+            },
+            c1: ark_bls12_381::Fq6 {
+                c0: ark_bls12_381::Fq2 {
+                    c0: ark_ff::Fp {
+                        0: ark_ff::BigInt(self.0.c1.c0.c0.0),
+                        1: ark_std::marker::PhantomData,
+                    },
+                    c1: ark_ff::Fp {
+                        0: ark_ff::BigInt(self.0.c1.c0.c1.0),
+                        1: ark_std::marker::PhantomData,
+                    },
+                },
+                c1: ark_bls12_381::Fq2 {
+                    c0: ark_ff::Fp {
+                        0: ark_ff::BigInt(self.0.c1.c1.c0.0),
+                        1: ark_std::marker::PhantomData,
+                    },
+                    c1: ark_ff::Fp {
+                        0: ark_ff::BigInt(self.0.c1.c1.c1.0),
+                        1: ark_std::marker::PhantomData,
+                    },
+                },
+                c2: ark_bls12_381::Fq2 {
+                    c0: ark_ff::Fp {
+                        0: ark_ff::BigInt(self.0.c1.c2.c0.0),
+                        1: ark_std::marker::PhantomData,
+                    },
+                    c1: ark_ff::Fp {
+                        0: ark_ff::BigInt(self.0.c1.c2.c1.0),
+                        1: ark_std::marker::PhantomData,
+                    },
+                },
+            },
+        };
+        let target: ArkScale<
+            <ark_ec::bls12::Bls12<ark_bls12_381::Config> as ark_ec::pairing::Pairing>::TargetField,
+        > = target.into();
 
-            (c0, c1)
-        }
-        // Adaptation of Algorithm 5.5.4, Guide to Pairing-Based Cryptography
-        // Faster Squaring in the Cyclotomic Subgroup of Sixth Degree Extensions
-        // https://eprint.iacr.org/2009/565.pdf
-        #[must_use]
-        fn cyclotomic_square(f: Fp12) -> Fp12 {
-            let mut z0 = f.c0.c0;
-            let mut z4 = f.c0.c1;
-            let mut z3 = f.c0.c2;
-            let mut z2 = f.c1.c0;
-            let mut z1 = f.c1.c1;
-            let mut z5 = f.c1.c2;
+        let result = sp_crypto_ec_utils::bls12_381::final_exponentiation(target.encode()).unwrap();
 
-            let (t0, t1) = fp4_square(z0, z1);
+        let result = <ArkScale<
+            ark_ec::pairing::PairingOutput<ark_ec::bls12::Bls12<ark_bls12_381::Config>>,
+        > as Decode>::decode(&mut result.as_slice())
+        .unwrap()
+        .0;
 
-            // For A
-            z0 = t0 - z0;
-            z0 = z0 + z0 + t0;
-
-            z1 = t1 + z1;
-            z1 = z1 + z1 + t1;
-
-            let (mut t0, t1) = fp4_square(z2, z3);
-            let (t2, t3) = fp4_square(z4, z5);
-
-            // For C
-            z4 = t0 - z4;
-            z4 = z4 + z4 + t0;
-
-            z5 = t1 + z5;
-            z5 = z5 + z5 + t1;
-
-            // For B
-            t0 = t3.mul_by_nonresidue();
-            z2 = t0 + z2;
-            z2 = z2 + z2 + t0;
-
-            z3 = t2 - z3;
-            z3 = z3 + z3 + t2;
-
-            Fp12 {
+        let result = Gt {
+            0: Fp12 {
                 c0: Fp6 {
-                    c0: z0,
-                    c1: z4,
-                    c2: z3,
+                    c0: Fp2 {
+                        c0: Fp(result.0.c0.c0.c0.0.0),
+                        c1: Fp(result.0.c0.c0.c1.0.0),
+                    },
+                    c1: Fp2 {
+                        c0: Fp(result.0.c0.c1.c0.0.0),
+                        c1: Fp(result.0.c0.c1.c1.0.0),
+                    },
+                    c2: Fp2 {
+                        c0: Fp(result.0.c0.c2.c0.0.0),
+                        c1: Fp(result.0.c0.c2.c1.0.0),
+                    },
                 },
                 c1: Fp6 {
-                    c0: z2,
-                    c1: z1,
-                    c2: z5,
+                    c0: Fp2 {
+                        c0: Fp(result.0.c1.c0.c0.0.0),
+                        c1: Fp(result.0.c1.c0.c1.0.0),
+                    },
+                    c1: Fp2 {
+                        c0: Fp(result.0.c1.c1.c0.0.0),
+                        c1: Fp(result.0.c1.c1.c1.0.0),
+                    },
+                    c2: Fp2 {
+                        c0: Fp(result.0.c1.c2.c0.0.0),
+                        c1: Fp(result.0.c1.c2.c1.0.0),
+                    },
                 },
-            }
-        }
-        #[must_use]
-        fn cycolotomic_exp(f: Fp12) -> Fp12 {
-            let x = BLS_X;
-            let mut tmp = Fp12::one();
-            let mut found_one = false;
-            for i in (0..64).rev().map(|b| ((x >> b) & 1) == 1) {
-                if found_one {
-                    tmp = cyclotomic_square(tmp)
-                } else {
-                    found_one = i;
-                }
+            },
+        };
 
-                if i {
-                    tmp *= f;
-                }
-            }
-
-            tmp.conjugate()
-        }
-
-        let mut f = self.0;
-        let mut t0 = f
-            .frobenius_map()
-            .frobenius_map()
-            .frobenius_map()
-            .frobenius_map()
-            .frobenius_map()
-            .frobenius_map();
-        Gt(f.invert()
-            .map(|mut t1| {
-                let mut t2 = t0 * t1;
-                t1 = t2;
-                t2 = t2.frobenius_map().frobenius_map();
-                t2 *= t1;
-                t1 = cyclotomic_square(t2).conjugate();
-                let mut t3 = cycolotomic_exp(t2);
-                let mut t4 = cyclotomic_square(t3);
-                let mut t5 = t1 * t3;
-                t1 = cycolotomic_exp(t5);
-                t0 = cycolotomic_exp(t1);
-                let mut t6 = cycolotomic_exp(t0);
-                t6 *= t4;
-                t4 = cycolotomic_exp(t6);
-                t5 = t5.conjugate();
-                t4 *= t5 * t2;
-                t5 = t2.conjugate();
-                t1 *= t2;
-                t1 = t1.frobenius_map().frobenius_map().frobenius_map();
-                t6 *= t5;
-                t6 = t6.frobenius_map();
-                t3 *= t0;
-                t3 = t3.frobenius_map().frobenius_map();
-                t3 *= t1;
-                t3 *= t6;
-                f = t3 * t4;
-
-                f
-            })
-            // We unwrap() because `MillerLoopResult` can only be constructed
-            // by a function within this crate, and we uphold the invariant
-            // that the enclosed value is nonzero.
-            .unwrap())
+        result
     }
 }
 
