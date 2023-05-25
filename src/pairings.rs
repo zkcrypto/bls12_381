@@ -2,8 +2,9 @@ use crate::fp::Fp;
 use crate::fp12::Fp12;
 use crate::fp2::Fp2;
 use crate::fp6::Fp6;
-use crate::{G1Affine, G1Projective, G2Affine, G2Projective, Scalar, BLS_X, BLS_X_IS_NEGATIVE};
-
+use crate::{
+    ArkScale, G1Affine, G1Projective, G2Affine, G2Projective, Scalar, BLS_X, BLS_X_IS_NEGATIVE,
+};
 use codec::{Decode, Encode};
 use core::borrow::Borrow;
 use core::fmt;
@@ -22,9 +23,6 @@ use pairing::MultiMillerLoop;
 /// Represents results of a Miller loop, one of the most expensive portions
 /// of the pairing function. `MillerLoopResult`s cannot be compared with each
 /// other until `.final_exponentiation()` is called, which is also expensive.
-
-const HOST_CALL: ark_scale::Usage = ark_scale::HOST_CALL;
-pub type ArkScale<T> = ark_scale::ArkScale<T, HOST_CALL>;
 
 #[cfg_attr(docsrs, doc(cfg(feature = "pairings")))]
 #[derive(Copy, Clone, Debug)]
@@ -133,30 +131,30 @@ impl MillerLoopResult {
             0: Fp12 {
                 c0: Fp6 {
                     c0: Fp2 {
-                        c0: Fp(result.0.c0.c0.c0.0.0),
-                        c1: Fp(result.0.c0.c0.c1.0.0),
+                        c0: Fp(result.0.c0.c0.c0.0 .0),
+                        c1: Fp(result.0.c0.c0.c1.0 .0),
                     },
                     c1: Fp2 {
-                        c0: Fp(result.0.c0.c1.c0.0.0),
-                        c1: Fp(result.0.c0.c1.c1.0.0),
+                        c0: Fp(result.0.c0.c1.c0.0 .0),
+                        c1: Fp(result.0.c0.c1.c1.0 .0),
                     },
                     c2: Fp2 {
-                        c0: Fp(result.0.c0.c2.c0.0.0),
-                        c1: Fp(result.0.c0.c2.c1.0.0),
+                        c0: Fp(result.0.c0.c2.c0.0 .0),
+                        c1: Fp(result.0.c0.c2.c1.0 .0),
                     },
                 },
                 c1: Fp6 {
                     c0: Fp2 {
-                        c0: Fp(result.0.c1.c0.c0.0.0),
-                        c1: Fp(result.0.c1.c0.c1.0.0),
+                        c0: Fp(result.0.c1.c0.c0.0 .0),
+                        c1: Fp(result.0.c1.c0.c1.0 .0),
                     },
                     c1: Fp2 {
-                        c0: Fp(result.0.c1.c1.c0.0.0),
-                        c1: Fp(result.0.c1.c1.c1.0.0),
+                        c0: Fp(result.0.c1.c1.c0.0 .0),
+                        c1: Fp(result.0.c1.c1.c1.0 .0),
                     },
                     c2: Fp2 {
-                        c0: Fp(result.0.c1.c2.c0.0.0),
-                        c1: Fp(result.0.c1.c2.c1.0.0),
+                        c0: Fp(result.0.c1.c2.c0.0 .0),
+                        c1: Fp(result.0.c1.c2.c1.0 .0),
                     },
                 },
             },

@@ -89,3 +89,6 @@ pub(crate) use digest::generic_array;
 
 #[cfg(feature = "experimental")]
 pub mod hash_to_curve;
+
+const HOST_CALL: ark_scale::Usage = ark_scale::HOST_CALL;
+pub type ArkScale<T> = ark_scale::ArkScale<T, HOST_CALL>;

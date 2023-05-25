@@ -1,5 +1,9 @@
 //! This module provides an implementation of the $\mathbb{G}_1$ group of BLS12-381.
+use crate::ArkScale;
 
+use ark_ec::{AffineRepr, CurveGroup};
+use ark_scale::hazmat::ArkScaleProjective;
+use codec::{Decode, Encode};
 use core::borrow::Borrow;
 use core::fmt;
 use core::iter::Sum;
@@ -574,7 +578,65 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a G1Affine {
     type Output = G1Projective;
 
     fn mul(self, other: &'b Scalar) -> Self::Output {
-        G1Projective::from(self).multiply(&other.to_bytes())
+        // G1Projective::from(self).multiply(&other.to_bytes())
+
+        let ark_self_affine = ark_bls12_381::G1Affine {
+            x: ark_bls12_381::fq::Fq {
+                0: ark_ff::biginteger::BigInt::<6>(self.x.0),
+                1: ark_std::marker::PhantomData,
+            },
+            y: ark_bls12_381::fq::Fq {
+                0: ark_ff::biginteger::BigInt::<6>(self.y.0),
+                1: ark_std::marker::PhantomData,
+            },
+            infinity: self.is_identity().into(),
+        };
+        let ark_self_projective: ark_bls12_381::G1Projective = ark_self_affine.into();
+        let ark_self_projective: ArkScaleProjective<ark_bls12_381::G1Projective> =
+            ark_self_projective.into();
+
+        assert!(
+            ark_self_projective.0.into_affine().is_on_curve(),
+            "ark_self_projective is not on curve!"
+        );
+
+        let other: ArkScale<&[u64]> = other.0.as_slice().into();
+
+        let result = sp_crypto_ec_utils::bls12_381::mul_projective_g1(
+            ark_self_projective.encode(),
+            other.encode(),
+        )
+        .unwrap();
+
+        let result = <ArkScaleProjective<ark_bls12_381::G1Projective> as Decode>::decode(
+            &mut result.as_slice(),
+        )
+        .unwrap()
+        .0;
+
+        let ark_result_affine: ark_bls12_381::G1Affine = result.into();
+
+        assert!(
+            ark_result_affine.is_on_curve(),
+            "ark_result_affine is not on curve!"
+        );
+
+        let result_affine = match ark_result_affine.xy() {
+            Some((x, y)) => G1Affine {
+                x: Fp(x.0 .0),
+                y: Fp(y.0 .0),
+                infinity: Choice::from(1u8),
+            },
+            None => G1Affine::identity(),
+        };
+
+        let is_on_curve: bool = result_affine.is_on_curve().into();
+
+        assert!(is_on_curve, "result_affine is not on curve!");
+
+        let result: G1Projective = result_affine.into();
+
+        result
     }
 }
 
