@@ -31,6 +31,7 @@ codec = { package = "parity-scale-codec", version = "3.2.2", default-features = 
 ark-ec = { version = "0.4.2", default-features = false }
 ark-bls12-381 = { version = "0.4.0",features = [ "curve" ], default-features = false }
 ark-std = { version = "0.4.0", default-features = false }
+num-bigint = { version = "0.4", default-features = false }
 
 [dev-dependencies]
 csv = ">= 1.0, < 1.2" # csv 1.2 has MSRV 1.60

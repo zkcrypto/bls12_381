@@ -1,7 +1,7 @@
 //! This module provides an implementation of the $\mathbb{G}_1$ group of BLS12-381.
 use crate::ArkScale;
 
-use ark_ec::{AffineRepr, CurveGroup};
+use ark_ec::AffineRepr;
 use ark_scale::hazmat::ArkScaleProjective;
 use codec::{Decode, Encode};
 use core::borrow::Borrow;
@@ -578,9 +578,8 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a G1Affine {
     type Output = G1Projective;
 
     fn mul(self, other: &'b Scalar) -> Self::Output {
-        // G1Projective::from(self).multiply(&other.to_bytes())
-
-        let ark_self_affine = ark_bls12_381::G1Affine {
+        // conver to arkworks G1Affine
+        let base = ark_bls12_381::G1Affine {
             x: ark_bls12_381::fq::Fq {
                 0: ark_ff::biginteger::BigInt::<6>(self.x.0),
                 1: ark_std::marker::PhantomData,
@@ -591,52 +590,36 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a G1Affine {
             },
             infinity: self.is_identity().into(),
         };
-        let ark_self_projective: ark_bls12_381::G1Projective = ark_self_affine.into();
-        let ark_self_projective: ArkScaleProjective<ark_bls12_381::G1Projective> =
-            ark_self_projective.into();
+        let base: ark_bls12_381::G1Projective = base.into();
+        let base: ArkScaleProjective<ark_bls12_381::G1Projective> = base.into();
 
-        assert!(
-            ark_self_projective.0.into_affine().is_on_curve(),
-            "ark_self_projective is not on curve!"
-        );
+        // We need to perform Montgomery reduction to get it into Arkworks representation
+        let other = other.to_bytes();
+        let other = num_bigint::BigUint::from_bytes_le(&other);
+        let other = other.to_u64_digits();
+        let other: ArkScale<&[u64]> = other.as_slice().into();
 
-        let other: ArkScale<&[u64]> = other.0.as_slice().into();
+        // Compute affine mul
+        let result =
+            sp_crypto_ec_utils::bls12_381::mul_projective_g1(base.encode(), other.encode())
+                .unwrap();
 
-        let result = sp_crypto_ec_utils::bls12_381::mul_projective_g1(
-            ark_self_projective.encode(),
-            other.encode(),
-        )
-        .unwrap();
-
+        // Convert result back into bls12_381 representation
         let result = <ArkScaleProjective<ark_bls12_381::G1Projective> as Decode>::decode(
             &mut result.as_slice(),
         )
         .unwrap()
         .0;
-
-        let ark_result_affine: ark_bls12_381::G1Affine = result.into();
-
-        assert!(
-            ark_result_affine.is_on_curve(),
-            "ark_result_affine is not on curve!"
-        );
-
-        let result_affine = match ark_result_affine.xy() {
+        let result: ark_bls12_381::G1Affine = result.into();
+        let result = match result.xy() {
             Some((x, y)) => G1Affine {
                 x: Fp(x.0 .0),
                 y: Fp(y.0 .0),
-                infinity: Choice::from(1u8),
+                infinity: Choice::from(0),
             },
             None => G1Affine::identity(),
         };
-
-        let is_on_curve: bool = result_affine.is_on_curve().into();
-
-        assert!(is_on_curve, "result_affine is not on curve!");
-
-        let result: G1Projective = result_affine.into();
-
-        result
+        result.into()
     }
 }
 
@@ -1651,6 +1634,16 @@ fn test_affine_scalar_multiplication() {
         0x4c8d_bc39_e7b7_56c1,
         0x70d9_b6cc_6d87_df20,
     ]);
+    let c = a * b;
+
+    assert_eq!(G1Affine::from(g * a) * b, g * c);
+}
+
+#[test]
+fn test_affine_scalar_multiplication_2() {
+    let g = G1Affine::generator();
+    let a = Scalar::from(2);
+    let b = Scalar::from(1);
     let c = a * b;
 
     assert_eq!(G1Affine::from(g * a) * b, g * c);
