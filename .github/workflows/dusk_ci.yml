@@ -1,69 +1,31 @@
-on: [pull_request]
+on:
+  pull_request:
+  push:
+    branches:
+      - master
 
 name: Continuous integration
 
 jobs:
-  check:
-    name: Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-      - uses: actions-rs/cargo@v1
-        with:
-          command: check
+  code_analysis:
+    name: Code Analysis
+    uses: dusk-network/.github/.github/workflows/code-analysis.yml@main
+    with:
+      clippy_default: false
+      clippy_args: '-- -A clippy::derive_hash_xor_eq'
 
-  test_nightly:
-      name: Nightly tests std
-      runs-on: ubuntu-latest
-      steps:
-        - uses: actions/checkout@v2
-        - uses: actions-rs/toolchain@v1
-          with:
-            profile: minimal
-        - uses: actions-rs/cargo@v1
-          with:
-            command: test
-            args: --release
+  test_nightly_std:
+    name: Nightly tests std
+    uses: dusk-network/.github/.github/workflows/run-tests.yml@main
 
   test_nightly_no_std:
-      name: Nightly tests no_std
-      runs-on: ubuntu-latest
-      steps:
-        - uses: actions/checkout@v2
-        - uses: actions-rs/toolchain@v1
-          with:
-            profile: minimal
-        - uses: actions-rs/cargo@v1
-          with:
-            command: test
-            args: --release --no-default-features
+    name: Nightly tests no_std
+    uses: dusk-network/.github/.github/workflows/run-tests.yml@main
+    with:
+      test_flags: --no-default-features
 
   test_nightly_serde:
-      name: Nightly tests serde
-      runs-on: ubuntu-latest
-      steps:
-        - uses: actions/checkout@v2
-        - uses: actions-rs/toolchain@v1
-          with:
-            profile: minimal
-        - uses: actions-rs/cargo@v1
-          with:
-            command: test
-            args: --release --features serde_req
-
-  fmt:
-    name: Rustfmt
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-      - run: rustup component add rustfmt
-      - uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+    name: Nightly tests serde
+    uses: dusk-network/.github/.github/workflows/run-tests.yml@main
+    with:
+      test_flags: --features serde_req
