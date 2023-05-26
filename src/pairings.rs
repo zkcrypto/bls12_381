@@ -5,24 +5,19 @@ use crate::fp2::Fp2;
 use crate::fp6::Fp6;
 use crate::{BlsScalar, G1Affine, G2Affine, G2Projective, BLS_X, BLS_X_IS_NEGATIVE};
 
-use dusk_bytes::Serializable;
-
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
-#[cfg(feature = "serde_req")]
-use serde::{
-    self, de::Visitor, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer,
-};
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
+
+use dusk_bytes::Serializable;
 
 #[cfg(feature = "rkyv-impl")]
 use bytecheck::CheckBytes;
 #[cfg(feature = "rkyv-impl")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
-
-#[cfg(feature = "alloc")]
-use alloc::vec::Vec;
 
 /// Represents results of a Miller loop, one of the most expensive portions
 /// of the pairing function. `MillerLoopResult`s cannot be compared with each
@@ -62,12 +57,12 @@ impl MillerLoopResult {
         // https://eprint.iacr.org/2009/565.pdf
         #[must_use]
         fn cyclotomic_square(f: Fp12) -> Fp12 {
-            let mut z0 = f.c0.c0.clone();
-            let mut z4 = f.c0.c1.clone();
-            let mut z3 = f.c0.c2.clone();
-            let mut z2 = f.c1.c0.clone();
-            let mut z1 = f.c1.c1.clone();
-            let mut z5 = f.c1.c2.clone();
+            let mut z0 = f.c0.c0;
+            let mut z4 = f.c0.c1;
+            let mut z3 = f.c0.c2;
+            let mut z2 = f.c1.c0;
+            let mut z1 = f.c1.c1;
+            let mut z5 = f.c1.c2;
 
             let (t0, t1) = fp4_square(z0, z1);
 
@@ -309,177 +304,6 @@ impl_binops_multiplicative!(Gt, BlsScalar);
 pub struct G2Prepared {
     infinity: choice::Choice,
     coeffs: Vec<(Fp2, Fp2, Fp2)>,
-}
-
-#[cfg(feature = "alloc")]
-impl G2Prepared {
-    /// Raw bytes representation
-    ///
-    /// The intended usage of this function is for trusted sets of data where performance is
-    /// critical. This way, the `infinity` internal attribute will not be stored and the
-    /// coefficients will be stored without any check.
-    pub fn to_raw_bytes(&self) -> Vec<u8> {
-        let mut bytes = alloc::vec![0u8; 288 * self.coeffs.len()];
-        let mut chunks = bytes.chunks_exact_mut(8);
-
-        self.coeffs.iter().for_each(|(a, b, c)| {
-            a.c0.internal_repr()
-                .iter()
-                .chain(a.c1.internal_repr().iter())
-                .chain(b.c0.internal_repr().iter())
-                .chain(b.c1.internal_repr().iter())
-                .chain(c.c0.internal_repr().iter())
-                .chain(c.c1.internal_repr().iter())
-                .for_each(|n| {
-                    if let Some(c) = chunks.next() {
-                        c.copy_from_slice(&n.to_le_bytes())
-                    }
-                })
-        });
-
-        bytes
-    }
-
-    /// Create a `G2Prepared` from a set of bytes created by `G2Prepared::to_raw_bytes`.
-    ///
-    /// No check is performed and no constant time is granted. The `infinity` attribute is also
-    /// lost. The expected usage of this function is for trusted bytes where performance is
-    /// critical.
-    pub unsafe fn from_slice_unchecked(bytes: &[u8]) -> Self {
-        let coeffs = bytes
-            .chunks_exact(288)
-            .map(|c| {
-                let mut ac0 = [0u64; 6];
-                let mut ac1 = [0u64; 6];
-                let mut bc0 = [0u64; 6];
-                let mut bc1 = [0u64; 6];
-                let mut cc0 = [0u64; 6];
-                let mut cc1 = [0u64; 6];
-                let mut z = [0u8; 8];
-
-                ac0.iter_mut()
-                    .chain(ac1.iter_mut())
-                    .chain(bc0.iter_mut())
-                    .chain(bc1.iter_mut())
-                    .chain(cc0.iter_mut())
-                    .chain(cc1.iter_mut())
-                    .zip(c.chunks_exact(8))
-                    .for_each(|(n, c)| {
-                        z.copy_from_slice(c);
-                        *n = u64::from_le_bytes(z);
-                    });
-
-                let c0 = Fp::from_raw_unchecked(ac0);
-                let c1 = Fp::from_raw_unchecked(ac1);
-                let a = Fp2 { c0, c1 };
-
-                let c0 = Fp::from_raw_unchecked(bc0);
-                let c1 = Fp::from_raw_unchecked(bc1);
-                let b = Fp2 { c0, c1 };
-
-                let c0 = Fp::from_raw_unchecked(cc0);
-                let c1 = Fp::from_raw_unchecked(cc1);
-                let c = Fp2 { c0, c1 };
-
-                (a, b, c)
-            })
-            .collect();
-        let infinity = 0u8.into();
-
-        Self { coeffs, infinity }
-    }
-}
-
-#[cfg(feature = "serde_req")]
-impl Serialize for G2Prepared {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut g2_prepared = serializer.serialize_struct("struct G2Prepared", 2)?;
-        // We encode the choice as an u8 field.
-        g2_prepared.serialize_field("choice", &self.infinity.unwrap_u8())?;
-        // Since we have serde support for `Fp2` we can treat the `Vec` as a
-        // regular field.
-        g2_prepared.serialize_field("coeffs", &self.coeffs)?;
-        g2_prepared.end()
-    }
-}
-
-#[cfg(feature = "serde_req")]
-impl<'de> Deserialize<'de> for G2Prepared {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        enum Field {
-            Choice,
-            Coeffs,
-        }
-
-        impl<'de> Deserialize<'de> for Field {
-            fn deserialize<D>(deserializer: D) -> Result<Field, D::Error>
-            where
-                D: Deserializer<'de>,
-            {
-                struct FieldVisitor;
-
-                impl<'de> Visitor<'de> for FieldVisitor {
-                    type Value = Field;
-
-                    fn expecting(
-                        &self,
-                        formatter: &mut ::core::fmt::Formatter,
-                    ) -> ::core::fmt::Result {
-                        formatter.write_str("struct G2Prepared")
-                    }
-
-                    fn visit_str<E>(self, value: &str) -> Result<Field, E>
-                    where
-                        E: serde::de::Error,
-                    {
-                        match value {
-                            "choice" => Ok(Field::Choice),
-                            "coeffs" => Ok(Field::Coeffs),
-                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
-                        }
-                    }
-                }
-
-                deserializer.deserialize_identifier(FieldVisitor)
-            }
-        }
-
-        struct G2PreparedVisitor;
-
-        impl<'de> Visitor<'de> for G2PreparedVisitor {
-            type Value = G2Prepared;
-
-            fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-                formatter.write_str("struct G2Prepared")
-            }
-
-            fn visit_seq<V>(self, mut seq: V) -> Result<G2Prepared, V::Error>
-            where
-                V: serde::de::SeqAccess<'de>,
-            {
-                let choice_as_u8: u8 = seq
-                    .next_element()?
-                    .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
-                let coeffs = seq
-                    .next_element()?
-                    .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
-                let choice: Choice = Choice::from(choice_as_u8);
-                Ok(G2Prepared {
-                    infinity: choice.into(),
-                    coeffs,
-                })
-            }
-        }
-
-        const FIELDS: &[&str] = &["choice", "coeffs"];
-        deserializer.deserialize_struct("G2Prepared", FIELDS, G2PreparedVisitor)
-    }
 }
 
 #[cfg(feature = "alloc")]
@@ -755,104 +579,282 @@ fn addition_step(r: &mut G2Projective, q: &G2Affine) -> (Fp2, Fp2, Fp2) {
     (t10, t1, t9)
 }
 
-#[cfg(test)]
-mod tests {
+#[test]
+fn test_bilinearity() {
+    use crate::BlsScalar;
+
+    let a = BlsScalar::from_raw([1, 2, 3, 4]).invert().unwrap().square();
+    let b = BlsScalar::from_raw([5, 6, 7, 8]).invert().unwrap().square();
+    let c = a * b;
+
+    let g = G1Affine::from(G1Affine::generator() * a);
+    let h = G2Affine::from(G2Affine::generator() * b);
+    let p = pairing(&g, &h);
+
+    assert!(p != Gt::identity());
+
+    let expected = G1Affine::from(G1Affine::generator() * c);
+
+    assert_eq!(p, pairing(&expected, &G2Affine::generator()));
+    assert_eq!(
+        p,
+        pairing(&G1Affine::generator(), &G2Affine::generator()) * c
+    );
+}
+
+#[test]
+fn test_unitary() {
+    let g = G1Affine::generator();
+    let h = G2Affine::generator();
+    let p = -pairing(&g, &h);
+    let q = pairing(&g, &-h);
+    let r = pairing(&-g, &h);
+
+    assert_eq!(p, q);
+    assert_eq!(q, r);
+}
+
+#[cfg(feature = "alloc")]
+#[test]
+fn test_multi_miller_loop() {
+    let a1 = G1Affine::generator();
+    let b1 = G2Affine::generator();
+
+    let a2 = G1Affine::from(
+        G1Affine::generator() * BlsScalar::from_raw([1, 2, 3, 4]).invert().unwrap().square(),
+    );
+    let b2 = G2Affine::from(
+        G2Affine::generator() * BlsScalar::from_raw([4, 2, 2, 4]).invert().unwrap().square(),
+    );
+
+    let a3 = G1Affine::identity();
+    let b3 = G2Affine::from(
+        G2Affine::generator() * BlsScalar::from_raw([9, 2, 2, 4]).invert().unwrap().square(),
+    );
+
+    let a4 = G1Affine::from(
+        G1Affine::generator() * BlsScalar::from_raw([5, 5, 5, 5]).invert().unwrap().square(),
+    );
+    let b4 = G2Affine::identity();
+
+    let a5 = G1Affine::from(
+        G1Affine::generator()
+            * BlsScalar::from_raw([323, 32, 3, 1])
+                .invert()
+                .unwrap()
+                .square(),
+    );
+    let b5 = G2Affine::from(
+        G2Affine::generator()
+            * BlsScalar::from_raw([4, 2, 2, 9099])
+                .invert()
+                .unwrap()
+                .square(),
+    );
+
+    let b1_prepared = G2Prepared::from(b1);
+    let b2_prepared = G2Prepared::from(b2);
+    let b3_prepared = G2Prepared::from(b3);
+    let b4_prepared = G2Prepared::from(b4);
+    let b5_prepared = G2Prepared::from(b5);
+
+    let expected = pairing(&a1, &b1)
+        + pairing(&a2, &b2)
+        + pairing(&a3, &b3)
+        + pairing(&a4, &b4)
+        + pairing(&a5, &b5);
+
+    let test = multi_miller_loop(&[
+        (&a1, &b1_prepared),
+        (&a2, &b2_prepared),
+        (&a3, &b3_prepared),
+        (&a4, &b4_prepared),
+        (&a5, &b5_prepared),
+    ])
+    .final_exponentiation();
+
+    assert_eq!(expected, test);
+}
+
+mod dusk {
     use super::*;
-    #[test]
-    fn test_bilinearity() {
-        use crate::BlsScalar;
 
-        let a = BlsScalar::from_raw([1, 2, 3, 4]).invert().unwrap().square();
-        let b = BlsScalar::from_raw([5, 6, 7, 8]).invert().unwrap().square();
-        let c = a * b;
-
-        let g = G1Affine::from(G1Affine::generator() * a);
-        let h = G2Affine::from(G2Affine::generator() * b);
-        let p = pairing(&g, &h);
-
-        assert!(p != Gt::identity());
-
-        let expected = G1Affine::from(G1Affine::generator() * c);
-
-        assert_eq!(p, pairing(&expected, &G2Affine::generator()));
-        assert_eq!(
-            p,
-            pairing(&G1Affine::generator(), &G2Affine::generator()) * c
-        );
-    }
-
-    #[test]
-    fn test_unitary() {
-        let g = G1Affine::generator();
-        let h = G2Affine::generator();
-        let p = -pairing(&g, &h);
-        let q = pairing(&g, &-h);
-        let r = pairing(&-g, &h);
-
-        assert_eq!(p, q);
-        assert_eq!(q, r);
-    }
+    #[cfg(feature = "serde_req")]
+    use serde::{
+        self, de::Visitor, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer,
+    };
 
     #[cfg(feature = "alloc")]
-    #[test]
-    fn test_multi_miller_loop() {
-        let a1 = G1Affine::generator();
-        let b1 = G2Affine::generator();
+    impl G2Prepared {
+        /// Raw bytes representation
+        ///
+        /// The intended usage of this function is for trusted sets of data
+        /// where performance is critical. This way, the `infinity` internal
+        /// attribute will not be stored and the coefficients will be stored
+        /// without any check.
+        pub fn to_raw_bytes(&self) -> Vec<u8> {
+            let mut bytes = alloc::vec![0u8; 288 * self.coeffs.len()];
+            let mut chunks = bytes.chunks_exact_mut(8);
 
-        let a2 = G1Affine::from(
-            G1Affine::generator() * BlsScalar::from_raw([1, 2, 3, 4]).invert().unwrap().square(),
-        );
-        let b2 = G2Affine::from(
-            G2Affine::generator() * BlsScalar::from_raw([4, 2, 2, 4]).invert().unwrap().square(),
-        );
+            self.coeffs.iter().for_each(|(a, b, c)| {
+                a.c0.internal_repr()
+                    .iter()
+                    .chain(a.c1.internal_repr().iter())
+                    .chain(b.c0.internal_repr().iter())
+                    .chain(b.c1.internal_repr().iter())
+                    .chain(c.c0.internal_repr().iter())
+                    .chain(c.c1.internal_repr().iter())
+                    .for_each(|n| {
+                        if let Some(c) = chunks.next() {
+                            c.copy_from_slice(&n.to_le_bytes())
+                        }
+                    })
+            });
 
-        let a3 = G1Affine::identity();
-        let b3 = G2Affine::from(
-            G2Affine::generator() * BlsScalar::from_raw([9, 2, 2, 4]).invert().unwrap().square(),
-        );
+            bytes
+        }
 
-        let a4 = G1Affine::from(
-            G1Affine::generator() * BlsScalar::from_raw([5, 5, 5, 5]).invert().unwrap().square(),
-        );
-        let b4 = G2Affine::identity();
+        /// Create a `G2Prepared` from a set of bytes created by
+        /// `G2Prepared::to_raw_bytes`.
+        ///
+        /// No check is performed and no constant time is granted. The
+        /// `infinity` attribute is also lost. The expected usage of this
+        /// function is for trusted bytes where performance is critical.
+        pub unsafe fn from_slice_unchecked(bytes: &[u8]) -> Self {
+            let coeffs = bytes
+                .chunks_exact(288)
+                .map(|c| {
+                    let mut ac0 = [0u64; 6];
+                    let mut ac1 = [0u64; 6];
+                    let mut bc0 = [0u64; 6];
+                    let mut bc1 = [0u64; 6];
+                    let mut cc0 = [0u64; 6];
+                    let mut cc1 = [0u64; 6];
+                    let mut z = [0u8; 8];
 
-        let a5 = G1Affine::from(
-            G1Affine::generator()
-                * BlsScalar::from_raw([323, 32, 3, 1])
-                    .invert()
-                    .unwrap()
-                    .square(),
-        );
-        let b5 = G2Affine::from(
-            G2Affine::generator()
-                * BlsScalar::from_raw([4, 2, 2, 9099])
-                    .invert()
-                    .unwrap()
-                    .square(),
-        );
+                    ac0.iter_mut()
+                        .chain(ac1.iter_mut())
+                        .chain(bc0.iter_mut())
+                        .chain(bc1.iter_mut())
+                        .chain(cc0.iter_mut())
+                        .chain(cc1.iter_mut())
+                        .zip(c.chunks_exact(8))
+                        .for_each(|(n, c)| {
+                            z.copy_from_slice(c);
+                            *n = u64::from_le_bytes(z);
+                        });
 
-        let b1_prepared = G2Prepared::from(b1);
-        let b2_prepared = G2Prepared::from(b2);
-        let b3_prepared = G2Prepared::from(b3);
-        let b4_prepared = G2Prepared::from(b4);
-        let b5_prepared = G2Prepared::from(b5);
+                    let c0 = Fp::from_raw_unchecked(ac0);
+                    let c1 = Fp::from_raw_unchecked(ac1);
+                    let a = Fp2 { c0, c1 };
 
-        let expected = pairing(&a1, &b1)
-            + pairing(&a2, &b2)
-            + pairing(&a3, &b3)
-            + pairing(&a4, &b4)
-            + pairing(&a5, &b5);
+                    let c0 = Fp::from_raw_unchecked(bc0);
+                    let c1 = Fp::from_raw_unchecked(bc1);
+                    let b = Fp2 { c0, c1 };
 
-        let test = multi_miller_loop(&[
-            (&a1, &b1_prepared),
-            (&a2, &b2_prepared),
-            (&a3, &b3_prepared),
-            (&a4, &b4_prepared),
-            (&a5, &b5_prepared),
-        ])
-        .final_exponentiation();
+                    let c0 = Fp::from_raw_unchecked(cc0);
+                    let c1 = Fp::from_raw_unchecked(cc1);
+                    let c = Fp2 { c0, c1 };
 
-        assert_eq!(expected, test);
+                    (a, b, c)
+                })
+                .collect();
+            let infinity = 0u8.into();
+
+            Self { coeffs, infinity }
+        }
+    }
+
+    #[cfg(feature = "serde_req")]
+    impl Serialize for G2Prepared {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let mut g2_prepared = serializer.serialize_struct("struct G2Prepared", 2)?;
+            // We encode the choice as an u8 field.
+            g2_prepared.serialize_field("choice", &self.infinity.unwrap_u8())?;
+            // Since we have serde support for `Fp2` we can treat the `Vec` as a
+            // regular field.
+            g2_prepared.serialize_field("coeffs", &self.coeffs)?;
+            g2_prepared.end()
+        }
+    }
+
+    #[cfg(feature = "serde_req")]
+    impl<'de> Deserialize<'de> for G2Prepared {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            enum Field {
+                Choice,
+                Coeffs,
+            }
+
+            impl<'de> Deserialize<'de> for Field {
+                fn deserialize<D>(deserializer: D) -> Result<Field, D::Error>
+                where
+                    D: Deserializer<'de>,
+                {
+                    struct FieldVisitor;
+
+                    impl<'de> Visitor<'de> for FieldVisitor {
+                        type Value = Field;
+
+                        fn expecting(
+                            &self,
+                            formatter: &mut ::core::fmt::Formatter,
+                        ) -> ::core::fmt::Result {
+                            formatter.write_str("struct G2Prepared")
+                        }
+
+                        fn visit_str<E>(self, value: &str) -> Result<Field, E>
+                        where
+                            E: serde::de::Error,
+                        {
+                            match value {
+                                "choice" => Ok(Field::Choice),
+                                "coeffs" => Ok(Field::Coeffs),
+                                _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                            }
+                        }
+                    }
+
+                    deserializer.deserialize_identifier(FieldVisitor)
+                }
+            }
+
+            struct G2PreparedVisitor;
+
+            impl<'de> Visitor<'de> for G2PreparedVisitor {
+                type Value = G2Prepared;
+
+                fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+                    formatter.write_str("struct G2Prepared")
+                }
+
+                fn visit_seq<V>(self, mut seq: V) -> Result<G2Prepared, V::Error>
+                where
+                    V: serde::de::SeqAccess<'de>,
+                {
+                    let choice_as_u8: u8 = seq
+                        .next_element()?
+                        .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+                    let coeffs = seq
+                        .next_element()?
+                        .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+                    let choice: Choice = Choice::from(choice_as_u8);
+                    Ok(G2Prepared {
+                        infinity: choice.into(),
+                        coeffs,
+                    })
+                }
+            }
+
+            const FIELDS: &[&str] = &["choice", "coeffs"];
+            deserializer.deserialize_struct("G2Prepared", FIELDS, G2PreparedVisitor)
+        }
     }
 
     #[test]

@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove scalar field generator [#100]
 - Remove canonical and canonical_derive dependency [#108]
 
+### Changed
+
+- Separate Dusk's additions from the original crate [#109]
+
 ## [0.11.3] - 2023-05-17
 
 ### Changed
@@ -186,6 +190,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rename `S` to `TWO_ADACITY` and export it
 
 <!-- Issues -->
+[#109]: (https://github.com/dusk-network/bls12_381/issues/109)
 [#108]: (https://github.com/dusk-network/bls12_381/issues/108)
 [#100]: (https://github.com/dusk-network/bls12_381/issues/100)
 [#93]: (https://github.com/dusk-network/bls12_381/issues/93)
