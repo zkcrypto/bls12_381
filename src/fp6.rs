@@ -19,8 +19,8 @@ impl From<Fp> for Fp6 {
     fn from(f: Fp) -> Fp6 {
         Fp6 {
             c0: Fp2::from(f),
-            c1: Fp2::zero(),
-            c2: Fp2::zero(),
+            c1: Fp2::ZERO,
+            c2: Fp2::ZERO,
         }
     }
 }
@@ -29,8 +29,8 @@ impl From<Fp2> for Fp6 {
     fn from(f: Fp2) -> Fp6 {
         Fp6 {
             c0: f,
-            c1: Fp2::zero(),
-            c2: Fp2::zero(),
+            c1: Fp2::ZERO,
+            c2: Fp2::ZERO,
         }
     }
 }
@@ -51,7 +51,7 @@ impl Clone for Fp6 {
 
 impl Default for Fp6 {
     fn default() -> Self {
-        Fp6::zero()
+        Fp6::ZERO
     }
 }
 
@@ -83,21 +83,32 @@ impl ConstantTimeEq for Fp6 {
 }
 
 impl Fp6 {
+    pub const ZERO: Fp6 = Fp6 {
+        c0: Fp2::ZERO,
+        c1: Fp2::ZERO,
+        c2: Fp2::ZERO,
+    };
+    pub const ONE: Fp6 = Fp6 {
+        c0: Fp2::ONE,
+        c1: Fp2::ZERO,
+        c2: Fp2::ZERO,
+    };
+
     #[inline]
     pub fn zero() -> Self {
         Fp6 {
-            c0: Fp2::zero(),
-            c1: Fp2::zero(),
-            c2: Fp2::zero(),
+            c0: Fp2::ZERO,
+            c1: Fp2::ZERO,
+            c2: Fp2::ZERO,
         }
     }
 
     #[inline]
     pub fn one() -> Self {
         Fp6 {
-            c0: Fp2::one(),
-            c1: Fp2::zero(),
-            c2: Fp2::zero(),
+            c0: Fp2::ONE,
+            c1: Fp2::ZERO,
+            c2: Fp2::ZERO,
         }
     }
 
@@ -159,7 +170,7 @@ impl Fp6 {
         // c1 = c1 * (u + 1)^((p - 1) / 3)
         let c1 = c1
             * Fp2 {
-                c0: Fp::zero(),
+                c0: Fp::ZERO,
                 c1: Fp::from_raw_unchecked([
                     0xcd03_c9e4_8671_f071,
                     0x5dab_2246_1fcd_a5d2,
@@ -181,7 +192,7 @@ impl Fp6 {
                     0x14e4_f04f_e2db_9068,
                     0x14e5_6d3f_1564_853a,
                 ]),
-                c1: Fp::zero(),
+                c1: Fp::ZERO,
             };
 
         Fp6 { c0, c1, c2 }
@@ -557,7 +568,7 @@ fn test_arithmetic() {
         a.invert().unwrap() * b.invert().unwrap(),
         (a * b).invert().unwrap()
     );
-    assert_eq!(a.invert().unwrap() * a, Fp6::one());
+    assert_eq!(a.invert().unwrap() * a, Fp6::ONE);
 }
 
 #[cfg(feature = "zeroize")]
@@ -565,7 +576,7 @@ fn test_arithmetic() {
 fn test_zeroize() {
     use zeroize::Zeroize;
 
-    let mut a = Fp6::one();
+    let mut a = Fp6::ONE;
     a.zeroize();
     assert!(bool::from(a.is_zero()));
 }

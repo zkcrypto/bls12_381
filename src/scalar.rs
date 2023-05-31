@@ -1,7 +1,7 @@
 //! This module provides an implementation of the BLS12-381 scalar field $\mathbb{F}_q$
 //! where `q = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001`
 
-use core::fmt;
+use core::fmt::{self, Debug, Display, Formatter, LowerHex, UpperHex};
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand_core::RngCore;
 
@@ -11,7 +11,7 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 #[cfg(feature = "bits")]
 use ff::{FieldBits, PrimeFieldBits};
 
-use crate::util::{adc, mac, sbb};
+use crate::util::{adc, decode_hex_into_slice, mac, sbb};
 
 /// Represents an element of the scalar field $\mathbb{F}_q$ of the BLS12-381 elliptic
 /// curve construction.
@@ -21,20 +21,40 @@ use crate::util::{adc, mac, sbb};
 #[derive(Clone, Copy, Eq)]
 pub struct Scalar(pub(crate) [u64; 4]);
 
-impl fmt::Debug for Scalar {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let tmp = self.to_bytes();
+impl Debug for Scalar {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let tmp = self.to_be_bytes();
         write!(f, "0x")?;
-        for &b in tmp.iter().rev() {
+        for &b in &tmp {
             write!(f, "{:02x}", b)?;
         }
         Ok(())
     }
 }
 
-impl fmt::Display for Scalar {
+impl Display for Scalar {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
+    }
+}
+
+impl LowerHex for Scalar {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let tmp = self.to_be_bytes();
+        for &b in &tmp {
+            write!(f, "{:02x}", b)?;
+        }
+        Ok(())
+    }
+}
+
+impl UpperHex for Scalar {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let tmp = self.to_be_bytes();
+        for &b in &tmp {
+            write!(f, "{:02X}", b)?;
+        }
+        Ok(())
     }
 }
 
@@ -224,7 +244,7 @@ const DELTA: Scalar = Scalar([
 impl Default for Scalar {
     #[inline]
     fn default() -> Self {
-        Self::zero()
+        Self::ZERO
     }
 }
 
@@ -232,17 +252,12 @@ impl Default for Scalar {
 impl zeroize::DefaultIsZeroes for Scalar {}
 
 impl Scalar {
-    /// Returns zero, the additive identity.
-    #[inline]
-    pub const fn zero() -> Scalar {
-        Scalar([0, 0, 0, 0])
-    }
-
-    /// Returns one, the multiplicative identity.
-    #[inline]
-    pub const fn one() -> Scalar {
-        R
-    }
+    /// Bytes to represent this field
+    pub const BYTES: usize = 32;
+    /// The additive identity.
+    pub const ZERO: Scalar = Scalar([0, 0, 0, 0]);
+    /// The multiplicative identity.
+    pub const ONE: Scalar = R;
 
     /// Doubles this field element.
     #[inline]
@@ -251,9 +266,18 @@ impl Scalar {
         self.add(self)
     }
 
+    /// Attempts to convert a big-endian byte representation of
+    /// a scalar into a `Scalar`, failing if the input is not canonical.
+    pub fn from_be_bytes(bytes: &[u8; 32]) -> CtOption<Self> {
+        let mut tmp = [0u8; 32];
+        tmp.copy_from_slice(bytes);
+        tmp.reverse();
+        Self::from_le_bytes(&tmp)
+    }
+
     /// Attempts to convert a little-endian byte representation of
     /// a scalar into a `Scalar`, failing if the input is not canonical.
-    pub fn from_bytes(bytes: &[u8; 32]) -> CtOption<Scalar> {
+    pub fn from_le_bytes(bytes: &[u8; 32]) -> CtOption<Self> {
         let mut tmp = Scalar([0, 0, 0, 0]);
 
         tmp.0[0] = u64::from_le_bytes(<[u8; 8]>::try_from(&bytes[0..8]).unwrap());
@@ -280,8 +304,16 @@ impl Scalar {
     }
 
     /// Converts an element of `Scalar` into a byte representation in
+    /// big-endian byte order.
+    pub fn to_be_bytes(&self) -> [u8; 32] {
+        let mut bytes = self.to_le_bytes();
+        bytes.reverse();
+        bytes
+    }
+
+    /// Converts an element of `Scalar` into a byte representation in
     /// little-endian byte order.
-    pub fn to_bytes(&self) -> [u8; 32] {
+    pub fn to_le_bytes(&self) -> [u8; 32] {
         // Turn into canonical form by computing
         // (a.R) / R = a
         let tmp = Scalar::montgomery_reduce(self.0[0], self.0[1], self.0[2], self.0[3], 0, 0, 0, 0);
@@ -293,6 +325,20 @@ impl Scalar {
         res[24..32].copy_from_slice(&tmp.0[3].to_le_bytes());
 
         res
+    }
+
+    /// Create a new [`Scalar`] from the provided big endian hex string.
+    pub fn from_be_hex(hex: &str) -> CtOption<Self> {
+        let mut buf = [0u8; Self::BYTES];
+        decode_hex_into_slice(&mut buf, hex.as_bytes());
+        Self::from_be_bytes(&buf)
+    }
+
+    /// Create a new [`Scalar`] from the provided little endian hex string.
+    pub fn from_le_hex(hex: &str) -> CtOption<Self> {
+        let mut buf = [0u8; Self::BYTES];
+        decode_hex_into_slice(&mut buf, hex.as_bytes());
+        Self::from_le_bytes(&buf)
     }
 
     /// Converts a 512-bit little endian integer into
@@ -308,6 +354,29 @@ impl Scalar {
             u64::from_le_bytes(<[u8; 8]>::try_from(&bytes[48..56]).unwrap()),
             u64::from_le_bytes(<[u8; 8]>::try_from(&bytes[56..64]).unwrap()),
         ])
+    }
+
+    /// Read from output of a KDF
+    pub fn from_okm(bytes: &[u8; 48]) -> Scalar {
+        const F_2_192: Scalar = Scalar([
+            0x5947_6ebc_41b4_528fu64,
+            0xc5a3_0cb2_43fc_c152u64,
+            0x2b34_e639_40cc_bd72u64,
+            0x1e17_9025_ca24_7088u64,
+        ]);
+        let d0 = Scalar([
+            u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[16..24]).unwrap()),
+            u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[8..16]).unwrap()),
+            u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[0..8]).unwrap()),
+            0,
+        ]);
+        let d1 = Scalar([
+            u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[40..48]).unwrap()),
+            u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[32..40]).unwrap()),
+            u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[24..32]).unwrap()),
+            0,
+        ]);
+        (d0 * R2) * F_2_192 + d1 * R2
     }
 
     fn from_u512(limbs: [u64; 8]) -> Scalar {
@@ -371,7 +440,7 @@ impl Scalar {
     /// Exponentiates `self` by `by`, where `by` is a
     /// little-endian order integer exponent.
     pub fn pow(&self, by: &[u64; 4]) -> Self {
-        let mut res = Self::one();
+        let mut res = Self::ONE;
         for e in by.iter().rev() {
             for i in (0..64).rev() {
                 res = res.square();
@@ -390,7 +459,7 @@ impl Scalar {
     /// to the exponent.** If the exponent is fixed,
     /// this operation is effectively constant time.
     pub fn pow_vartime(&self, by: &[u64; 4]) -> Self {
-        let mut res = Self::one();
+        let mut res = Self::ONE;
         for e in by.iter().rev() {
             for i in (0..64).rev() {
                 res = res.square();
@@ -499,11 +568,11 @@ impl Scalar {
         square_assign_multi(&mut t0, 5);
         t0 *= &t1;
 
-        CtOption::new(t0, !self.ct_eq(&Self::zero()))
+        CtOption::new(t0, !self.ct_eq(&Self::ZERO))
     }
 
     #[inline(always)]
-    const fn montgomery_reduce(
+    pub(crate) const fn montgomery_reduce(
         r0: u64,
         r1: u64,
         r2: u64,
@@ -629,19 +698,19 @@ impl Scalar {
 
 impl From<Scalar> for [u8; 32] {
     fn from(value: Scalar) -> [u8; 32] {
-        value.to_bytes()
+        value.to_le_bytes()
     }
 }
 
 impl<'a> From<&'a Scalar> for [u8; 32] {
     fn from(value: &'a Scalar) -> [u8; 32] {
-        value.to_bytes()
+        value.to_le_bytes()
     }
 }
 
 impl Field for Scalar {
-    const ZERO: Self = Self::zero();
-    const ONE: Self = Self::one();
+    const ZERO: Self = Self::ZERO;
+    const ONE: Self = Self::ONE;
 
     fn random(mut rng: impl RngCore) -> Self {
         let mut buf = [0; 64];
@@ -681,7 +750,7 @@ impl Field for Scalar {
     }
 
     fn is_zero_vartime(&self) -> bool {
-        self.0 == Self::zero().0
+        self.0 == Self::ZERO.0
     }
 }
 
@@ -689,15 +758,15 @@ impl PrimeField for Scalar {
     type Repr = [u8; 32];
 
     fn from_repr(r: Self::Repr) -> CtOption<Self> {
-        Self::from_bytes(&r)
+        Self::from_le_bytes(&r)
     }
 
     fn to_repr(&self) -> Self::Repr {
-        self.to_bytes()
+        self.to_le_bytes()
     }
 
     fn is_odd(&self) -> Choice {
-        Choice::from(self.to_bytes()[0] & 1)
+        Choice::from(self.to_le_bytes()[0] & 1)
     }
 
     const MODULUS: &'static str =
@@ -723,7 +792,7 @@ impl PrimeFieldBits for Scalar {
     type ReprBits = ReprBits;
 
     fn to_le_bits(&self) -> FieldBits<Self::ReprBits> {
-        let bytes = self.to_bytes();
+        let bytes = self.to_le_bytes();
 
         #[cfg(not(target_pointer_width = "64"))]
         let limbs = [
@@ -767,7 +836,7 @@ where
     where
         I: Iterator<Item = T>,
     {
-        iter.fold(Self::zero(), |acc, item| acc + item.borrow())
+        iter.fold(Self::ZERO, |acc, item| acc + item.borrow())
     }
 }
 
@@ -779,7 +848,7 @@ where
     where
         I: Iterator<Item = T>,
     {
-        iter.fold(Self::one(), |acc, item| acc * item.borrow())
+        iter.fold(Self::ONE, |acc, item| acc * item.borrow())
     }
 }
 
@@ -834,11 +903,11 @@ fn test_inv() {
 #[test]
 fn test_debug() {
     assert_eq!(
-        format!("{:?}", Scalar::zero()),
+        format!("{:?}", Scalar::ZERO),
         "0x0000000000000000000000000000000000000000000000000000000000000000"
     );
     assert_eq!(
-        format!("{:?}", Scalar::one()),
+        format!("{:?}", Scalar::ONE),
         "0x0000000000000000000000000000000000000000000000000000000000000001"
     );
     assert_eq!(
@@ -849,18 +918,18 @@ fn test_debug() {
 
 #[test]
 fn test_equality() {
-    assert_eq!(Scalar::zero(), Scalar::zero());
-    assert_eq!(Scalar::one(), Scalar::one());
+    assert_eq!(Scalar::ZERO, Scalar::ZERO);
+    assert_eq!(Scalar::ONE, Scalar::ONE);
     assert_eq!(R2, R2);
 
-    assert!(Scalar::zero() != Scalar::one());
-    assert!(Scalar::one() != R2);
+    assert!(Scalar::ZERO != Scalar::ONE);
+    assert!(Scalar::ONE != R2);
 }
 
 #[test]
 fn test_to_bytes() {
     assert_eq!(
-        Scalar::zero().to_bytes(),
+        Scalar::ZERO.to_le_bytes(),
         [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0
@@ -868,7 +937,7 @@ fn test_to_bytes() {
     );
 
     assert_eq!(
-        Scalar::one().to_bytes(),
+        Scalar::ONE.to_le_bytes(),
         [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0
@@ -876,7 +945,7 @@ fn test_to_bytes() {
     );
 
     assert_eq!(
-        R2.to_bytes(),
+        R2.to_le_bytes(),
         [
             254, 255, 255, 255, 1, 0, 0, 0, 2, 72, 3, 0, 250, 183, 132, 88, 245, 79, 188, 236, 239,
             79, 140, 153, 111, 5, 197, 172, 89, 177, 36, 24
@@ -884,7 +953,7 @@ fn test_to_bytes() {
     );
 
     assert_eq!(
-        (-&Scalar::one()).to_bytes(),
+        (-&Scalar::ONE).to_le_bytes(),
         [
             0, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
             216, 57, 51, 72, 125, 157, 41, 83, 167, 237, 115
@@ -895,25 +964,25 @@ fn test_to_bytes() {
 #[test]
 fn test_from_bytes() {
     assert_eq!(
-        Scalar::from_bytes(&[
+        Scalar::from_le_bytes(&[
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0
         ])
         .unwrap(),
-        Scalar::zero()
+        Scalar::ZERO
     );
 
     assert_eq!(
-        Scalar::from_bytes(&[
+        Scalar::from_le_bytes(&[
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0
         ])
         .unwrap(),
-        Scalar::one()
+        Scalar::ONE
     );
 
     assert_eq!(
-        Scalar::from_bytes(&[
+        Scalar::from_le_bytes(&[
             254, 255, 255, 255, 1, 0, 0, 0, 2, 72, 3, 0, 250, 183, 132, 88, 245, 79, 188, 236, 239,
             79, 140, 153, 111, 5, 197, 172, 89, 177, 36, 24
         ])
@@ -923,7 +992,7 @@ fn test_from_bytes() {
 
     // -1 should work
     assert!(bool::from(
-        Scalar::from_bytes(&[
+        Scalar::from_le_bytes(&[
             0, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
             216, 57, 51, 72, 125, 157, 41, 83, 167, 237, 115
         ])
@@ -932,7 +1001,7 @@ fn test_from_bytes() {
 
     // modulus is invalid
     assert!(bool::from(
-        Scalar::from_bytes(&[
+        Scalar::from_le_bytes(&[
             1, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
             216, 57, 51, 72, 125, 157, 41, 83, 167, 237, 115
         ])
@@ -941,21 +1010,21 @@ fn test_from_bytes() {
 
     // Anything larger than the modulus is invalid
     assert!(bool::from(
-        Scalar::from_bytes(&[
+        Scalar::from_le_bytes(&[
             2, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
             216, 57, 51, 72, 125, 157, 41, 83, 167, 237, 115
         ])
         .is_none()
     ));
     assert!(bool::from(
-        Scalar::from_bytes(&[
+        Scalar::from_le_bytes(&[
             1, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
             216, 58, 51, 72, 125, 157, 41, 83, 167, 237, 115
         ])
         .is_none()
     ));
     assert!(bool::from(
-        Scalar::from_bytes(&[
+        Scalar::from_le_bytes(&[
             1, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
             216, 57, 51, 72, 125, 157, 41, 83, 167, 237, 116
         ])
@@ -966,7 +1035,7 @@ fn test_from_bytes() {
 #[test]
 fn test_from_u512_zero() {
     assert_eq!(
-        Scalar::zero(),
+        Scalar::ZERO,
         Scalar::from_u512([
             MODULUS.0[0],
             MODULUS.0[1],
@@ -1014,7 +1083,7 @@ fn test_from_bytes_wide_r2() {
 #[test]
 fn test_from_bytes_wide_negative_one() {
     assert_eq!(
-        -&Scalar::one(),
+        -&Scalar::ONE,
         Scalar::from_bytes_wide(&[
             0, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
             216, 57, 51, 72, 125, 157, 41, 83, 167, 237, 115, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1038,10 +1107,10 @@ fn test_from_bytes_wide_maximum() {
 
 #[test]
 fn test_zero() {
-    assert_eq!(Scalar::zero(), -&Scalar::zero());
-    assert_eq!(Scalar::zero(), Scalar::zero() + Scalar::zero());
-    assert_eq!(Scalar::zero(), Scalar::zero() - Scalar::zero());
-    assert_eq!(Scalar::zero(), Scalar::zero() * Scalar::zero());
+    assert_eq!(Scalar::ZERO, -&Scalar::ZERO);
+    assert_eq!(Scalar::ZERO, Scalar::ZERO + Scalar::ZERO);
+    assert_eq!(Scalar::ZERO, Scalar::ZERO - Scalar::ZERO);
+    assert_eq!(Scalar::ZERO, Scalar::ZERO * Scalar::ZERO);
 }
 
 #[cfg(test)]
@@ -1070,7 +1139,7 @@ fn test_addition() {
     let mut tmp = LARGEST;
     tmp += &Scalar([1, 0, 0, 0]);
 
-    assert_eq!(tmp, Scalar::zero());
+    assert_eq!(tmp, Scalar::ZERO);
 }
 
 #[test]
@@ -1079,8 +1148,8 @@ fn test_negation() {
 
     assert_eq!(tmp, Scalar([1, 0, 0, 0]));
 
-    let tmp = -&Scalar::zero();
-    assert_eq!(tmp, Scalar::zero());
+    let tmp = -&Scalar::ZERO;
+    assert_eq!(tmp, Scalar::ZERO);
     let tmp = -&Scalar([1, 0, 0, 0]);
     assert_eq!(tmp, LARGEST);
 }
@@ -1090,9 +1159,9 @@ fn test_subtraction() {
     let mut tmp = LARGEST;
     tmp -= &LARGEST;
 
-    assert_eq!(tmp, Scalar::zero());
+    assert_eq!(tmp, Scalar::ZERO);
 
-    let mut tmp = Scalar::zero();
+    let mut tmp = Scalar::ZERO;
     tmp -= &LARGEST;
 
     let mut tmp2 = MODULUS;
@@ -1109,9 +1178,9 @@ fn test_multiplication() {
         let mut tmp = cur;
         tmp *= &cur;
 
-        let mut tmp2 = Scalar::zero();
+        let mut tmp2 = Scalar::ZERO;
         for b in cur
-            .to_bytes()
+            .to_le_bytes()
             .iter()
             .rev()
             .flat_map(|byte| (0..8).rev().map(move |i| ((byte >> i) & 1u8) == 1u8))
@@ -1138,9 +1207,9 @@ fn test_squaring() {
         let mut tmp = cur;
         tmp = tmp.square();
 
-        let mut tmp2 = Scalar::zero();
+        let mut tmp2 = Scalar::ZERO;
         for b in cur
-            .to_bytes()
+            .to_le_bytes()
             .iter()
             .rev()
             .flat_map(|byte| (0..8).rev().map(move |i| ((byte >> i) & 1u8) == 1u8))
@@ -1161,9 +1230,9 @@ fn test_squaring() {
 
 #[test]
 fn test_inversion() {
-    assert!(bool::from(Scalar::zero().invert().is_none()));
-    assert_eq!(Scalar::one().invert().unwrap(), Scalar::one());
-    assert_eq!((-&Scalar::one()).invert().unwrap(), -&Scalar::one());
+    assert!(bool::from(Scalar::ZERO.invert().is_none()));
+    assert_eq!(Scalar::ONE.invert().unwrap(), Scalar::ONE);
+    assert_eq!((-&Scalar::ONE).invert().unwrap(), -&Scalar::ONE);
 
     let mut tmp = R2;
 
@@ -1171,7 +1240,7 @@ fn test_inversion() {
         let mut tmp2 = tmp.invert().unwrap();
         tmp2.mul_assign(&tmp);
 
-        assert_eq!(tmp2, Scalar::one());
+        assert_eq!(tmp2, Scalar::ONE);
 
         tmp.add_assign(&R2);
     }
@@ -1207,7 +1276,7 @@ fn test_invert_is_pow() {
 #[test]
 fn test_sqrt() {
     {
-        assert_eq!(Scalar::zero().sqrt().unwrap(), Scalar::zero());
+        assert_eq!(Scalar::ZERO.sqrt().unwrap(), Scalar::ZERO);
     }
 
     let mut square = Scalar([
@@ -1226,7 +1295,7 @@ fn test_sqrt() {
         } else {
             assert_eq!(square_root.unwrap() * square_root.unwrap(), square);
         }
-        square -= Scalar::one();
+        square -= Scalar::ONE;
     }
 
     assert_eq!(49, none_count);
@@ -1244,7 +1313,7 @@ fn test_from_raw() {
         Scalar::from_raw([0xffff_ffff_ffff_ffff; 4])
     );
 
-    assert_eq!(Scalar::from_raw(MODULUS.0), Scalar::zero());
+    assert_eq!(Scalar::from_raw(MODULUS.0), Scalar::ZERO);
 
     assert_eq!(Scalar::from_raw([1, 0, 0, 0]), R);
 }
@@ -1261,6 +1330,21 @@ fn test_double() {
     assert_eq!(a.double(), a + a);
 }
 
+#[test]
+fn test_from_okm() {
+    let okm = [
+        155, 244, 205, 103, 163, 209, 47, 21, 160, 157, 37, 214, 5, 190, 2, 104, 223, 213, 41, 196,
+        96, 200, 48, 201, 176, 145, 160, 209, 98, 168, 107, 154, 167, 197, 41, 218, 168, 132, 185,
+        95, 111, 233, 85, 102, 45, 243, 24, 145,
+    ];
+    let expected = [
+        184, 141, 14, 25, 196, 12, 5, 65, 222, 229, 103, 132, 86, 28, 224, 249, 100, 61, 100, 238,
+        234, 250, 153, 140, 126, 148, 80, 19, 66, 92, 178, 14,
+    ];
+    let actual = Scalar::from_okm(&okm).to_le_bytes();
+    assert_eq!(actual, expected)
+}
+
 #[cfg(feature = "zeroize")]
 #[test]
 fn test_zeroize() {
@@ -1274,4 +1358,19 @@ fn test_zeroize() {
     ]);
     a.zeroize();
     assert!(bool::from(a.is_zero()));
+}
+
+#[test]
+fn test_hex() {
+    let s1 = R2;
+    let hex = format!("{:x}", s1);
+    let s2 = Scalar::from_be_hex(&hex);
+    assert_eq!(s2.is_some().unwrap_u8(), 1u8);
+    let s2 = s2.unwrap();
+    assert_eq!(s1, s2);
+    let hex = hex::encode(s1.to_le_bytes());
+    let s2 = Scalar::from_le_hex(&hex);
+    assert_eq!(s2.is_some().unwrap_u8(), 1u8);
+    let s2 = s2.unwrap();
+    assert_eq!(s1, s2);
 }

@@ -6,7 +6,12 @@ use rand_core::RngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::fp::Fp;
+#[cfg(feature = "hashing")]
+use core::convert::TryFrom;
+#[cfg(feature = "hashing")]
+use elliptic_curve::hash2curve::{ExpandMsg, Expander, Sgn0};
 
+/// A point in the multiplicative group of order p^2
 #[derive(Copy, Clone)]
 pub struct Fp2 {
     pub c0: Fp,
@@ -21,7 +26,7 @@ impl fmt::Debug for Fp2 {
 
 impl Default for Fp2 {
     fn default() -> Self {
-        Fp2::zero()
+        Fp2::ZERO
     }
 }
 
@@ -32,7 +37,7 @@ impl From<Fp> for Fp2 {
     fn from(f: Fp) -> Fp2 {
         Fp2 {
             c0: f,
-            c1: Fp::zero(),
+            c1: Fp::ZERO,
         }
     }
 }
@@ -108,28 +113,36 @@ impl<'a, 'b> Mul<&'b Fp2> for &'a Fp2 {
 impl_binops_additive!(Fp2, Fp2);
 impl_binops_multiplicative!(Fp2, Fp2);
 
+#[cfg(feature = "hashing")]
+impl Sgn0 for Fp2 {
+    fn sgn0(&self) -> Choice {
+        if self.c0.is_zero().into() {
+            self.c1.sgn0()
+        } else {
+            self.c0.sgn0()
+        }
+    }
+}
+
 impl Fp2 {
-    #[inline]
-    pub const fn zero() -> Fp2 {
-        Fp2 {
-            c0: Fp::zero(),
-            c1: Fp::zero(),
-        }
-    }
+    /// The additive identity element
+    pub const ZERO: Self = Self {
+        c0: Fp::ZERO,
+        c1: Fp::ZERO,
+    };
+    /// The multiplicative identity element
+    pub const ONE: Self = Self {
+        c0: Fp::ONE,
+        c1: Fp::ZERO,
+    };
 
-    #[inline]
-    pub const fn one() -> Fp2 {
-        Fp2 {
-            c0: Fp::one(),
-            c1: Fp::zero(),
-        }
-    }
-
+    /// True if this element is the additive identity
     pub fn is_zero(&self) -> Choice {
         self.c0.is_zero() & self.c1.is_zero()
     }
 
-    pub(crate) fn random(mut rng: impl RngCore) -> Fp2 {
+    /// Return a random element
+    pub fn random(mut rng: impl RngCore) -> Self {
         Fp2 {
             c0: Fp::random(&mut rng),
             c1: Fp::random(&mut rng),
@@ -144,6 +157,7 @@ impl Fp2 {
         self.conjugate()
     }
 
+    /// Conjugation of this element
     #[inline(always)]
     pub fn conjugate(&self) -> Self {
         Fp2 {
@@ -179,7 +193,8 @@ impl Fp2 {
             | (self.c1.is_zero() & self.c0.lexicographically_largest())
     }
 
-    pub const fn square(&self) -> Fp2 {
+    /// Compute the square of this element
+    pub const fn square(&self) -> Self {
         // Complex squaring:
         //
         // v0  = c0 * c1
@@ -202,7 +217,7 @@ impl Fp2 {
         }
     }
 
-    pub fn mul(&self, rhs: &Fp2) -> Fp2 {
+    pub fn mul(&self, rhs: &Fp2) -> Self {
         // F_{p^2} x F_{p^2} multiplication implemented with operand scanning (schoolbook)
         // computes the result as:
         //
@@ -221,32 +236,44 @@ impl Fp2 {
         }
     }
 
-    pub const fn add(&self, rhs: &Fp2) -> Fp2 {
+    /// Add self + rhs
+    pub const fn add(&self, rhs: &Fp2) -> Self {
         Fp2 {
             c0: (&self.c0).add(&rhs.c0),
             c1: (&self.c1).add(&rhs.c1),
         }
     }
 
-    pub const fn sub(&self, rhs: &Fp2) -> Fp2 {
-        Fp2 {
+    /// Subtract self - rhs
+    pub const fn sub(&self, rhs: &Fp2) -> Self {
+        Self {
             c0: (&self.c0).sub(&rhs.c0),
             c1: (&self.c1).sub(&rhs.c1),
         }
     }
 
-    pub const fn neg(&self) -> Fp2 {
+    /// Negate this element
+    pub const fn neg(&self) -> Self {
         Fp2 {
             c0: (&self.c0).neg(),
             c1: (&self.c1).neg(),
         }
     }
 
+    /// Double this element
+    pub const fn double(&self) -> Self {
+        Fp2 {
+            c0: self.c0.double(),
+            c1: self.c1.double(),
+        }
+    }
+
+    /// Square root of this element
     pub fn sqrt(&self) -> CtOption<Self> {
         // Algorithm 9, https://eprint.iacr.org/2012/685.pdf
         // with constant time modifications.
 
-        CtOption::new(Fp2::zero(), self.is_zero()).or_else(|| {
+        CtOption::new(Fp2::ZERO, self.is_zero()).or_else(|| {
             // a1 = self^((p - 3) / 4)
             let a1 = self.pow_vartime(&[
                 0xee7f_bfff_ffff_eaaa,
@@ -272,12 +299,12 @@ impl Fp2 {
                     c0: -x0.c1,
                     c1: x0.c0,
                 },
-                alpha.ct_eq(&(&Fp2::one()).neg()),
+                alpha.ct_eq(&Fp2::ONE.neg()),
             )
             // Otherwise, the correct solution is (1 + alpha)^((q - 1) // 2) * x0
             .or_else(|| {
                 CtOption::new(
-                    (alpha + Fp2::one()).pow_vartime(&[
+                    (alpha + Fp2::ONE).pow_vartime(&[
                         0xdcff_7fff_ffff_d555,
                         0x0f55_ffff_58a9_ffff,
                         0xb398_6950_7b58_7b12,
@@ -322,7 +349,7 @@ impl Fp2 {
     /// variable time with respect to the exponent. It
     /// is also not exposed in the public API.
     pub fn pow_vartime(&self, by: &[u64; 6]) -> Self {
-        let mut res = Self::one();
+        let mut res = Self::ONE;
         for e in by.iter().rev() {
             for i in (0..64).rev() {
                 res = res.square();
@@ -350,6 +377,42 @@ impl Fp2 {
             }
         }
         res
+    }
+
+    #[cfg(feature = "hashing")]
+    /// Take 64 bytes and compute the result reduced by the field modulus
+    pub fn from_random_bytes(okm: [u8; 128]) -> Self {
+        Self {
+            c0: Fp::from_random_bytes(<[u8; 64]>::try_from(&okm[..64]).unwrap()),
+            c1: Fp::from_random_bytes(<[u8; 64]>::try_from(&okm[64..]).unwrap()),
+        }
+    }
+
+    #[cfg(feature = "hashing")]
+    pub(crate) fn hash<X>(msg: &[u8], dst: &[u8]) -> [Self; 2]
+    where
+        X: for<'a> ExpandMsg<'a>,
+    {
+        let dst = [dst];
+        let mut random_bytes = [0u8; 256];
+        let mut expander = X::expand_message(&[msg], &dst, random_bytes.len()).unwrap();
+        expander.fill_bytes(&mut random_bytes);
+        [
+            Self::from_random_bytes(<[u8; 128]>::try_from(&random_bytes[..128]).unwrap()),
+            Self::from_random_bytes(<[u8; 128]>::try_from(&random_bytes[128..]).unwrap()),
+        ]
+    }
+
+    #[cfg(feature = "hashing")]
+    pub(crate) fn encode<X>(msg: &[u8], dst: &[u8]) -> Self
+    where
+        X: for<'a> ExpandMsg<'a>,
+    {
+        let dst = [dst];
+        let mut random_bytes = [0u8; 128];
+        let mut expander = X::expand_message(&[msg], &dst, random_bytes.len()).unwrap();
+        expander.fill_bytes(&mut random_bytes);
+        Self::from_random_bytes(random_bytes)
     }
 }
 
@@ -718,7 +781,7 @@ fn test_sqrt() {
             0x9fb4_e61d_1e83_eac5,
             0x005c_b922_afe8_4dc7,
         ]),
-        c1: Fp::zero(),
+        c1: Fp::ZERO,
     };
 
     assert_eq!(b.sqrt().unwrap().square(), b);
@@ -734,7 +797,7 @@ fn test_sqrt() {
             0xd36c_d6db_5547_e905,
             0x02f8_c8ec_bf18_67bb,
         ]),
-        c1: Fp::zero(),
+        c1: Fp::ZERO,
     };
 
     assert_eq!(c.sqrt().unwrap().square(), c);
@@ -807,13 +870,13 @@ fn test_inversion() {
 
     assert_eq!(a.invert().unwrap(), b);
 
-    assert!(bool::from(Fp2::zero().invert().is_none()));
+    assert!(bool::from(Fp2::ZERO.invert().is_none()));
 }
 
 #[test]
 fn test_lexicographic_largest() {
-    assert!(!bool::from(Fp2::zero().lexicographically_largest()));
-    assert!(!bool::from(Fp2::one().lexicographically_largest()));
+    assert!(!bool::from(Fp2::ZERO.lexicographically_largest()));
+    assert!(!bool::from(Fp2::ONE.lexicographically_largest()));
     assert!(bool::from(
         Fp2 {
             c0: Fp::from_raw_unchecked([
@@ -866,7 +929,7 @@ fn test_lexicographic_largest() {
                 0x736c_3a59_232d_511d,
                 0x10ac_d42d_29cf_cbb6,
             ]),
-            c1: Fp::zero(),
+            c1: Fp::ZERO,
         }
         .lexicographically_largest()
     ));
@@ -880,7 +943,7 @@ fn test_lexicographic_largest() {
                 0x736c_3a59_232d_511d,
                 0x10ac_d42d_29cf_cbb6,
             ]),
-            c1: Fp::zero(),
+            c1: Fp::ZERO,
         }
         .lexicographically_largest()
     ));
@@ -891,7 +954,7 @@ fn test_lexicographic_largest() {
 fn test_zeroize() {
     use zeroize::Zeroize;
 
-    let mut a = Fp2::one();
+    let mut a = Fp2::ONE;
     a.zeroize();
     assert!(bool::from(a.is_zero()));
 }

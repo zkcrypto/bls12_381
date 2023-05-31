@@ -16,26 +16,21 @@ edition = "2021"
 rustdoc-args = [ "--html-in-header", "katex-header.html" ]
 
 [dev-dependencies]
-csv = ">= 1.0, < 1.2" # csv 1.2 has MSRV 1.60
-criterion = "0.3"
+csv = "1.2.1"
+criterion = "0.5"
 hex = "0.4"
 rand_xorshift = "0.3"
-sha2 = "0.9"
-sha3 = "0.9"
+sha2 = "0.10"
+sha3 = "0.10"
 
 [[bench]]
 name = "groups"
 harness = false
 required-features = ["groups"]
 
-[[bench]]
-name = "hash_to_curve"
-harness = false
-required-features = ["experimental"]
-
-[dependencies.digest]
-version = "0.9"
-optional = true
+[dependencies.elliptic-curve]
+version = "0.13"
+default-features = false
 
 [dependencies.ff]
 version = "0.13"
@@ -55,19 +50,23 @@ version = "0.6"
 default-features = false
 
 [dependencies.subtle]
-version = "2.2.1"
+version = "2.4"
 default-features = false
 
 [dependencies.zeroize]
-version = "1.4"
+version = "1.6"
 default-features = false
 optional = true
 
+[dependencies.arrayref]
+version = "0.3"
+
 [features]
-default = ["groups", "pairings", "alloc", "bits"]
+default = ["groups", "pairings", "alloc", "bits", "hashing"]
 bits = ["ff/bits"]
 groups = ["group"]
+hashing = ["elliptic-curve/hash2curve"]
 pairings = ["groups", "pairing"]
 alloc = ["group/alloc"]
-experimental = ["digest"]
+experimental = []
 nightly = ["subtle/nightly"]

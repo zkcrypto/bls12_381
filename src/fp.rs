@@ -1,16 +1,31 @@
 //! This module provides an implementation of the BLS12-381 base field `GF(p)`
 //! where `p = 0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab`
 
+use crate::G1Projective;
+use core::convert::TryFrom;
 use core::fmt;
-use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use core::iter::{Iterator, Product, Sum};
+use core::ops::{Add, AddAssign, BitOr, Mul, MulAssign, Neg, Sub, SubAssign};
+#[cfg(feature = "hashing")]
+use elliptic_curve::{
+    generic_array::{
+        typenum::{U16, U64},
+        GenericArray,
+    },
+    hash2curve::{
+        ExpandMsg, Expander, FromOkm, Isogeny, IsogenyCoefficients, MapToCurve, OsswuMap,
+        OsswuMapParams, Sgn0,
+    },
+};
+use ff::Field;
 use rand_core::RngCore;
-use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
+use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::util::{adc, mac, sbb};
 
-// The internal representation of this type is six 64-bit unsigned
-// integers in little-endian order. `Fp` values are always in
-// Montgomery form; i.e., Scalar(a) = aR mod p, with R = 2^384.
+/// The internal representation of this type is six 64-bit unsigned
+/// integers in little-endian order. `Fp` values are always in
+/// Montgomery form; i.e., Scalar(a) = aR mod p, with R = 2^384.
 #[derive(Copy, Clone)]
 pub struct Fp(pub(crate) [u64; 6]);
 
@@ -27,7 +42,7 @@ impl fmt::Debug for Fp {
 
 impl Default for Fp {
     fn default() -> Self {
-        Fp::zero()
+        Fp::ZERO
     }
 }
 
@@ -67,7 +82,7 @@ impl ConditionallySelectable for Fp {
 }
 
 /// p = 4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787
-const MODULUS: [u64; 6] = [
+pub(crate) const MODULUS: [u64; 6] = [
     0xb9fe_ffff_ffff_aaab,
     0x1eab_fffe_b153_ffff,
     0x6730_d2a0_f6b0_f624,
@@ -157,21 +172,234 @@ impl<'a, 'b> Mul<&'b Fp> for &'a Fp {
 impl_binops_additive!(Fp, Fp);
 impl_binops_multiplicative!(Fp, Fp);
 
+#[cfg(feature = "hashing")]
+impl FromOkm for Fp {
+    type Length = U64;
+
+    fn from_okm(data: &GenericArray<u8, Self::Length>) -> Self {
+        let input = arrayref::array_ref![data, 0, 64];
+        Self::from_random_bytes(*input)
+    }
+}
+
+#[cfg(feature = "hashing")]
+impl Sgn0 for Fp {
+    fn sgn0(&self) -> Choice {
+        let bytes = self.to_bytes();
+        (bytes[47] & 1).into()
+    }
+}
+
+#[cfg(feature = "hashing")]
+impl OsswuMap for Fp {
+    const PARAMS: OsswuMapParams<Self> = OsswuMapParams {
+        c1: &[
+            0xee7f_bfff_ffff_eaaau64,
+            0x07aa_ffff_ac54_ffffu64,
+            0xd9cc_34a8_3dac_3d89u64,
+            0xd91d_d2e1_3ce1_44afu64,
+            0x92c6_e9ed_90d2_eb35u64,
+            0x0680_447a_8e5f_f9a6u64,
+        ],
+        c2: Fp([
+            0x43b5_71ca_d321_5f1fu64,
+            0xccb4_60ef_1c70_2dc2u64,
+            0x742d_884f_4f97_100bu64,
+            0xdb2c_3e32_38a3_382bu64,
+            0xe40f_3fa1_3fce_8f88u64,
+            0x0073_a2af_9892_a2ffu64,
+        ]),
+        map_a: Fp([
+            0x2f65_aa0e_9af5_aa51u64,
+            0x8646_4c2d_1e84_16c3u64,
+            0xb85c_e591_b7bd_31e2u64,
+            0x27e1_1c91_b5f2_4e7cu64,
+            0x2837_6eda_6bfc_1835u64,
+            0x1554_55c3_e507_1d85u64,
+        ]),
+        map_b: Fp([
+            0xfb99_6971_fe22_a1e0u64,
+            0x9aa9_3eb3_5b74_2d6fu64,
+            0x8c47_6013_de99_c5c4u64,
+            0x873e_27c3_a221_e571u64,
+            0xca72_b5e4_5a52_d888u64,
+            0x0682_4061_418a_386bu64,
+        ]),
+        z: Fp([
+            0x886c00000023ffdcu64,
+            0xf70008d3090001du64,
+            0x77672417ed5828c3u64,
+            0x9dac23e943dc1740u64,
+            0x50553f1b9c131521u64,
+            0x78c712fbe0ab6e8u64,
+        ]),
+    };
+
+    fn osswu(&self) -> (Self, Self) {
+        let xd1 = Self::PARAMS.z.mul(&Self::PARAMS.map_a);
+
+        // tv1 = u^2
+        let tv1 = self.square();
+        // tv3 = Z * tv1
+        let tv3 = Self::PARAMS.z * tv1;
+        // tv2 = tv3^2
+        let mut tv2 = tv3.square();
+        // xd = tv2 + tv3
+        let mut xd = tv2 + tv3;
+        // x1n = xd + 1
+        // x1n = x1n * B
+        let x1n = (xd + Fp::ONE) * Self::PARAMS.map_b;
+        // xd = -A * xd
+        xd *= Self::PARAMS.map_a.neg();
+        // xd = CMOV(xd, Z * A, xd == 0)
+        xd.conditional_assign(&xd1, xd.is_zero());
+        // tv2 = xd^2
+        tv2 = xd.square();
+        let gxd = tv2 * xd;
+        tv2 *= Self::PARAMS.map_a;
+        let mut gx1 = (x1n.square() + tv2) * x1n;
+        tv2 = Self::PARAMS.map_b * gxd;
+        gx1 += tv2;
+        let mut tv4 = gxd.square();
+        tv2 = gx1 * gxd;
+        tv4 *= tv2;
+        let y1 = tv4.pow_vartime(arrayref::array_ref![Self::PARAMS.c1, 0, 6]) * tv2;
+        let mut x2n = tv3 * x1n;
+        let mut y2 = y1 * Self::PARAMS.c2 * tv1 * self;
+        tv2 = y1.square() * gxd;
+        let e2 = ((tv2 == gx1) as u8).into();
+
+        x2n.conditional_assign(&x1n, e2);
+        y2.conditional_assign(&y1, e2);
+
+        let e3 = self.sgn0() ^ y2.sgn0();
+        y2.conditional_negate(e3);
+
+        (x2n * xd.invert().unwrap(), y2)
+    }
+}
+
+#[cfg(feature = "hashing")]
+impl MapToCurve for Fp {
+    type Output = G1Projective;
+
+    fn map_to_curve(&self) -> Self::Output {
+        let (rx, ry) = self.osswu();
+        let (qx, qy) = Fp::isogeny(rx, ry);
+        G1Projective {
+            x: qx,
+            y: qy,
+            z: Fp::ONE,
+        }
+    }
+}
+
+#[cfg(feature = "hashing")]
+impl Isogeny for Fp {
+    type Degree = U16;
+    const COEFFICIENTS: IsogenyCoefficients<Self> = IsogenyCoefficients {
+        xnum: &crate::isogeny::g1::XNUM,
+        xden: &crate::isogeny::g1::XDEN,
+        ynum: &crate::isogeny::g1::YNUM,
+        yden: &crate::isogeny::g1::YDEN,
+    };
+}
+
+impl Field for Fp {
+    const ZERO: Self = Fp::ZERO;
+    const ONE: Self = Fp::ONE;
+
+    fn random(rng: impl RngCore) -> Self {
+        Fp::random(rng)
+    }
+
+    fn square(&self) -> Self {
+        self.square()
+    }
+
+    fn double(&self) -> Self {
+        self.double()
+    }
+
+    fn invert(&self) -> CtOption<Self> {
+        self.invert()
+    }
+
+    fn sqrt_ratio(_num: &Self, _div: &Self) -> (Choice, Self) {
+        // ff::helpers::sqrt_ratio_generic(num, div)
+        unimplemented!()
+    }
+}
+
+impl From<u64> for Fp {
+    fn from(value: u64) -> Self {
+        Self([value, 0, 0, 0, 0, 0]) * R2
+    }
+}
+
+impl Sum<Fp> for Fp {
+    fn sum<I: Iterator<Item = Fp>>(iter: I) -> Self {
+        let mut result = Fp::ZERO;
+        for f in iter {
+            result += f;
+        }
+        result
+    }
+}
+
+impl<'a> Sum<&'a Fp> for Fp {
+    fn sum<I: Iterator<Item = &'a Fp>>(iter: I) -> Self {
+        let mut result = Fp::ZERO;
+        for f in iter {
+            result += f;
+        }
+        result
+    }
+}
+
+impl Product<Fp> for Fp {
+    fn product<I: Iterator<Item = Fp>>(iter: I) -> Self {
+        let mut result = Fp::ONE;
+        for f in iter {
+            result *= f;
+        }
+        result
+    }
+}
+
+impl<'a> Product<&'a Fp> for Fp {
+    fn product<I: Iterator<Item = &'a Fp>>(iter: I) -> Self {
+        let mut result = Fp::ONE;
+        for f in iter {
+            result *= f;
+        }
+        result
+    }
+}
+
 impl Fp {
+    /// The additive identity.
+    pub const ZERO: Fp = Fp([0, 0, 0, 0, 0, 0]);
+    /// The multiplicative identity.
+    pub const ONE: Fp = R;
+
     /// Returns zero, the additive identity.
     #[inline]
+    #[deprecated(since = "0.8.0", note = "Use ZERO instead.")]
     pub const fn zero() -> Fp {
         Fp([0, 0, 0, 0, 0, 0])
     }
 
     /// Returns one, the multiplicative identity.
     #[inline]
+    #[deprecated(since = "0.8.0", note = "Use ONE instead.")]
     pub const fn one() -> Fp {
         R
     }
 
+    /// Returns true if field is the additive identity
     pub fn is_zero(&self) -> Choice {
-        self.ct_eq(&Fp::zero())
+        self.ct_eq(&Fp::ZERO)
     }
 
     /// Attempts to convert a big-endian byte representation of
@@ -226,12 +454,13 @@ impl Fp {
         res
     }
 
+    /// Create a random field element
     pub(crate) fn random(mut rng: impl RngCore) -> Fp {
         let mut bytes = [0u8; 96];
         rng.fill_bytes(&mut bytes);
 
         // Parse the random bytes as a big-endian number, to match Fp encoding order.
-        Fp::from_u768([
+        Fp::from_u768_be([
             u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[0..8]).unwrap()),
             u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[8..16]).unwrap()),
             u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[16..24]).unwrap()),
@@ -248,7 +477,7 @@ impl Fp {
     }
 
     /// Reduces a big-endian 64-bit limb representation of a 768-bit number.
-    fn from_u768(limbs: [u64; 12]) -> Fp {
+    fn from_u768_be(limbs: [u64; 12]) -> Fp {
         // We reduce an arbitrary 768-bit number by decomposing it into two 384-bit digits
         // with the higher bits multiplied by 2^384. Thus, we perform two reductions
         //
@@ -264,6 +493,27 @@ impl Fp {
         // constant `R2` or `R3`.
         let d1 = Fp([limbs[11], limbs[10], limbs[9], limbs[8], limbs[7], limbs[6]]);
         let d0 = Fp([limbs[5], limbs[4], limbs[3], limbs[2], limbs[1], limbs[0]]);
+        // Convert to Montgomery form
+        d0 * R2 + d1 * R3
+    }
+
+    /// Reduces a big-endian 64-bit limb representation of a 768-bit number.
+    fn from_u768_le(limbs: [u64; 12]) -> Fp {
+        // We reduce an arbitrary 768-bit number by decomposing it into two 384-bit digits
+        // with the higher bits multiplied by 2^384. Thus, we perform two reductions
+        //
+        // 1. the lower bits are multiplied by R^2, as normal
+        // 2. the upper bits are multiplied by R^2 * 2^384 = R^3
+        //
+        // and computing their sum in the field. It remains to see that arbitrary 384-bit
+        // numbers can be placed into Montgomery form safely using the reduction. The
+        // reduction works so long as the product is less than R=2^384 multiplied by
+        // the modulus. This holds because for any `c` smaller than the modulus, we have
+        // that (2^384 - 1)*c is an acceptable product for the reduction. Therefore, the
+        // reduction always works so long as `c` is in the field; in this case it is either the
+        // constant `R2` or `R3`.
+        let d1 = Fp([limbs[6], limbs[7], limbs[8], limbs[9], limbs[10], limbs[11]]);
+        let d0 = Fp([limbs[0], limbs[1], limbs[2], limbs[3], limbs[4], limbs[5]]);
         // Convert to Montgomery form
         d0 * R2 + d1 * R3
     }
@@ -307,7 +557,7 @@ impl Fp {
     /// variable time with respect to the exponent. It
     /// is also not exposed in the public API.
     pub fn pow_vartime(&self, by: &[u64; 6]) -> Self {
-        let mut res = Self::one();
+        let mut res = Self::ONE;
         for e in by.iter().rev() {
             for i in (0..64).rev() {
                 res = res.square();
@@ -320,6 +570,7 @@ impl Fp {
         res
     }
 
+    /// Compute the modular square root of this field element
     #[inline]
     pub fn sqrt(&self) -> CtOption<Self> {
         // We use Shank's method, as p = 3 (mod 4). This means
@@ -378,6 +629,7 @@ impl Fp {
         Fp([r0, r1, r2, r3, r4, r5])
     }
 
+    /// Add `self` to `rhs` and return the result
     #[inline]
     pub const fn add(&self, rhs: &Fp) -> Fp {
         let (d0, carry) = adc(self.0[0], rhs.0[0], 0);
@@ -392,6 +644,7 @@ impl Fp {
         (&Fp([d0, d1, d2, d3, d4, d5])).subtract_p()
     }
 
+    /// Negate this element
     #[inline]
     pub const fn neg(&self) -> Fp {
         let (d0, borrow) = sbb(MODULUS[0], self.0[0], 0);
@@ -417,6 +670,7 @@ impl Fp {
         ])
     }
 
+    /// Subtract `rhs` from `self` and return the result
     #[inline]
     pub const fn sub(&self, rhs: &Fp) -> Fp {
         (&rhs.neg()).add(self)
@@ -561,6 +815,13 @@ impl Fp {
         (&Fp([r6, r7, r8, r9, r10, r11])).subtract_p()
     }
 
+    /// Return 2*self
+    #[inline(always)]
+    pub const fn double(&self) -> Fp {
+        Fp::add(self, self)
+    }
+
+    /// Compute `self` * `rhs`
     #[inline]
     pub const fn mul(&self, rhs: &Fp) -> Fp {
         let (t0, carry) = mac(0, self.0[0], rhs.0[0], 0);
@@ -657,6 +918,69 @@ impl Fp {
         let (t11, _) = adc(t11, 0, carry);
 
         Self::montgomery_reduce(t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11)
+    }
+
+    /// Returns true whenever value is a square in the field
+    /// using Euler's criterion
+    #[inline]
+    pub fn is_square(&self) -> Choice {
+        const PM1DIV2: [u64; 6] = [
+            0xdcff_7fff_ffff_d555u64,
+            0x0f55_ffff_58a9_ffffu64,
+            0xb398_6950_7b58_7b12u64,
+            0xb23b_a5c2_79c2_895fu64,
+            0x258d_d3db_21a5_d66bu64,
+            0x0d00_88f5_1cbf_f34du64,
+        ];
+
+        let res = self.pow_vartime(&PM1DIV2);
+        res.is_zero().bitor(res.ct_eq(&Self::ONE))
+    }
+
+    #[cfg(feature = "hashing")]
+    /// Take 64 bytes and compute the result reduced by the field modulus
+    pub(crate) fn from_random_bytes(okm: [u8; 64]) -> Self {
+        Self::from_u768_le([
+            u64::from_be_bytes(<[u8; 8]>::try_from(&okm[56..64]).unwrap()),
+            u64::from_be_bytes(<[u8; 8]>::try_from(&okm[48..56]).unwrap()),
+            u64::from_be_bytes(<[u8; 8]>::try_from(&okm[40..48]).unwrap()),
+            u64::from_be_bytes(<[u8; 8]>::try_from(&okm[32..40]).unwrap()),
+            u64::from_be_bytes(<[u8; 8]>::try_from(&okm[24..32]).unwrap()),
+            u64::from_be_bytes(<[u8; 8]>::try_from(&okm[16..24]).unwrap()),
+            u64::from_be_bytes(<[u8; 8]>::try_from(&okm[8..16]).unwrap()),
+            u64::from_be_bytes(<[u8; 8]>::try_from(&okm[0..8]).unwrap()),
+            0u64,
+            0u64,
+            0u64,
+            0u64,
+        ])
+    }
+
+    #[cfg(feature = "hashing")]
+    pub(crate) fn hash<X>(msg: &[u8], dst: &[u8]) -> [Fp; 2]
+    where
+        X: for<'a> ExpandMsg<'a>,
+    {
+        let dst = [dst];
+        let mut random_bytes = [0u8; 128];
+        let mut expander = X::expand_message(&[msg], &dst, random_bytes.len()).unwrap();
+        expander.fill_bytes(&mut random_bytes);
+        [
+            Fp::from_random_bytes(<[u8; 64]>::try_from(&random_bytes[..64]).unwrap()),
+            Fp::from_random_bytes(<[u8; 64]>::try_from(&random_bytes[64..]).unwrap()),
+        ]
+    }
+
+    #[cfg(feature = "hashing")]
+    pub(crate) fn encode<X>(msg: &[u8], dst: &[u8]) -> Fp
+    where
+        X: for<'a> ExpandMsg<'a>,
+    {
+        let dst = [dst];
+        let mut random_bytes = [0u8; 64];
+        let mut expander = X::expand_message(&[msg], &dst, random_bytes.len()).unwrap();
+        expander.fill_bytes(&mut random_bytes);
+        Fp::from_random_bytes(random_bytes)
     }
 }
 
@@ -868,7 +1192,7 @@ fn test_from_bytes() {
     }
 
     assert_eq!(
-        -Fp::one(),
+        -Fp::ONE,
         Fp::from_bytes(&[
             26, 1, 17, 234, 57, 127, 230, 154, 75, 27, 167, 182, 67, 75, 172, 215, 100, 119, 75,
             132, 243, 133, 18, 191, 103, 48, 210, 160, 246, 176, 246, 36, 30, 171, 255, 254, 177,
@@ -936,13 +1260,13 @@ fn test_inversion() {
     ]);
 
     assert_eq!(a.invert().unwrap(), b);
-    assert!(bool::from(Fp::zero().invert().is_none()));
+    assert!(bool::from(Fp::ZERO.invert().is_none()));
 }
 
 #[test]
 fn test_lexicographic_largest() {
-    assert!(!bool::from(Fp::zero().lexicographically_largest()));
-    assert!(!bool::from(Fp::one().lexicographically_largest()));
+    assert!(!bool::from(Fp::ZERO.lexicographically_largest()));
+    assert!(!bool::from(Fp::ONE.lexicographically_largest()));
     assert!(!bool::from(
         Fp::from_raw_unchecked([
             0xa1fa_ffff_fffe_5557,
