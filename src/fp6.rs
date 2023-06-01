@@ -10,11 +10,6 @@ use bytecheck::CheckBytes;
 #[cfg(feature = "rkyv-impl")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 
-#[cfg(feature = "serde_req")]
-use serde::{
-    self, de::Visitor, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer,
-};
-
 /// This represents an element $c_0 + c_1 v + c_2 v^2$ of $\mathbb{F}_{p^6} = \mathbb{F}_{p^2} / v^3 - u - 1$.
 #[cfg_attr(feature = "rkyv-impl", derive(Archive, RkyvSerialize, RkyvDeserialize))]
 #[cfg_attr(feature = "rkyv-impl", archive_attr(derive(CheckBytes)))]
@@ -67,97 +62,6 @@ impl Default for Fp6 {
 impl fmt::Debug for Fp6 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?} + ({:?})*v + ({:?})*v^2", self.c0, self.c1, self.c2)
-    }
-}
-
-#[cfg(feature = "serde_req")]
-impl Serialize for Fp6 {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut fp2 = serializer.serialize_struct("struct Fp6", 3)?;
-        fp2.serialize_field("c0", &self.c0)?;
-        fp2.serialize_field("c1", &self.c1)?;
-        fp2.serialize_field("c2", &self.c2)?;
-        fp2.end()
-    }
-}
-
-#[cfg(feature = "serde_req")]
-impl<'de> Deserialize<'de> for Fp6 {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        enum Field {
-            C0,
-            C1,
-            C2,
-        }
-
-        impl<'de> Deserialize<'de> for Field {
-            fn deserialize<D>(deserializer: D) -> Result<Field, D::Error>
-            where
-                D: Deserializer<'de>,
-            {
-                struct FieldVisitor;
-
-                impl<'de> Visitor<'de> for FieldVisitor {
-                    type Value = Field;
-
-                    fn expecting(
-                        &self,
-                        formatter: &mut ::core::fmt::Formatter,
-                    ) -> ::core::fmt::Result {
-                        formatter.write_str("struct Fp6")
-                    }
-
-                    fn visit_str<E>(self, value: &str) -> Result<Field, E>
-                    where
-                        E: serde::de::Error,
-                    {
-                        match value {
-                            "c0" => Ok(Field::C0),
-                            "c1" => Ok(Field::C1),
-                            "c2" => Ok(Field::C2),
-                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
-                        }
-                    }
-                }
-
-                deserializer.deserialize_identifier(FieldVisitor)
-            }
-        }
-
-        struct Fp6Visitor;
-
-        impl<'de> Visitor<'de> for Fp6Visitor {
-            type Value = Fp6;
-
-            fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-                formatter.write_str("struct Fp6")
-            }
-
-            fn visit_seq<V>(self, mut seq: V) -> Result<Fp6, V::Error>
-            where
-                V: serde::de::SeqAccess<'de>,
-            {
-                let c0 = seq
-                    .next_element()?
-                    .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
-                let c1 = seq
-                    .next_element()?
-                    .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
-                let c2 = seq
-                    .next_element()?
-                    .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
-                Ok(Fp6 { c0, c1, c2 })
-            }
-        }
-
-        const FIELDS: &[&str] = &["c0", "c1", "c2"];
-        deserializer.deserialize_struct("Fp6", FIELDS, Fp6Visitor)
     }
 }
 
@@ -468,203 +372,294 @@ impl<'a, 'b> Sub<&'b Fp6> for &'a Fp6 {
 impl_binops_additive!(Fp6, Fp6);
 impl_binops_multiplicative!(Fp6, Fp6);
 
-#[cfg(test)]
-mod tests {
+#[test]
+fn test_arithmetic() {
+    use crate::fp::*;
+
+    let a = Fp6 {
+        c0: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0x47f9_cb98_b1b8_2d58,
+                0x5fe9_11eb_a3aa_1d9d,
+                0x96bf_1b5f_4dd8_1db3,
+                0x8100_d27c_c925_9f5b,
+                0xafa2_0b96_7464_0eab,
+                0x09bb_cea7_d8d9_497d,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x0303_cb98_b166_2daa,
+                0xd931_10aa_0a62_1d5a,
+                0xbfa9_820c_5be4_a468,
+                0x0ba3_643e_cb05_a348,
+                0xdc35_34bb_1f1c_25a6,
+                0x06c3_05bb_19c0_e1c1,
+            ]),
+        },
+        c1: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0x46f9_cb98_b162_d858,
+                0x0be9_109c_f7aa_1d57,
+                0xc791_bc55_fece_41d2,
+                0xf84c_5770_4e38_5ec2,
+                0xcb49_c1d9_c010_e60f,
+                0x0acd_b8e1_58bf_e3c8,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x8aef_cb98_b15f_8306,
+                0x3ea1_108f_e4f2_1d54,
+                0xcf79_f69f_a1b7_df3b,
+                0xe4f5_4aa1_d16b_1a3c,
+                0xba5e_4ef8_6105_a679,
+                0x0ed8_6c07_97be_e5cf,
+            ]),
+        },
+        c2: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xcee5_cb98_b15c_2db4,
+                0x7159_1082_d23a_1d51,
+                0xd762_30e9_44a1_7ca4,
+                0xd19e_3dd3_549d_d5b6,
+                0xa972_dc17_01fa_66e3,
+                0x12e3_1f2d_d6bd_e7d6,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0xad2a_cb98_b173_2d9d,
+                0x2cfd_10dd_0696_1d64,
+                0x0739_6b86_c6ef_24e8,
+                0xbd76_e2fd_b1bf_c820,
+                0x6afe_a7f6_de94_d0d5,
+                0x1099_4b0c_5744_c040,
+            ]),
+        },
+    };
+
+    let b = Fp6 {
+        c0: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xf120_cb98_b16f_d84b,
+                0x5fb5_10cf_f3de_1d61,
+                0x0f21_a5d0_69d8_c251,
+                0xaa1f_d62f_34f2_839a,
+                0x5a13_3515_7f89_913f,
+                0x14a3_fe32_9643_c247,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x3516_cb98_b16c_82f9,
+                0x926d_10c2_e126_1d5f,
+                0x1709_e01a_0cc2_5fba,
+                0x96c8_c960_b825_3f14,
+                0x4927_c234_207e_51a9,
+                0x18ae_b158_d542_c44e,
+            ]),
+        },
+        c1: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xbf0d_cb98_b169_82fc,
+                0xa679_10b7_1d1a_1d5c,
+                0xb7c1_47c2_b8fb_06ff,
+                0x1efa_710d_47d2_e7ce,
+                0xed20_a79c_7e27_653c,
+                0x02b8_5294_dac1_dfba,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x9d52_cb98_b180_82e5,
+                0x621d_1111_5176_1d6f,
+                0xe798_8260_3b48_af43,
+                0x0ad3_1637_a4f4_da37,
+                0xaeac_737c_5ac1_cf2e,
+                0x006e_7e73_5b48_b824,
+            ]),
+        },
+        c2: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xe148_cb98_b17d_2d93,
+                0x94d5_1104_3ebe_1d6c,
+                0xef80_bca9_de32_4cac,
+                0xf77c_0969_2827_95b1,
+                0x9dc1_009a_fbb6_8f97,
+                0x0479_3199_9a47_ba2b,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x253e_cb98_b179_d841,
+                0xc78d_10f7_2c06_1d6a,
+                0xf768_f6f3_811b_ea15,
+                0xe424_fc9a_ab5a_512b,
+                0x8cd5_8db9_9cab_5001,
+                0x0883_e4bf_d946_bc32,
+            ]),
+        },
+    };
+
+    let c = Fp6 {
+        c0: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0x6934_cb98_b176_82ef,
+                0xfa45_10ea_194e_1d67,
+                0xff51_313d_2405_877e,
+                0xd0cd_efcc_2e8d_0ca5,
+                0x7bea_1ad8_3da0_106b,
+                0x0c8e_97e6_1845_be39,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x4779_cb98_b18d_82d8,
+                0xb5e9_1144_4daa_1d7a,
+                0x2f28_6bda_a653_2fc2,
+                0xbca6_94f6_8bae_ff0f,
+                0x3d75_e6b8_1a3a_7a5d,
+                0x0a44_c3c4_98cc_96a3,
+            ]),
+        },
+        c1: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0x8b6f_cb98_b18a_2d86,
+                0xe8a1_1137_3af2_1d77,
+                0x3710_a624_493c_cd2b,
+                0xa94f_8828_0ee1_ba89,
+                0x2c8a_73d6_bb2f_3ac7,
+                0x0e4f_76ea_d7cb_98aa,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0xcf65_cb98_b186_d834,
+                0x1b59_112a_283a_1d74,
+                0x3ef8_e06d_ec26_6a95,
+                0x95f8_7b59_9214_7603,
+                0x1b9f_00f5_5c23_fb31,
+                0x125a_2a11_16ca_9ab1,
+            ]),
+        },
+        c2: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0x135b_cb98_b183_82e2,
+                0x4e11_111d_1582_1d72,
+                0x46e1_1ab7_8f10_07fe,
+                0x82a1_6e8b_1547_317d,
+                0x0ab3_8e13_fd18_bb9b,
+                0x1664_dd37_55c9_9cb8,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0xce65_cb98_b131_8334,
+                0xc759_0fdb_7c3a_1d2e,
+                0x6fcb_8164_9d1c_8eb3,
+                0x0d44_004d_1727_356a,
+                0x3746_b738_a7d0_d296,
+                0x136c_144a_96b1_34fc,
+            ]),
+        },
+    };
+
+    assert_eq!(a.square(), &a * &a);
+    assert_eq!(b.square(), &b * &b);
+    assert_eq!(c.square(), &c * &c);
+
+    assert_eq!(
+        (a + b) * c.square(),
+        &(&(&c * &c) * &a) + &(&(&c * &c) * &b)
+    );
+
+    assert_eq!(
+        &a.invert().unwrap() * &b.invert().unwrap(),
+        (&a * &b).invert().unwrap()
+    );
+    assert_eq!(&a.invert().unwrap() * &a, Fp6::one());
+}
+
+#[cfg(feature = "serde_req")]
+mod dusk {
     use super::*;
+    use serde::{
+        self, de::Visitor, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer,
+    };
 
-    #[test]
-    fn test_arithmetic() {
-        use crate::fp::*;
+    impl Serialize for Fp6 {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let mut fp2 = serializer.serialize_struct("struct Fp6", 3)?;
+            fp2.serialize_field("c0", &self.c0)?;
+            fp2.serialize_field("c1", &self.c1)?;
+            fp2.serialize_field("c2", &self.c2)?;
+            fp2.end()
+        }
+    }
 
-        let a = Fp6 {
-            c0: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0x47f9cb98b1b82d58,
-                    0x5fe911eba3aa1d9d,
-                    0x96bf1b5f4dd81db3,
-                    0x8100d27cc9259f5b,
-                    0xafa20b9674640eab,
-                    0x9bbcea7d8d9497d,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0x303cb98b1662daa,
-                    0xd93110aa0a621d5a,
-                    0xbfa9820c5be4a468,
-                    0xba3643ecb05a348,
-                    0xdc3534bb1f1c25a6,
-                    0x6c305bb19c0e1c1,
-                ]),
-            },
-            c1: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0x46f9cb98b162d858,
-                    0xbe9109cf7aa1d57,
-                    0xc791bc55fece41d2,
-                    0xf84c57704e385ec2,
-                    0xcb49c1d9c010e60f,
-                    0xacdb8e158bfe3c8,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0x8aefcb98b15f8306,
-                    0x3ea1108fe4f21d54,
-                    0xcf79f69fa1b7df3b,
-                    0xe4f54aa1d16b1a3c,
-                    0xba5e4ef86105a679,
-                    0xed86c0797bee5cf,
-                ]),
-            },
-            c2: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0xcee5cb98b15c2db4,
-                    0x71591082d23a1d51,
-                    0xd76230e944a17ca4,
-                    0xd19e3dd3549dd5b6,
-                    0xa972dc1701fa66e3,
-                    0x12e31f2dd6bde7d6,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0xad2acb98b1732d9d,
-                    0x2cfd10dd06961d64,
-                    0x7396b86c6ef24e8,
-                    0xbd76e2fdb1bfc820,
-                    0x6afea7f6de94d0d5,
-                    0x10994b0c5744c040,
-                ]),
-            },
-        };
+    impl<'de> Deserialize<'de> for Fp6 {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            enum Field {
+                C0,
+                C1,
+                C2,
+            }
 
-        let b = Fp6 {
-            c0: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0xf120cb98b16fd84b,
-                    0x5fb510cff3de1d61,
-                    0xf21a5d069d8c251,
-                    0xaa1fd62f34f2839a,
-                    0x5a1335157f89913f,
-                    0x14a3fe329643c247,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0x3516cb98b16c82f9,
-                    0x926d10c2e1261d5f,
-                    0x1709e01a0cc25fba,
-                    0x96c8c960b8253f14,
-                    0x4927c234207e51a9,
-                    0x18aeb158d542c44e,
-                ]),
-            },
-            c1: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0xbf0dcb98b16982fc,
-                    0xa67910b71d1a1d5c,
-                    0xb7c147c2b8fb06ff,
-                    0x1efa710d47d2e7ce,
-                    0xed20a79c7e27653c,
-                    0x2b85294dac1dfba,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0x9d52cb98b18082e5,
-                    0x621d111151761d6f,
-                    0xe79882603b48af43,
-                    0xad31637a4f4da37,
-                    0xaeac737c5ac1cf2e,
-                    0x6e7e735b48b824,
-                ]),
-            },
-            c2: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0xe148cb98b17d2d93,
-                    0x94d511043ebe1d6c,
-                    0xef80bca9de324cac,
-                    0xf77c0969282795b1,
-                    0x9dc1009afbb68f97,
-                    0x47931999a47ba2b,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0x253ecb98b179d841,
-                    0xc78d10f72c061d6a,
-                    0xf768f6f3811bea15,
-                    0xe424fc9aab5a512b,
-                    0x8cd58db99cab5001,
-                    0x883e4bfd946bc32,
-                ]),
-            },
-        };
+            impl<'de> Deserialize<'de> for Field {
+                fn deserialize<D>(deserializer: D) -> Result<Field, D::Error>
+                where
+                    D: Deserializer<'de>,
+                {
+                    struct FieldVisitor;
 
-        let c = Fp6 {
-            c0: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0x6934cb98b17682ef,
-                    0xfa4510ea194e1d67,
-                    0xff51313d2405877e,
-                    0xd0cdefcc2e8d0ca5,
-                    0x7bea1ad83da0106b,
-                    0xc8e97e61845be39,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0x4779cb98b18d82d8,
-                    0xb5e911444daa1d7a,
-                    0x2f286bdaa6532fc2,
-                    0xbca694f68baeff0f,
-                    0x3d75e6b81a3a7a5d,
-                    0xa44c3c498cc96a3,
-                ]),
-            },
-            c1: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0x8b6fcb98b18a2d86,
-                    0xe8a111373af21d77,
-                    0x3710a624493ccd2b,
-                    0xa94f88280ee1ba89,
-                    0x2c8a73d6bb2f3ac7,
-                    0xe4f76ead7cb98aa,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0xcf65cb98b186d834,
-                    0x1b59112a283a1d74,
-                    0x3ef8e06dec266a95,
-                    0x95f87b5992147603,
-                    0x1b9f00f55c23fb31,
-                    0x125a2a1116ca9ab1,
-                ]),
-            },
-            c2: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0x135bcb98b18382e2,
-                    0x4e11111d15821d72,
-                    0x46e11ab78f1007fe,
-                    0x82a16e8b1547317d,
-                    0xab38e13fd18bb9b,
-                    0x1664dd3755c99cb8,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0xce65cb98b1318334,
-                    0xc7590fdb7c3a1d2e,
-                    0x6fcb81649d1c8eb3,
-                    0xd44004d1727356a,
-                    0x3746b738a7d0d296,
-                    0x136c144a96b134fc,
-                ]),
-            },
-        };
+                    impl<'de> Visitor<'de> for FieldVisitor {
+                        type Value = Field;
 
-        assert_eq!(a.square(), &a * &a);
-        assert_eq!(b.square(), &b * &b);
-        assert_eq!(c.square(), &c * &c);
+                        fn expecting(
+                            &self,
+                            formatter: &mut ::core::fmt::Formatter,
+                        ) -> ::core::fmt::Result {
+                            formatter.write_str("struct Fp6")
+                        }
 
-        assert_eq!(
-            (a + b) * c.square(),
-            &(&(&c * &c) * &a) + &(&(&c * &c) * &b)
-        );
+                        fn visit_str<E>(self, value: &str) -> Result<Field, E>
+                        where
+                            E: serde::de::Error,
+                        {
+                            match value {
+                                "c0" => Ok(Field::C0),
+                                "c1" => Ok(Field::C1),
+                                "c2" => Ok(Field::C2),
+                                _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                            }
+                        }
+                    }
 
-        assert_eq!(
-            &a.invert().unwrap() * &b.invert().unwrap(),
-            (&a * &b).invert().unwrap()
-        );
-        assert_eq!(&a.invert().unwrap() * &a, Fp6::one());
+                    deserializer.deserialize_identifier(FieldVisitor)
+                }
+            }
+
+            struct Fp6Visitor;
+
+            impl<'de> Visitor<'de> for Fp6Visitor {
+                type Value = Fp6;
+
+                fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+                    formatter.write_str("struct Fp6")
+                }
+
+                fn visit_seq<V>(self, mut seq: V) -> Result<Fp6, V::Error>
+                where
+                    V: serde::de::SeqAccess<'de>,
+                {
+                    let c0 = seq
+                        .next_element()?
+                        .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+                    let c1 = seq
+                        .next_element()?
+                        .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+                    let c2 = seq
+                        .next_element()?
+                        .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+                    Ok(Fp6 { c0, c1, c2 })
+                }
+            }
+
+            const FIELDS: &[&str] = &["c0", "c1", "c2"];
+            deserializer.deserialize_struct("Fp6", FIELDS, Fp6Visitor)
+        }
     }
 
     #[test]
-    #[cfg(feature = "serde_req")]
     fn fp6_serde_roundtrip() {
         use bincode;
 
