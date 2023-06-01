@@ -1,15 +1,17 @@
 //! This module provides an implementation of the BLS12-381 scalar field $\mathbb{F}_q$
 //! where `q = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001`
 
-use core::borrow::Borrow;
-use core::cmp::{Ord, Ordering, PartialOrd};
-use core::convert::TryFrom;
-use core::iter::{Product, Sum};
-use core::ops::{Add, AddAssign, BitAnd, BitXor, Mul, MulAssign, Neg, Sub, SubAssign};
-use rand_core::{CryptoRng, RngCore};
+use core::fmt;
+use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use rand_core::RngCore;
 
-use dusk_bytes::{Error as BytesError, HexDebug, Serializable};
+use ff::{Field, PrimeField};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
+
+use dusk_bytes::{Error as BytesError, Serializable};
+
+#[cfg(feature = "bits")]
+use ff::{FieldBits, PrimeFieldBits};
 
 use crate::util::{adc, mac, sbb};
 
@@ -23,10 +25,30 @@ use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 // The internal representation of this type is four 64-bit unsigned
 // integers in little-endian order. `Scalar` values are always in
 // Montgomery form; i.e., Scalar(a) = aR mod q, with R = 2^256.
-#[derive(Clone, Copy, Eq, Hash, HexDebug)]
-#[cfg_attr(feature = "rkyv-impl", derive(Archive, RkyvSerialize, RkyvDeserialize))]
-#[cfg_attr(feature = "rkyv-impl", archive_attr(derive(CheckBytes)))]
+#[derive(Clone, Copy, Eq, Hash)]
+#[cfg_attr(
+    feature = "rkyv-impl",
+    derive(Archive, RkyvSerialize, RkyvDeserialize),
+    archive_attr(derive(CheckBytes))
+)]
 pub struct Scalar(pub [u64; 4]);
+
+impl fmt::Debug for Scalar {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let tmp = self.to_bytes();
+        write!(f, "0x")?;
+        for &b in tmp.iter().rev() {
+            write!(f, "{:02x}", b)?;
+        }
+        Ok(())
+    }
+}
+
+impl fmt::Display for Scalar {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
 
 impl From<u64> for Scalar {
     fn from(val: u64) -> Scalar {
@@ -46,7 +68,7 @@ impl ConstantTimeEq for Scalar {
 impl PartialEq for Scalar {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.ct_eq(other).unwrap_u8() == 1
+        bool::from(self.ct_eq(other))
     }
 }
 
@@ -63,11 +85,35 @@ impl ConditionallySelectable for Scalar {
 
 /// Constant representing the modulus
 /// q = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001
-pub const MODULUS: Scalar = Scalar([
-    0xffffffff00000001,
-    0x53bda402fffe5bfe,
-    0x3339d80809a1d805,
-    0x73eda753299d7d48,
+const MODULUS: Scalar = Scalar([
+    0xffff_ffff_0000_0001,
+    0x53bd_a402_fffe_5bfe,
+    0x3339_d808_09a1_d805,
+    0x73ed_a753_299d_7d48,
+]);
+
+/// The modulus as u32 limbs.
+#[cfg(all(feature = "bits", not(target_pointer_width = "64")))]
+const MODULUS_LIMBS_32: [u32; 8] = [
+    0x0000_0001,
+    0xffff_ffff,
+    0xfffe_5bfe,
+    0x53bd_a402,
+    0x09a1_d805,
+    0x3339_d808,
+    0x299d_7d48,
+    0x73ed_a753,
+];
+
+// The number of bits needed to represent the modulus.
+const MODULUS_BITS: u32 = 255;
+
+// GENERATOR = 7 (multiplicative generator of r-1 order, that is also quadratic nonresidue)
+const GENERATOR: Scalar = Scalar([
+    0x0000_000e_ffff_fff1,
+    0x17e3_63d3_0018_9c0f,
+    0xff9c_5787_6f84_57b0,
+    0x3513_3220_8fc5_a8c4,
 ]);
 
 impl<'a> Neg for &'a Scalar {
@@ -145,7 +191,14 @@ const R3: Scalar = Scalar([
     0x6e2a_5bb9_c8db_33e9,
 ]);
 
-/// Two adacity
+/// 2^-1
+const TWO_INV: Scalar = Scalar([
+    0x0000_0000_ffff_ffff,
+    0xac42_5bfd_0001_a401,
+    0xccc6_27f7_f65e_27fa,
+    0x0c12_58ac_d662_82b7,
+]);
+
 /// 2^TWO_ADACITY * t = MODULUS - 1 with t odd
 pub const TWO_ADACITY: u32 = 32;
 
@@ -163,12 +216,32 @@ pub const ROOT_OF_UNITY: Scalar = Scalar([
     0x5bf3_adda_19e9_b27b,
 ]);
 
+/// ROOT_OF_UNITY^-1
+const ROOT_OF_UNITY_INV: Scalar = Scalar([
+    0x4256_481a_dcf3_219a,
+    0x45f3_7b7f_96b6_cad3,
+    0xf9c3_f1d7_5f7a_3b27,
+    0x2d2f_c049_658a_fd43,
+]);
+
+/// GENERATOR^{2^s} where t * 2^s + 1 = q with t odd.
+/// In other words, this is a t root of unity.
+const DELTA: Scalar = Scalar([
+    0x70e3_10d3_d146_f96a,
+    0x4b64_c089_19e2_99e6,
+    0x51e1_1418_6a8b_970d,
+    0x6185_d066_27c0_67cb,
+]);
+
 impl Default for Scalar {
     #[inline]
     fn default() -> Self {
         Self::zero()
     }
 }
+
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for Scalar {}
 
 impl Scalar {
     /// Returns zero, the additive identity.
@@ -188,6 +261,50 @@ impl Scalar {
     pub const fn double(&self) -> Scalar {
         // TODO: This can be achieved more efficiently with a bitshift.
         self.add(self)
+    }
+
+    /// Attempts to convert a little-endian byte representation of
+    /// a scalar into a Scalar, failing if the input is not canonical.
+    pub fn from_bytes(bytes: &[u8; 32]) -> CtOption<Scalar> {
+        let mut tmp = Scalar([0, 0, 0, 0]);
+
+        tmp.0[0] = u64::from_le_bytes(<[u8; 8]>::try_from(&bytes[0..8]).unwrap());
+        tmp.0[1] = u64::from_le_bytes(<[u8; 8]>::try_from(&bytes[8..16]).unwrap());
+        tmp.0[2] = u64::from_le_bytes(<[u8; 8]>::try_from(&bytes[16..24]).unwrap());
+        tmp.0[3] = u64::from_le_bytes(<[u8; 8]>::try_from(&bytes[24..32]).unwrap());
+
+        // Try to subtract the modulus
+        let (_, borrow) = sbb(tmp.0[0], MODULUS.0[0], 0);
+        let (_, borrow) = sbb(tmp.0[1], MODULUS.0[1], borrow);
+        let (_, borrow) = sbb(tmp.0[2], MODULUS.0[2], borrow);
+        let (_, borrow) = sbb(tmp.0[3], MODULUS.0[3], borrow);
+
+        // If the element is smaller than MODULUS then the
+        // subtraction will underflow, producing a borrow value
+        // of 0xffff...ffff. Otherwise, it'll be zero.
+        let is_some = (borrow as u8) & 1;
+
+        // Convert to Montgomery form by computing
+        // (a.R^0 * R^2) / R = a.R
+        tmp *= &R2;
+
+        CtOption::new(tmp, Choice::from(is_some))
+    }
+
+    /// Converts an element of Scalar into a byte representation in
+    /// little-endian byte order.
+    pub fn to_bytes(&self) -> [u8; 32] {
+        // Turn into canonical form by computing
+        // (a.R) / R = a
+        let tmp = Scalar::montgomery_reduce(self.0[0], self.0[1], self.0[2], self.0[3], 0, 0, 0, 0);
+
+        let mut res = [0; 32];
+        res[0..8].copy_from_slice(&tmp.0[0].to_le_bytes());
+        res[8..16].copy_from_slice(&tmp.0[1].to_le_bytes());
+        res[16..24].copy_from_slice(&tmp.0[2].to_le_bytes());
+        res[24..32].copy_from_slice(&tmp.0[3].to_le_bytes());
+
+        res
     }
 
     /// Converts a 512-bit little endian integer into
@@ -534,34 +651,192 @@ impl Scalar {
     }
 }
 
-impl<'a> From<&'a Scalar> for [u8; Scalar::SIZE] {
-    fn from(value: &'a Scalar) -> [u8; Scalar::SIZE] {
+impl From<Scalar> for [u8; 32] {
+    fn from(value: Scalar) -> [u8; 32] {
         value.to_bytes()
     }
 }
 
-impl<T> Sum<T> for Scalar
+impl<'a> From<&'a Scalar> for [u8; 32] {
+    fn from(value: &'a Scalar) -> [u8; 32] {
+        value.to_bytes()
+    }
+}
+
+impl Field for Scalar {
+    const ZERO: Self = Self::zero();
+    const ONE: Self = Self::one();
+
+    fn random(mut rng: impl RngCore) -> Self {
+        let mut buf = [0; 64];
+        rng.fill_bytes(&mut buf);
+        Self::from_bytes_wide(&buf)
+    }
+
+    #[must_use]
+    fn square(&self) -> Self {
+        self.square()
+    }
+
+    #[must_use]
+    fn double(&self) -> Self {
+        self.double()
+    }
+
+    fn invert(&self) -> CtOption<Self> {
+        self.invert_ct()
+    }
+
+    fn sqrt_ratio(num: &Self, div: &Self) -> (Choice, Self) {
+        ff::helpers::sqrt_ratio_generic(num, div)
+    }
+
+    fn sqrt(&self) -> CtOption<Self> {
+        // (t - 1) // 2 = 6104339283789297388802252303364915521546564123189034618274734669823
+        ff::helpers::sqrt_tonelli_shanks(
+            self,
+            &[
+                0x7fff_2dff_7fff_ffff,
+                0x04d0_ec02_a9de_d201,
+                0x94ce_bea4_199c_ec04,
+                0x0000_0000_39f6_d3a9,
+            ],
+        )
+    }
+
+    fn is_zero_vartime(&self) -> bool {
+        self.0 == Self::zero().0
+    }
+}
+
+impl PrimeField for Scalar {
+    type Repr = [u8; 32];
+
+    fn from_repr(r: Self::Repr) -> CtOption<Self> {
+        Self::from_bytes(&r)
+    }
+
+    fn to_repr(&self) -> Self::Repr {
+        self.to_bytes()
+    }
+
+    fn is_odd(&self) -> Choice {
+        Choice::from(self.to_bytes()[0] & 1)
+    }
+
+    const MODULUS: &'static str =
+        "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001";
+    const NUM_BITS: u32 = MODULUS_BITS;
+    const CAPACITY: u32 = Self::NUM_BITS - 1;
+    const TWO_INV: Self = TWO_INV;
+    const MULTIPLICATIVE_GENERATOR: Self = GENERATOR;
+    const S: u32 = TWO_ADACITY;
+    const ROOT_OF_UNITY: Self = ROOT_OF_UNITY;
+    const ROOT_OF_UNITY_INV: Self = ROOT_OF_UNITY_INV;
+    const DELTA: Self = DELTA;
+}
+
+#[cfg(all(feature = "bits", not(target_pointer_width = "64")))]
+type ReprBits = [u32; 8];
+
+#[cfg(all(feature = "bits", target_pointer_width = "64"))]
+type ReprBits = [u64; 4];
+
+#[cfg(feature = "bits")]
+impl PrimeFieldBits for Scalar {
+    type ReprBits = ReprBits;
+
+    fn to_le_bits(&self) -> FieldBits<Self::ReprBits> {
+        let bytes = self.to_bytes();
+
+        #[cfg(not(target_pointer_width = "64"))]
+        let limbs = [
+            u32::from_le_bytes(bytes[0..4].try_into().unwrap()),
+            u32::from_le_bytes(bytes[4..8].try_into().unwrap()),
+            u32::from_le_bytes(bytes[8..12].try_into().unwrap()),
+            u32::from_le_bytes(bytes[12..16].try_into().unwrap()),
+            u32::from_le_bytes(bytes[16..20].try_into().unwrap()),
+            u32::from_le_bytes(bytes[20..24].try_into().unwrap()),
+            u32::from_le_bytes(bytes[24..28].try_into().unwrap()),
+            u32::from_le_bytes(bytes[28..32].try_into().unwrap()),
+        ];
+
+        #[cfg(target_pointer_width = "64")]
+        let limbs = [
+            u64::from_le_bytes(bytes[0..8].try_into().unwrap()),
+            u64::from_le_bytes(bytes[8..16].try_into().unwrap()),
+            u64::from_le_bytes(bytes[16..24].try_into().unwrap()),
+            u64::from_le_bytes(bytes[24..32].try_into().unwrap()),
+        ];
+
+        FieldBits::new(limbs)
+    }
+
+    fn char_le_bits() -> FieldBits<Self::ReprBits> {
+        #[cfg(not(target_pointer_width = "64"))]
+        {
+            FieldBits::new(MODULUS_LIMBS_32)
+        }
+
+        #[cfg(target_pointer_width = "64")]
+        FieldBits::new(MODULUS.0)
+    }
+}
+
+impl<T> core::iter::Sum<T> for Scalar
 where
-    T: Borrow<Scalar>,
+    T: core::borrow::Borrow<Scalar>,
 {
     fn sum<I>(iter: I) -> Self
     where
         I: Iterator<Item = T>,
     {
-        iter.fold(Scalar::zero(), |acc, item| acc + item.borrow())
+        iter.fold(Self::zero(), |acc, item| acc + item.borrow())
     }
 }
 
-impl<T> Product<T> for Scalar
+impl<T> core::iter::Product<T> for Scalar
 where
-    T: Borrow<Scalar>,
+    T: core::borrow::Borrow<Scalar>,
 {
     fn product<I>(iter: I) -> Self
     where
         I: Iterator<Item = T>,
     {
-        iter.fold(Scalar::one(), |acc, item| acc * item.borrow())
+        iter.fold(Self::one(), |acc, item| acc * item.borrow())
     }
+}
+
+#[test]
+fn test_constants() {
+    assert_eq!(
+        Scalar::MODULUS,
+        "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
+    );
+
+    assert_eq!(Scalar::from(2) * Scalar::TWO_INV, Scalar::ONE);
+
+    assert_eq!(
+        Scalar::ROOT_OF_UNITY * Scalar::ROOT_OF_UNITY_INV,
+        Scalar::ONE,
+    );
+
+    // ROOT_OF_UNITY^{2^s} mod m == 1
+    assert_eq!(
+        Scalar::ROOT_OF_UNITY.pow(&[1u64 << Scalar::S, 0, 0, 0]),
+        Scalar::ONE,
+    );
+
+    // DELTA^{t} mod m == 1
+    assert_eq!(
+        Scalar::DELTA.pow(&[
+            0xfffe_5bfe_ffff_ffff,
+            0x09a1_d805_53bd_a402,
+            0x299d_7d48_3339_d808,
+            0x0000_0000_73ed_a753,
+        ]),
+        Scalar::ONE,
+    );
 }
 
 #[test]
@@ -579,24 +854,19 @@ fn test_inv() {
     assert_eq!(inv, INV);
 }
 
-#[cfg(feature = "std")]
 #[test]
 fn test_debug() {
     assert_eq!(
         format!("{:?}", Scalar::zero()),
-        "0000000000000000000000000000000000000000000000000000000000000000"
+        "0x0000000000000000000000000000000000000000000000000000000000000000"
     );
     assert_eq!(
         format!("{:?}", Scalar::one()),
-        "0100000000000000000000000000000000000000000000000000000000000000"
+        "0x0000000000000000000000000000000000000000000000000000000000000001"
     );
     assert_eq!(
         format!("{:?}", R2),
-        "feffffff0100000002480300fab78458f54fbcecef4f8c996f05c5ac59b12418"
-    );
-    assert_eq!(
-        format!("{:#x}", R2),
-        "0xfeffffff0100000002480300fab78458f54fbcecef4f8c996f05c5ac59b12418"
+        "0x1824b159acc5056f998c4fefecbc4ff55884b7fa0003480200000001fffffffe"
     );
 }
 
@@ -675,35 +945,45 @@ fn test_from_bytes() {
     );
 
     // -1 should work
-    assert!(Scalar::from_bytes(&[
-        0, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8, 216,
-        57, 51, 72, 125, 157, 41, 83, 167, 237, 115
-    ])
-    .is_ok());
+    assert!(bool::from(
+        Scalar::from_bytes(&[
+            0, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
+            216, 57, 51, 72, 125, 157, 41, 83, 167, 237, 115
+        ])
+        .is_some()
+    ));
 
     // modulus is invalid
-    assert!(Scalar::from_bytes(&[
-        1, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8, 216,
-        57, 51, 72, 125, 157, 41, 83, 167, 237, 115
-    ])
-    .is_err());
+    assert!(bool::from(
+        Scalar::from_bytes(&[
+            1, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
+            216, 57, 51, 72, 125, 157, 41, 83, 167, 237, 115
+        ])
+        .is_none()
+    ));
 
     // Anything larger than the modulus is invalid
-    assert!(Scalar::from_bytes(&[
-        2, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8, 216,
-        57, 51, 72, 125, 157, 41, 83, 167, 237, 115
-    ])
-    .is_err());
-    assert!(Scalar::from_bytes(&[
-        1, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8, 216,
-        58, 51, 72, 125, 157, 41, 83, 167, 237, 115
-    ])
-    .is_err());
-    assert!(Scalar::from_bytes(&[
-        1, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8, 216,
-        57, 51, 72, 125, 157, 41, 83, 167, 237, 116
-    ])
-    .is_err());
+    assert!(bool::from(
+        Scalar::from_bytes(&[
+            2, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
+            216, 57, 51, 72, 125, 157, 41, 83, 167, 237, 115
+        ])
+        .is_none()
+    ));
+    assert!(bool::from(
+        Scalar::from_bytes(&[
+            1, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
+            216, 58, 51, 72, 125, 157, 41, 83, 167, 237, 115
+        ])
+        .is_none()
+    ));
+    assert!(bool::from(
+        Scalar::from_bytes(&[
+            1, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
+            216, 57, 51, 72, 125, 157, 41, 83, 167, 237, 116
+        ])
+        .is_none()
+    ));
 }
 
 #[test]
@@ -735,7 +1015,7 @@ fn test_from_u512_r2() {
 
 #[test]
 fn test_from_u512_max() {
-    let max_u64 = 0xffffffffffffffff;
+    let max_u64 = 0xffff_ffff_ffff_ffff;
     assert_eq!(
         R3 - R,
         Scalar::from_u512([max_u64, max_u64, max_u64, max_u64, max_u64, max_u64, max_u64, max_u64])
@@ -770,10 +1050,10 @@ fn test_from_bytes_wide_negative_one() {
 fn test_from_bytes_wide_maximum() {
     assert_eq!(
         Scalar([
-            0xc62c1805439b73b1,
-            0xc2b9551e8ced218e,
-            0xda44ec81daf9a422,
-            0x5605aa601c162e79
+            0xc62c_1805_439b_73b1,
+            0xc2b9_551e_8ced_218e,
+            0xda44_ec81_daf9_a422,
+            0x5605_aa60_1c16_2e79,
         ]),
         Scalar::from_bytes_wide(&[0xff; 64])
     );
@@ -904,7 +1184,7 @@ fn test_squaring() {
 
 #[test]
 fn test_inversion() {
-    assert_eq!(Scalar::zero().invert(), None);
+    assert!(bool::from(Scalar::zero().invert().is_none()));
     assert_eq!(Scalar::one().invert().unwrap(), Scalar::one());
     assert_eq!((-&Scalar::one()).invert().unwrap(), -&Scalar::one());
 
@@ -954,17 +1234,17 @@ fn test_sqrt() {
     }
 
     let mut square = Scalar([
-        0x46cd85a5f273077e,
-        0x1d30c47dd68fc735,
-        0x77f656f60beca0eb,
-        0x494aa01bdf32468d,
+        0x46cd_85a5_f273_077e,
+        0x1d30_c47d_d68f_c735,
+        0x77f6_56f6_0bec_a0eb,
+        0x494a_a01b_df32_468d,
     ]);
 
     let mut none_count = 0;
 
     for _ in 0..100 {
         let square_root = square.sqrt();
-        if square_root.is_none().unwrap_u8() == 1 {
+        if bool::from(square_root.is_none()) {
             none_count += 1;
         } else {
             assert_eq!(square_root.unwrap() * square_root.unwrap(), square);
@@ -979,12 +1259,12 @@ fn test_sqrt() {
 fn test_from_raw() {
     assert_eq!(
         Scalar::from_raw([
-            0x1fffffffd,
-            0x5884b7fa00034802,
-            0x998c4fefecbc4ff5,
-            0x1824b159acc5056f
+            0x0001_ffff_fffd,
+            0x5884_b7fa_0003_4802,
+            0x998c_4fef_ecbc_4ff5,
+            0x1824_b159_acc5_056f,
         ]),
-        Scalar::from_raw([0xffffffffffffffff; 4])
+        Scalar::from_raw([0xffff_ffff_ffff_ffff; 4])
     );
 
     assert_eq!(Scalar::from_raw(MODULUS.0), Scalar::zero());
@@ -995,18 +1275,39 @@ fn test_from_raw() {
 #[test]
 fn test_double() {
     let a = Scalar::from_raw([
-        0x1fff3231233ffffd,
-        0x4884b7fa00034802,
-        0x998c4fefecbc4ff3,
-        0x1824b159acc50562,
+        0x1fff_3231_233f_fffd,
+        0x4884_b7fa_0003_4802,
+        0x998c_4fef_ecbc_4ff3,
+        0x1824_b159_acc5_0562,
     ]);
     assert_eq!(a.double(), a + a);
+}
+
+#[cfg(feature = "zeroize")]
+#[test]
+fn test_zeroize() {
+    use zeroize::Zeroize;
+
+    let mut a = Scalar::from_raw([
+        0x1fff_3231_233f_fffd,
+        0x4884_b7fa_0003_4802,
+        0x998c_4fef_ecbc_4ff3,
+        0x1824_b159_acc5_0562,
+    ]);
+    a.zeroize();
+    assert!(bool::from(a.is_zero()));
 }
 
 mod dusk {
     use super::*;
 
-    #[cfg(feature = "serde_req")]
+    use core::cmp::{Ord, Ordering, PartialOrd};
+    use core::convert::TryFrom;
+    use core::ops::{BitAnd, BitXor};
+
+    use rand_core::CryptoRng;
+
+    #[cfg(feature = "serde")]
     use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
     impl PartialOrd for Scalar {
@@ -1084,7 +1385,7 @@ mod dusk {
         }
     }
 
-    #[cfg(feature = "serde_req")]
+    #[cfg(feature = "serde")]
     impl Serialize for Scalar {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where
@@ -1099,7 +1400,7 @@ mod dusk {
         }
     }
 
-    #[cfg(feature = "serde_req")]
+    #[cfg(feature = "serde")]
     impl<'de> Deserialize<'de> for Scalar {
         fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where
@@ -1111,7 +1412,7 @@ mod dusk {
                 type Value = Scalar;
 
                 fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-                    formatter.write_str("a 32-byte cannonical Scalar from Bls12_381")
+                    formatter.write_str("a 32-byte canonical Scalar from Bls12_381")
                 }
 
                 fn visit_seq<A>(self, mut seq: A) -> Result<Scalar, A::Error>
@@ -1126,7 +1427,7 @@ mod dusk {
                             .ok_or(serde::de::Error::invalid_length(i, &"expected 32 bytes"))?;
                     }
 
-                    Scalar::from_bytes(&bytes).map_err(|_| {
+                    <Scalar as Serializable<32>>::from_bytes(&bytes).map_err(|_| {
                         serde::de::Error::custom(&"scalar was not canonically encoded")
                     })
                 }
@@ -1243,7 +1544,7 @@ mod dusk {
             // to get cannonical Scalars.
             bytes[31] &= 0b0011_1111;
 
-            Scalar::from_bytes(&bytes).unwrap_or_default()
+            <Scalar as Serializable<32>>::from_bytes(&bytes).unwrap_or_default()
         }
 
         /// Computes the square root of this element, if it exists.
@@ -1381,7 +1682,7 @@ mod dusk {
     }
 
     #[test]
-    #[cfg(feature = "serde_req")]
+    #[cfg(feature = "serde")]
     fn serde_bincode_scalar_roundtrip() {
         use bincode;
         let scalar = -Scalar::from(3u64);
@@ -1433,20 +1734,5 @@ mod dusk {
         for i in 0..1000 {
             assert_eq!(Scalar::pow_of_2(i as u64), two.pow(&[i as u64, 0, 0, 0]));
         }
-    }
-
-    #[test]
-    fn scalar_hex_serialization() {
-        use dusk_bytes::ParseHexStr;
-
-        let scalar = -Scalar::one();
-        let scalar_p = format!("{:x}", scalar);
-        let scalar_p = Scalar::from_hex_str(scalar_p.as_str()).unwrap();
-
-        assert_eq!(scalar, scalar_p);
-        assert!(Scalar::from_hex_str(
-            "00000000fffffffffe5bfeff02a4bd5305d8a10908d83933487d9d2953a7ed74"
-        )
-        .is_err());
     }
 }

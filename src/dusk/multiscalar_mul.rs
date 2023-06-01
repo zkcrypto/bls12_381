@@ -3,14 +3,13 @@ use crate::{
     g1::{G1Affine, G1Projective},
     scalar::Scalar,
 };
-use dusk_bytes::Serializable;
 
 use alloc::vec::*;
 
-#[cfg(feature = "std")]
 /// Performs multiscalar multiplication reliying on Pippenger's algorithm.
 /// This method was taken from `curve25519-dalek` and was originally made by
 /// Oleg Andreev <oleganza@gmail.com>.
+#[cfg(feature = "byteorder")]
 pub fn pippenger<P, I>(points: P, scalars: I) -> G1Projective
 where
     P: Iterator<Item = G1Projective>,
@@ -91,8 +90,8 @@ where
     columns.fold(hi_column, |total, p| mul_by_pow_2(&total, w as u32) + p)
 }
 
-#[cfg(feature = "std")]
 /// Compute \\([2\^k] P \\) by successive doublings. Requires \\( k > 0 \\).
+#[cfg(feature = "byteorder")]
 pub(crate) fn mul_by_pow_2(point: &G1Projective, k: u32) -> G1Projective {
     debug_assert!(k > 0);
     let mut r: G1Projective;
@@ -105,9 +104,9 @@ pub(crate) fn mul_by_pow_2(point: &G1Projective, k: u32) -> G1Projective {
     s.double()
 }
 
-#[cfg(feature = "std")]
 /// Returns a size hint indicating how many entries of the return
 /// value of `to_radix_2w` are nonzero.
+#[cfg(feature = "byteorder")]
 fn to_radix_2w_size_hint(w: usize) -> usize {
     debug_assert!(w >= 6);
     debug_assert!(w <= 8);
@@ -124,7 +123,7 @@ fn to_radix_2w_size_hint(w: usize) -> usize {
     digits_count
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "byteorder")]
 fn to_radix_2w(scalar: &Scalar, w: usize) -> [i8; 43] {
     debug_assert!(w >= 6);
     debug_assert!(w <= 8);
@@ -286,6 +285,7 @@ mod tests {
     #[allow(unused_imports)]
     use super::*;
 
+    #[cfg(feature = "byteorder")]
     #[test]
     fn pippenger_test() {
         // Reuse points across different tests
@@ -307,10 +307,7 @@ mod tests {
             let scalars = &scalars[0..n];
             let points = &points[0..n];
             let control: G1Projective = premultiplied[0..n].iter().sum();
-            let subject = pippenger(
-                points.to_owned().into_iter(),
-                scalars.to_owned().into_iter(),
-            );
+            let subject = pippenger(points.to_vec().into_iter(), scalars.to_vec().into_iter());
             assert_eq!(subject, control);
             n = n / 2;
         }

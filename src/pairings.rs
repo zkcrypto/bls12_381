@@ -3,16 +3,21 @@ use crate::fp::Fp;
 use crate::fp12::Fp12;
 use crate::fp2::Fp2;
 use crate::fp6::Fp6;
-use crate::{BlsScalar, G1Affine, G2Affine, G2Projective, BLS_X, BLS_X_IS_NEGATIVE};
+use crate::{BlsScalar, G1Affine, G1Projective, G2Affine, G2Projective, BLS_X, BLS_X_IS_NEGATIVE};
 
+use core::borrow::Borrow;
+use core::fmt;
+use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-
+use group::Group;
+use pairing::{Engine, PairingCurveAffine};
+use rand_core::RngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
-
-use dusk_bytes::Serializable;
+#[cfg(feature = "alloc")]
+use pairing::MultiMillerLoop;
 
 #[cfg(feature = "rkyv-impl")]
 use bytecheck::CheckBytes;
@@ -22,10 +27,23 @@ use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 /// Represents results of a Miller loop, one of the most expensive portions
 /// of the pairing function. `MillerLoopResult`s cannot be compared with each
 /// other until `.final_exponentiation()` is called, which is also expensive.
+#[cfg_attr(docsrs, doc(cfg(feature = "pairings")))]
 #[derive(Copy, Clone, Debug)]
-#[cfg_attr(feature = "rkyv-impl", derive(Archive, RkyvDeserialize, RkyvSerialize))]
-#[cfg_attr(feature = "rkyv-impl", archive_attr(derive(CheckBytes)))]
+#[cfg_attr(
+    feature = "rkyv-impl",
+    derive(Archive, RkyvSerialize, RkyvDeserialize),
+    archive_attr(derive(CheckBytes))
+)]
 pub struct MillerLoopResult(pub(crate) Fp12);
+
+impl Default for MillerLoopResult {
+    fn default() -> Self {
+        MillerLoopResult(Fp12::one())
+    }
+}
+
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for MillerLoopResult {}
 
 impl ConditionallySelectable for MillerLoopResult {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
@@ -68,28 +86,28 @@ impl MillerLoopResult {
 
             // For A
             z0 = t0 - z0;
-            z0 += z0 + t0;
+            z0 = z0 + z0 + t0;
 
             z1 = t1 + z1;
-            z1 += z1 + t1;
+            z1 = z1 + z1 + t1;
 
             let (mut t0, t1) = fp4_square(z2, z3);
             let (t2, t3) = fp4_square(z4, z5);
 
             // For C
             z4 = t0 - z4;
-            z4 += z4 + t0;
+            z4 = z4 + z4 + t0;
 
             z5 = t1 + z5;
-            z5 += z5 + t1;
+            z5 = z5 + z5 + t1;
 
             // For B
             t0 = t3.mul_by_nonresidue();
             z2 = t0 + z2;
-            z2 += z2 + t0;
+            z2 = z2 + z2 + t0;
 
             z3 = t2 - z3;
-            z3 += z3 + t2;
+            z3 = z3 + z3 + t2;
 
             Fp12 {
                 c0: Fp6 {
@@ -124,7 +142,7 @@ impl MillerLoopResult {
             tmp.conjugate()
         }
 
-        let mut f = self.0.clone();
+        let mut f = self.0;
         let mut t0 = f
             .frobenius_map()
             .frobenius_map()
@@ -135,7 +153,7 @@ impl MillerLoopResult {
         Gt(f.invert()
             .map(|mut t1| {
                 let mut t2 = t0 * t1;
-                t1 = t2.clone();
+                t1 = t2;
                 t2 = t2.frobenius_map().frobenius_map();
                 t2 *= t1;
                 t1 = cyclotomic_square(t2).conjugate();
@@ -180,15 +198,45 @@ impl<'a, 'b> Add<&'b MillerLoopResult> for &'a MillerLoopResult {
 
 impl_add_binop_specify_output!(MillerLoopResult, MillerLoopResult, MillerLoopResult);
 
+impl AddAssign<MillerLoopResult> for MillerLoopResult {
+    #[inline]
+    fn add_assign(&mut self, rhs: MillerLoopResult) {
+        *self = *self + rhs;
+    }
+}
+
+impl<'b> AddAssign<&'b MillerLoopResult> for MillerLoopResult {
+    #[inline]
+    fn add_assign(&mut self, rhs: &'b MillerLoopResult) {
+        *self = *self + rhs;
+    }
+}
+
 /// This is an element of $\mathbb{G}_T$, the target group of the pairing function. As with
 /// $\mathbb{G}_1$ and $\mathbb{G}_2$ this group has order $q$.
 ///
 /// Typically, $\mathbb{G}_T$ is written multiplicatively but we will write it additively to
 /// keep code and abstractions consistent.
+#[cfg_attr(docsrs, doc(cfg(feature = "pairings")))]
 #[derive(Copy, Clone, Debug)]
 #[cfg_attr(feature = "rkyv-impl", derive(Archive, RkyvDeserialize, RkyvSerialize))]
 #[cfg_attr(feature = "rkyv-impl", archive_attr(derive(CheckBytes)))]
 pub struct Gt(pub(crate) Fp12);
+
+impl Default for Gt {
+    fn default() -> Self {
+        Self::identity()
+    }
+}
+
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for Gt {}
+
+impl fmt::Display for Gt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
 
 impl ConstantTimeEq for Gt {
     fn ct_eq(&self, other: &Self) -> Choice {
@@ -289,6 +337,166 @@ impl<'a, 'b> Mul<&'b BlsScalar> for &'a Gt {
 impl_binops_additive!(Gt, Gt);
 impl_binops_multiplicative!(Gt, BlsScalar);
 
+impl<T> Sum<T> for Gt
+where
+    T: Borrow<Gt>,
+{
+    fn sum<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = T>,
+    {
+        iter.fold(Self::identity(), |acc, item| acc + item.borrow())
+    }
+}
+
+impl Group for Gt {
+    type Scalar = BlsScalar;
+
+    fn random(mut rng: impl RngCore) -> Self {
+        loop {
+            let inner = Fp12::random(&mut rng);
+
+            // Not all elements of Fp12 are elements of the prime-order multiplicative
+            // subgroup. We run the random element through final_exponentiation to obtain
+            // a valid element, which requires that it is non-zero.
+            if !bool::from(inner.is_zero()) {
+                return MillerLoopResult(inner).final_exponentiation();
+            }
+        }
+    }
+
+    fn identity() -> Self {
+        Self::identity()
+    }
+
+    fn generator() -> Self {
+        // pairing(&G1Affine::generator(), &G2Affine::generator())
+        Gt(Fp12 {
+            c0: Fp6 {
+                c0: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0x1972_e433_a01f_85c5,
+                        0x97d3_2b76_fd77_2538,
+                        0xc8ce_546f_c96b_cdf9,
+                        0xcef6_3e73_66d4_0614,
+                        0xa611_3427_8184_3780,
+                        0x13f3_448a_3fc6_d825,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0xd263_31b0_2e9d_6995,
+                        0x9d68_a482_f779_7e7d,
+                        0x9c9b_2924_8d39_ea92,
+                        0xf480_1ca2_e131_07aa,
+                        0xa16c_0732_bdbc_b066,
+                        0x083c_a4af_ba36_0478,
+                    ]),
+                },
+                c1: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0x59e2_61db_0916_b641,
+                        0x2716_b6f4_b23e_960d,
+                        0xc8e5_5b10_a0bd_9c45,
+                        0x0bdb_0bd9_9c4d_eda8,
+                        0x8cf8_9ebf_57fd_aac5,
+                        0x12d6_b792_9e77_7a5e,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0x5fc8_5188_b0e1_5f35,
+                        0x34a0_6e3a_8f09_6365,
+                        0xdb31_26a6_e02a_d62c,
+                        0xfc6f_5aa9_7d9a_990b,
+                        0xa12f_55f5_eb89_c210,
+                        0x1723_703a_926f_8889,
+                    ]),
+                },
+                c2: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0x9358_8f29_7182_8778,
+                        0x43f6_5b86_11ab_7585,
+                        0x3183_aaf5_ec27_9fdf,
+                        0xfa73_d7e1_8ac9_9df6,
+                        0x64e1_76a6_a64c_99b0,
+                        0x179f_a78c_5838_8f1f,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0x672a_0a11_ca2a_ef12,
+                        0x0d11_b9b5_2aa3_f16b,
+                        0xa444_12d0_699d_056e,
+                        0xc01d_0177_221a_5ba5,
+                        0x66e0_cede_6c73_5529,
+                        0x05f5_a71e_9fdd_c339,
+                    ]),
+                },
+            },
+            c1: Fp6 {
+                c0: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0xd30a_88a1_b062_c679,
+                        0x5ac5_6a5d_35fc_8304,
+                        0xd0c8_34a6_a81f_290d,
+                        0xcd54_30c2_da37_07c7,
+                        0xf0c2_7ff7_8050_0af0,
+                        0x0924_5da6_e2d7_2eae,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0x9f2e_0676_791b_5156,
+                        0xe2d1_c823_4918_fe13,
+                        0x4c9e_459f_3c56_1bf4,
+                        0xa3e8_5e53_b9d3_e3c1,
+                        0x820a_121e_21a7_0020,
+                        0x15af_6183_41c5_9acc,
+                    ]),
+                },
+                c1: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0x7c95_658c_2499_3ab1,
+                        0x73eb_3872_1ca8_86b9,
+                        0x5256_d749_4774_34bc,
+                        0x8ba4_1902_ea50_4a8b,
+                        0x04a3_d3f8_0c86_ce6d,
+                        0x18a6_4a87_fb68_6eaa,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0xbb83_e71b_b920_cf26,
+                        0x2a52_77ac_92a7_3945,
+                        0xfc0e_e59f_94f0_46a0,
+                        0x7158_cdf3_7860_58f7,
+                        0x7cc1_061b_82f9_45f6,
+                        0x03f8_47aa_9fdb_e567,
+                    ]),
+                },
+                c2: Fp2 {
+                    c0: Fp::from_raw_unchecked([
+                        0x8078_dba5_6134_e657,
+                        0x1cd7_ec9a_4399_8a6e,
+                        0xb1aa_599a_1a99_3766,
+                        0xc9a0_f62f_0842_ee44,
+                        0x8e15_9be3_b605_dffa,
+                        0x0c86_ba0d_4af1_3fc2,
+                    ]),
+                    c1: Fp::from_raw_unchecked([
+                        0xe80f_f2a0_6a52_ffb1,
+                        0x7694_ca48_721a_906c,
+                        0x7583_183e_03b0_8514,
+                        0xf567_afdd_40ce_e4e2,
+                        0x9a6d_96d2_e526_a5fc,
+                        0x197e_9f49_861f_2242,
+                    ]),
+                },
+            },
+        })
+    }
+
+    fn is_identity(&self) -> Choice {
+        self.ct_eq(&Self::identity())
+    }
+
+    #[must_use]
+    fn double(&self) -> Self {
+        self.double()
+    }
+}
+
 /// This structure contains cached computations pertaining to a $\mathbb{G}_2$
 /// element as part of the pairing function (specifically, the Miller loop) and
 /// so should be computed whenever a $\mathbb{G}_2$ element is being used in
@@ -298,9 +506,13 @@ impl_binops_multiplicative!(Gt, BlsScalar);
 ///
 /// Requires the `alloc` and `pairing` crate features to be enabled.
 #[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "pairings", feature = "alloc"))))]
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "rkyv-impl", derive(Archive, RkyvSerialize, RkyvDeserialize))]
-#[cfg_attr(feature = "rkyv-impl", archive_attr(derive(CheckBytes)))]
+#[cfg_attr(
+    feature = "rkyv-impl",
+    derive(Archive, RkyvSerialize, RkyvDeserialize),
+    archive_attr(derive(CheckBytes))
+)]
 pub struct G2Prepared {
     infinity: choice::Choice,
     coeffs: Vec<(Fp2, Fp2, Fp2)>,
@@ -326,15 +538,9 @@ impl From<G2Affine> for G2Prepared {
                 let coeffs = addition_step(&mut self.cur, &self.base);
                 self.coeffs.push(coeffs);
             }
-            fn square_output(_: Self::Output) -> Self::Output {
-                ()
-            }
-            fn conjugate(_: Self::Output) -> Self::Output {
-                ()
-            }
-            fn one() -> Self::Output {
-                ()
-            }
+            fn square_output(_: Self::Output) -> Self::Output {}
+            fn conjugate(_: Self::Output) -> Self::Output {}
+            fn one() -> Self::Output {}
         }
 
         let is_identity = q.is_identity();
@@ -358,6 +564,7 @@ impl From<G2Affine> for G2Prepared {
 }
 
 #[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "pairings", feature = "alloc"))))]
 /// Computes $$\sum_{i=1}^n \textbf{ML}(a_i, b_i)$$ given a series of terms
 /// $$(a_1, b_1), (a_2, b_2), ..., (a_n, b_n).$$
 ///
@@ -414,6 +621,7 @@ pub fn multi_miller_loop(terms: &[(&G1Affine, &G2Prepared)]) -> MillerLoopResult
 }
 
 /// Invoke the pairing function without the use of precomputation and other optimizations.
+#[cfg_attr(docsrs, doc(cfg(feature = "pairings")))]
 pub fn pairing(p: &G1Affine, q: &G2Affine) -> Gt {
     struct Adder {
         cur: G2Projective,
@@ -444,8 +652,8 @@ pub fn pairing(p: &G1Affine, q: &G2Affine) -> Gt {
     }
 
     let either_identity = p.is_identity() | q.is_identity();
-    let p = G1Affine::conditional_select(&p, &G1Affine::generator(), either_identity);
-    let q = G2Affine::conditional_select(&q, &G2Affine::generator(), either_identity);
+    let p = G1Affine::conditional_select(p, &G1Affine::generator(), either_identity);
+    let q = G2Affine::conditional_select(q, &G2Affine::generator(), either_identity);
 
     let mut adder = Adder {
         cur: G2Projective::from(q),
@@ -579,6 +787,68 @@ fn addition_step(r: &mut G2Projective, q: &G2Affine) -> (Fp2, Fp2, Fp2) {
     (t10, t1, t9)
 }
 
+impl PairingCurveAffine for G1Affine {
+    type Pair = G2Affine;
+    type PairingResult = Gt;
+
+    fn pairing_with(&self, other: &Self::Pair) -> Self::PairingResult {
+        pairing(self, other)
+    }
+}
+
+impl PairingCurveAffine for G2Affine {
+    type Pair = G1Affine;
+    type PairingResult = Gt;
+
+    fn pairing_with(&self, other: &Self::Pair) -> Self::PairingResult {
+        pairing(other, self)
+    }
+}
+
+/// A [`pairing::Engine`] for BLS12-381 pairing operations.
+#[cfg_attr(docsrs, doc(cfg(feature = "pairings")))]
+#[derive(Clone, Debug)]
+pub struct Bls12;
+
+impl Engine for Bls12 {
+    type Fr = BlsScalar;
+    type G1 = G1Projective;
+    type G1Affine = G1Affine;
+    type G2 = G2Projective;
+    type G2Affine = G2Affine;
+    type Gt = Gt;
+
+    fn pairing(p: &Self::G1Affine, q: &Self::G2Affine) -> Self::Gt {
+        pairing(p, q)
+    }
+}
+
+impl pairing::MillerLoopResult for MillerLoopResult {
+    type Gt = Gt;
+
+    fn final_exponentiation(&self) -> Self::Gt {
+        self.final_exponentiation()
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl MultiMillerLoop for Bls12 {
+    type G2Prepared = G2Prepared;
+    type Result = MillerLoopResult;
+
+    fn multi_miller_loop(terms: &[(&Self::G1Affine, &Self::G2Prepared)]) -> Self::Result {
+        multi_miller_loop(terms)
+    }
+}
+
+#[test]
+fn test_gt_generator() {
+    assert_eq!(
+        Gt::generator(),
+        pairing(&G1Affine::generator(), &G2Affine::generator())
+    );
+}
+
 #[test]
 fn test_bilinearity() {
     use crate::BlsScalar;
@@ -676,10 +946,59 @@ fn test_multi_miller_loop() {
     assert_eq!(expected, test);
 }
 
+#[test]
+fn test_miller_loop_result_default() {
+    assert_eq!(
+        MillerLoopResult::default().final_exponentiation(),
+        Gt::identity(),
+    );
+}
+
+#[cfg(feature = "zeroize")]
+#[test]
+fn test_miller_loop_result_zeroize() {
+    use zeroize::Zeroize;
+
+    let mut m = multi_miller_loop(&[
+        (&G1Affine::generator(), &G2Affine::generator().into()),
+        (&-G1Affine::generator(), &G2Affine::generator().into()),
+    ]);
+    m.zeroize();
+    assert_eq!(m.0, MillerLoopResult::default().0);
+}
+
+#[test]
+fn tricking_miller_loop_result() {
+    assert_eq!(
+        multi_miller_loop(&[(&G1Affine::identity(), &G2Affine::generator().into())]).0,
+        Fp12::one()
+    );
+    assert_eq!(
+        multi_miller_loop(&[(&G1Affine::generator(), &G2Affine::identity().into())]).0,
+        Fp12::one()
+    );
+    assert_ne!(
+        multi_miller_loop(&[
+            (&G1Affine::generator(), &G2Affine::generator().into()),
+            (&-G1Affine::generator(), &G2Affine::generator().into())
+        ])
+        .0,
+        Fp12::one()
+    );
+    assert_eq!(
+        multi_miller_loop(&[
+            (&G1Affine::generator(), &G2Affine::generator().into()),
+            (&-G1Affine::generator(), &G2Affine::generator().into())
+        ])
+        .final_exponentiation(),
+        Gt::identity()
+    );
+}
+
 mod dusk {
     use super::*;
 
-    #[cfg(feature = "serde_req")]
+    #[cfg(feature = "serde")]
     use serde::{
         self, de::Visitor, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer,
     };
@@ -765,7 +1084,7 @@ mod dusk {
         }
     }
 
-    #[cfg(feature = "serde_req")]
+    #[cfg(feature = "serde")]
     impl Serialize for G2Prepared {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where
@@ -781,7 +1100,7 @@ mod dusk {
         }
     }
 
-    #[cfg(feature = "serde_req")]
+    #[cfg(feature = "serde")]
     impl<'de> Deserialize<'de> for G2Prepared {
         fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where
@@ -858,7 +1177,7 @@ mod dusk {
     }
 
     #[test]
-    #[cfg(feature = "serde_req")]
+    #[cfg(feature = "serde")]
     fn g2_prepared_serde_roundtrip() {
         use bincode;
 

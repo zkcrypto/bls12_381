@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Align crate with upstream `zkcrypto/bls12_381` [#117]
+
 ### Removed
 
 - Remove scalar field generator [#100]
@@ -14,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Rename `serde_req` feature to `serde` [#117]
 - Separate Dusk's additions from the original crate [#109]
 
 ## [0.11.3] - 2023-05-17
@@ -190,6 +195,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rename `S` to `TWO_ADACITY` and export it
 
 <!-- Issues -->
+[#117]: (https://github.com/dusk-network/bls12_381/issues/117)
 [#109]: (https://github.com/dusk-network/bls12_381/issues/109)
 [#108]: (https://github.com/dusk-network/bls12_381/issues/108)
 [#100]: (https://github.com/dusk-network/bls12_381/issues/100)

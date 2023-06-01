@@ -8,13 +8,13 @@
 //! * This implementation does not require the Rust standard library.
 //! * All operations are constant time unless explicitly noted.
 
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 // Catch documentation errors caused by code changes.
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(missing_debug_implementations)]
 #![deny(missing_docs)]
 #![allow(clippy::too_many_arguments)]
-#![allow(clippy::unreadable_literal)]
 #![allow(clippy::many_single_char_names)]
 // This lint is described at
 // https://rust-lang.github.io/rust-clippy/master/index.html#suspicious_arithmetic_impl
@@ -88,7 +88,7 @@ const BLS_X_IS_NEGATIVE: bool = true;
 mod pairings;
 
 #[cfg(feature = "pairings")]
-pub use pairings::{pairing, Gt, MillerLoopResult};
+pub use pairings::{pairing, Bls12, Gt, MillerLoopResult};
 
 #[cfg(all(feature = "pairings", feature = "alloc"))]
 pub use pairings::{multi_miller_loop, G2Prepared};
@@ -98,3 +98,10 @@ pub use pairings::{
     ArchivedG2Prepared, ArchivedGt, ArchivedMillerLoopResult, G2PreparedResolver, GtResolver,
     MillerLoopResultResolver,
 };
+
+/// Use the generic_array re-exported by digest to avoid a version mismatch
+#[cfg(feature = "experimental")]
+pub(crate) use digest::generic_array;
+
+#[cfg(feature = "experimental")]
+pub mod hash_to_curve;

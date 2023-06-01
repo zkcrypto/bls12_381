@@ -1,9 +1,9 @@
 //! This module provides an implementation of the BLS12-381 base field `GF(p)`
 //! where `p = 0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab`
 
-use core::convert::TryFrom;
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use rand_core::RngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::util::{adc, mac, sbb};
@@ -17,9 +17,12 @@ use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 // integers in little-endian order. `Fp` values are always in
 // Montgomery form; i.e., Scalar(a) = aR mod p, with R = 2^384.
 #[derive(Copy, Clone)]
-#[cfg_attr(feature = "rkyv-impl", derive(Archive, RkyvSerialize, RkyvDeserialize))]
-#[cfg_attr(feature = "rkyv-impl", archive_attr(derive(CheckBytes)))]
-pub struct Fp([u64; 6]);
+#[cfg_attr(
+    feature = "rkyv-impl",
+    derive(Archive, RkyvSerialize, RkyvDeserialize),
+    archive_attr(derive(CheckBytes))
+)]
+pub struct Fp(pub(crate) [u64; 6]);
 
 impl fmt::Debug for Fp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -37,6 +40,9 @@ impl Default for Fp {
         Fp::zero()
     }
 }
+
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for Fp {}
 
 impl ConstantTimeEq for Fp {
     fn ct_eq(&self, other: &Self) -> Choice {
@@ -101,6 +107,16 @@ const R2: Fp = Fp([
     0x67eb_88a9_939d_83c0,
     0x9a79_3e85_b519_952d,
     0x1198_8fe5_92ca_e3aa,
+]);
+
+/// R3 = 2^(384*3) mod p
+const R3: Fp = Fp([
+    0xed48_ac6b_d94c_a1e0,
+    0x315f_831e_03a7_adf8,
+    0x9a53_352a_615e_29dd,
+    0x34c0_4e5e_921e_1761,
+    0x2512_d435_6572_4728,
+    0x0aa6_3460_9175_5d4d,
 ]);
 
 impl<'a> Neg for &'a Fp {
@@ -202,7 +218,7 @@ impl Fp {
 
     /// Converts an element of `Fp` into a byte representation in
     /// big-endian byte order.
-    pub fn to_bytes(&self) -> [u8; 48] {
+    pub fn to_bytes(self) -> [u8; 48] {
         // Turn into canonical form by computing
         // (a.R) / R = a
         let tmp = Fp::montgomery_reduce(
@@ -218,6 +234,48 @@ impl Fp {
         res[40..48].copy_from_slice(&tmp.0[0].to_be_bytes());
 
         res
+    }
+
+    pub(crate) fn random(mut rng: impl RngCore) -> Fp {
+        let mut bytes = [0u8; 96];
+        rng.fill_bytes(&mut bytes);
+
+        // Parse the random bytes as a big-endian number, to match Fp encoding order.
+        Fp::from_u768([
+            u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[0..8]).unwrap()),
+            u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[8..16]).unwrap()),
+            u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[16..24]).unwrap()),
+            u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[24..32]).unwrap()),
+            u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[32..40]).unwrap()),
+            u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[40..48]).unwrap()),
+            u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[48..56]).unwrap()),
+            u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[56..64]).unwrap()),
+            u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[64..72]).unwrap()),
+            u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[72..80]).unwrap()),
+            u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[80..88]).unwrap()),
+            u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[88..96]).unwrap()),
+        ])
+    }
+
+    /// Reduces a big-endian 64-bit limb representation of a 768-bit number.
+    fn from_u768(limbs: [u64; 12]) -> Fp {
+        // We reduce an arbitrary 768-bit number by decomposing it into two 384-bit digits
+        // with the higher bits multiplied by 2^384. Thus, we perform two reductions
+        //
+        // 1. the lower bits are multiplied by R^2, as normal
+        // 2. the upper bits are multiplied by R^2 * 2^384 = R^3
+        //
+        // and computing their sum in the field. It remains to see that arbitrary 384-bit
+        // numbers can be placed into Montgomery form safely using the reduction. The
+        // reduction works so long as the product is less than R=2^384 multiplied by
+        // the modulus. This holds because for any `c` smaller than the modulus, we have
+        // that (2^384 - 1)*c is an acceptable product for the reduction. Therefore, the
+        // reduction always works so long as `c` is in the field; in this case it is either the
+        // constant `R2` or `R3`.
+        let d1 = Fp([limbs[11], limbs[10], limbs[9], limbs[8], limbs[7], limbs[6]]);
+        let d0 = Fp([limbs[5], limbs[4], limbs[3], limbs[2], limbs[1], limbs[0]]);
+        // Convert to Montgomery form
+        d0 * R2 + d1 * R3
     }
 
     /// Returns whether or not this element is strictly lexicographically
@@ -436,7 +494,7 @@ impl Fp {
     }
 
     #[inline(always)]
-    const fn montgomery_reduce(
+    pub(crate) const fn montgomery_reduce(
         t0: u64,
         t1: u64,
         t2: u64,
@@ -787,7 +845,7 @@ fn test_debug() {
     assert_eq!(
         format!(
             "{:?}",
-             Fp([
+            Fp([
                 0x5360_bb59_7867_8032,
                 0x7dd2_75ae_799e_128e,
                 0x5c5b_5071_ce4f_4dcf,
@@ -930,6 +988,16 @@ fn test_lexicographic_largest() {
     ));
 }
 
+#[cfg(feature = "zeroize")]
+#[test]
+fn test_zeroize() {
+    use zeroize::Zeroize;
+
+    let mut a = Fp::one();
+    a.zeroize();
+    assert!(bool::from(a.is_zero()));
+}
+
 mod dusk {
     use super::*;
 
@@ -940,12 +1008,12 @@ mod dusk {
         }
     }
 
-    #[cfg(feature = "serde_req")]
+    #[cfg(feature = "serde")]
     use serde::{
         self, de::Visitor, ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer,
     };
 
-    #[cfg(feature = "serde_req")]
+    #[cfg(feature = "serde")]
     impl Serialize for Fp {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where
@@ -960,7 +1028,7 @@ mod dusk {
         }
     }
 
-    #[cfg(feature = "serde_req")]
+    #[cfg(feature = "serde")]
     impl<'de> Deserialize<'de> for Fp {
         fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where
@@ -999,7 +1067,7 @@ mod dusk {
     }
 
     #[test]
-    #[cfg(feature = "serde_req")]
+    #[cfg(feature = "serde")]
     fn fp_serde_roundtrip() {
         use bincode;
         let fp = Fp::one();

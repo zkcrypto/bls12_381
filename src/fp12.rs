@@ -6,14 +6,20 @@ use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
+#[cfg(feature = "pairings")]
+use rand_core::RngCore;
+
 #[cfg(feature = "rkyv-impl")]
 use bytecheck::CheckBytes;
 #[cfg(feature = "rkyv-impl")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 
 /// This represents an element $c_0 + c_1 w$ of $\mathbb{F}_{p^12} = \mathbb{F}_{p^6} / w^2 - v$.
-#[cfg_attr(feature = "rkyv-impl", derive(Archive, RkyvSerialize, RkyvDeserialize))]
-#[cfg_attr(feature = "rkyv-impl", archive_attr(derive(CheckBytes)))]
+#[cfg_attr(
+    feature = "rkyv-impl",
+    derive(Archive, RkyvSerialize, RkyvDeserialize),
+    archive_attr(derive(CheckBytes))
+)]
 pub struct Fp12 {
     pub c0: Fp6,
     pub c1: Fp6,
@@ -66,6 +72,9 @@ impl Default for Fp12 {
     }
 }
 
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for Fp12 {}
+
 impl fmt::Debug for Fp12 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?} + ({:?})*w", self.c0, self.c1)
@@ -103,6 +112,14 @@ impl Fp12 {
         Fp12 {
             c0: Fp6::one(),
             c1: Fp6::zero(),
+        }
+    }
+
+    #[cfg(feature = "pairings")]
+    pub(crate) fn random(mut rng: impl RngCore) -> Self {
+        Fp12 {
+            c0: Fp6::random(&mut rng),
+            c1: Fp6::random(&mut rng),
         }
     }
 
@@ -607,24 +624,21 @@ fn test_arithmetic() {
     // because a and b and c are similar to each other and
     // I was lazy, this is just some arbitrary way to make
     // them a little more different
-    let a = &a.square().invert().unwrap().square() + &c;
-    let b = &b.square().invert().unwrap().square() + &a;
-    let c = &c.square().invert().unwrap().square() + &b;
+    let a = a.square().invert().unwrap().square() + c;
+    let b = b.square().invert().unwrap().square() + a;
+    let c = c.square().invert().unwrap().square() + b;
 
-    assert_eq!(a.square(), &a * &a);
-    assert_eq!(b.square(), &b * &b);
-    assert_eq!(c.square(), &c * &c);
+    assert_eq!(a.square(), a * a);
+    assert_eq!(b.square(), b * b);
+    assert_eq!(c.square(), c * c);
 
-    assert_eq!(
-        (a + b) * c.square(),
-        &(&(&c * &c) * &a) + &(&(&c * &c) * &b)
-    );
+    assert_eq!((a + b) * c.square(), (c * c * a) + (c * c * b));
 
     assert_eq!(
-        &a.invert().unwrap() * &b.invert().unwrap(),
-        (&a * &b).invert().unwrap()
+        a.invert().unwrap() * b.invert().unwrap(),
+        (a * b).invert().unwrap()
     );
-    assert_eq!(&a.invert().unwrap() * &a, Fp12::one());
+    assert_eq!(a.invert().unwrap() * a, Fp12::one());
 
     assert!(a != a.frobenius_map());
     assert_eq!(
@@ -642,4 +656,14 @@ fn test_arithmetic() {
             .frobenius_map()
             .frobenius_map()
     );
+}
+
+#[cfg(feature = "zeroize")]
+#[test]
+fn test_zeroize() {
+    use zeroize::Zeroize;
+
+    let mut a = Fp12::one();
+    a.zeroize();
+    assert!(bool::from(a.is_zero()));
 }

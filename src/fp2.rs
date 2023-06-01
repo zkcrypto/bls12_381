@@ -2,6 +2,8 @@
 
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+
+use rand_core::RngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 #[cfg(feature = "rkyv-impl")]
@@ -12,8 +14,11 @@ use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use crate::fp::Fp;
 
 #[derive(Copy, Clone)]
-#[cfg_attr(feature = "rkyv-impl", derive(Archive, RkyvSerialize, RkyvDeserialize))]
-#[cfg_attr(feature = "rkyv-impl", archive_attr(derive(CheckBytes)))]
+#[cfg_attr(
+    feature = "rkyv-impl",
+    derive(Archive, RkyvSerialize, RkyvDeserialize),
+    archive_attr(derive(CheckBytes))
+)]
 pub struct Fp2 {
     pub c0: Fp,
     pub c1: Fp,
@@ -30,6 +35,9 @@ impl Default for Fp2 {
         Fp2::zero()
     }
 }
+
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for Fp2 {}
 
 impl From<Fp> for Fp2 {
     fn from(f: Fp) -> Fp2 {
@@ -50,7 +58,7 @@ impl Eq for Fp2 {}
 impl PartialEq for Fp2 {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.ct_eq(other).unwrap_u8() == 1
+        bool::from(self.ct_eq(other))
     }
 }
 
@@ -130,6 +138,13 @@ impl Fp2 {
 
     pub fn is_zero(&self) -> Choice {
         self.c0.is_zero() & self.c1.is_zero()
+    }
+
+    pub(crate) fn random(mut rng: impl RngCore) -> Fp2 {
+        Fp2 {
+            c0: Fp::random(&mut rng),
+            c1: Fp::random(&mut rng),
+        }
     }
 
     /// Raises this element to p.
@@ -330,6 +345,23 @@ impl Fp2 {
         }
         res
     }
+
+    /// Vartime exponentiation for larger exponents, only
+    /// used in testing and not exposed through the public API.
+    #[cfg(all(test, feature = "experimental"))]
+    pub(crate) fn pow_vartime_extended(&self, by: &[u64]) -> Self {
+        let mut res = Self::one();
+        for e in by.iter().rev() {
+            for i in (0..64).rev() {
+                res = res.square();
+
+                if ((*e >> i) & 1) == 1 {
+                    res *= self;
+                }
+            }
+        }
+        res
+    }
 }
 
 #[test]
@@ -359,7 +391,7 @@ fn test_equality() {
         let eq = a == b;
         let ct_eq = a.ct_eq(&b);
 
-        assert_eq!(eq, ct_eq.unwrap_u8() == 1);
+        assert_eq!(eq, bool::from(ct_eq));
 
         eq
     }
@@ -865,7 +897,17 @@ fn test_lexicographic_largest() {
     ));
 }
 
-#[cfg(feature = "serde_req")]
+#[cfg(feature = "zeroize")]
+#[test]
+fn test_zeroize() {
+    use zeroize::Zeroize;
+
+    let mut a = Fp2::one();
+    a.zeroize();
+    assert!(bool::from(a.is_zero()));
+}
+
+#[cfg(feature = "serde")]
 mod dusk {
     use super::*;
 
