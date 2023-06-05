@@ -1305,8 +1305,6 @@ mod dusk {
     use core::convert::TryFrom;
     use core::ops::{BitAnd, BitXor};
 
-    use rand_core::CryptoRng;
-
     #[cfg(feature = "serde")]
     use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -1531,10 +1529,10 @@ mod dusk {
         /// Generate a valid Scalar choosen uniformly using user-
         /// provided rng.
         ///
-        /// By `rng` we mean any Rng that implements: `Rng` + `CryptoRng`.
+        /// By `rng` we mean any Rng that implements `RngCore`.
         pub fn random<T>(rand: &mut T) -> Scalar
         where
-            T: RngCore + CryptoRng,
+            T: RngCore,
         {
             let mut bytes = [0u8; Self::SIZE];
             rand.fill_bytes(&mut bytes);
