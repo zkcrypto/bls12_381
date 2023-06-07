@@ -1,11 +1,21 @@
 //! This module provides an implementation of the $\mathbb{G}_1$ group of BLS12-381.
 
 use core::borrow::Borrow;
+use core::fmt;
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use dusk_bytes::{Error as BytesError, HexDebug, Serializable};
+use group::{
+    prime::{PrimeCurve, PrimeCurveAffine, PrimeGroup},
+    Curve, Group, GroupEncoding, UncompressedEncoding,
+};
+use rand_core::RngCore;
+
+use dusk_bytes::{Error as BytesError, Serializable};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
+
+#[cfg(feature = "alloc")]
+use group::WnafGroup;
 
 use crate::choice;
 use crate::fp::Fp;
@@ -22,9 +32,13 @@ use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 ///
 /// Values of `G1Affine` are guaranteed to be in the $q$-order subgroup unless an
 /// "unchecked" API was misused.
-#[derive(Copy, Clone, HexDebug)]
-#[cfg_attr(feature = "rkyv-impl", derive(Archive, RkyvSerialize, RkyvDeserialize))]
-#[cfg_attr(feature = "rkyv-impl", archive_attr(derive(CheckBytes)))]
+#[cfg_attr(docsrs, doc(cfg(feature = "groups")))]
+#[derive(Copy, Clone, Debug)]
+#[cfg_attr(
+    feature = "rkyv-impl",
+    derive(Archive, RkyvSerialize, RkyvDeserialize),
+    archive_attr(derive(CheckBytes))
+)]
 pub struct G1Affine {
     pub(crate) x: Fp,
     pub(crate) y: Fp,
@@ -37,13 +51,20 @@ impl Default for G1Affine {
     }
 }
 
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for G1Affine {}
+
+impl fmt::Display for G1Affine {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 impl<'a> From<&'a G1Projective> for G1Affine {
     fn from(p: &'a G1Projective) -> G1Affine {
         let zinv = p.z.invert().unwrap_or(Fp::zero());
-        let zinv2 = zinv.square();
-        let x = p.x * zinv2;
-        let zinv3 = zinv2 * zinv;
-        let y = p.y * zinv3;
+        let x = p.x * zinv;
+        let y = p.y * zinv;
 
         let tmp = G1Affine {
             x,
@@ -208,6 +229,179 @@ impl G1Affine {
         }
     }
 
+    /// Serializes this element into compressed form. See [`notes::serialization`](crate::notes::serialization)
+    /// for details about how group elements are serialized.
+    pub fn to_compressed(&self) -> [u8; 48] {
+        // Strictly speaking, self.x is zero already when self.infinity is true, but
+        // to guard against implementation mistakes we do not assume this.
+        let mut res = Fp::conditional_select(&self.x, &Fp::zero(), self.infinity.into()).to_bytes();
+
+        // This point is in compressed form, so we set the most significant bit.
+        res[0] |= 1u8 << 7;
+
+        // Is this point at infinity? If so, set the second-most significant bit.
+        res[0] |= u8::conditional_select(&0u8, &(1u8 << 6), self.infinity.into());
+
+        // Is the y-coordinate the lexicographically largest of the two associated with the
+        // x-coordinate? If so, set the third-most significant bit so long as this is not
+        // the point at infinity.
+        res[0] |= u8::conditional_select(
+            &0u8,
+            &(1u8 << 5),
+            (!Choice::from(self.infinity)) & self.y.lexicographically_largest(),
+        );
+
+        res
+    }
+
+    /// Serializes this element into uncompressed form. See [`notes::serialization`](crate::notes::serialization)
+    /// for details about how group elements are serialized.
+    pub fn to_uncompressed(&self) -> [u8; 96] {
+        let mut res = [0; 96];
+
+        res[0..48].copy_from_slice(
+            &Fp::conditional_select(&self.x, &Fp::zero(), self.infinity.into()).to_bytes()[..],
+        );
+        res[48..96].copy_from_slice(
+            &Fp::conditional_select(&self.y, &Fp::zero(), self.infinity.into()).to_bytes()[..],
+        );
+
+        // Is this point at infinity? If so, set the second-most significant bit.
+        res[0] |= u8::conditional_select(&0u8, &(1u8 << 6), self.infinity.into());
+
+        res
+    }
+
+    /// Attempts to deserialize an uncompressed element. See [`notes::serialization`](crate::notes::serialization)
+    /// for details about how group elements are serialized.
+    pub fn from_uncompressed(bytes: &[u8; 96]) -> CtOption<Self> {
+        Self::from_uncompressed_unchecked(bytes)
+            .and_then(|p| CtOption::new(p, p.is_on_curve() & p.is_torsion_free()))
+    }
+
+    /// Attempts to deserialize an uncompressed element, not checking if the
+    /// element is on the curve and not checking if it is in the correct subgroup.
+    /// **This is dangerous to call unless you trust the bytes you are reading; otherwise,
+    /// API invariants may be broken.** Please consider using `from_uncompressed()` instead.
+    pub fn from_uncompressed_unchecked(bytes: &[u8; 96]) -> CtOption<Self> {
+        // Obtain the three flags from the start of the byte sequence
+        let compression_flag_set = Choice::from((bytes[0] >> 7) & 1);
+        let infinity_flag_set = Choice::from((bytes[0] >> 6) & 1);
+        let sort_flag_set = Choice::from((bytes[0] >> 5) & 1);
+
+        // Attempt to obtain the x-coordinate
+        let x = {
+            let mut tmp = [0; 48];
+            tmp.copy_from_slice(&bytes[0..48]);
+
+            // Mask away the flag bits
+            tmp[0] &= 0b0001_1111;
+
+            Fp::from_bytes(&tmp)
+        };
+
+        // Attempt to obtain the y-coordinate
+        let y = {
+            let mut tmp = [0; 48];
+            tmp.copy_from_slice(&bytes[48..96]);
+
+            Fp::from_bytes(&tmp)
+        };
+
+        x.and_then(|x| {
+            y.and_then(|y| {
+                // Create a point representing this value
+                let p = G1Affine::conditional_select(
+                    &G1Affine {
+                        x,
+                        y,
+                        infinity: infinity_flag_set.into(),
+                    },
+                    &G1Affine::identity(),
+                    infinity_flag_set,
+                );
+
+                CtOption::new(
+                    p,
+                    // If the infinity flag is set, the x and y coordinates should have been zero.
+                    ((!infinity_flag_set) | (infinity_flag_set & x.is_zero() & y.is_zero())) &
+                        // The compression flag should not have been set, as this is an uncompressed element
+                        (!compression_flag_set) &
+                        // The sort flag should not have been set, as this is an uncompressed element
+                        (!sort_flag_set),
+                )
+            })
+        })
+    }
+
+    /// Attempts to deserialize a compressed element. See [`notes::serialization`](crate::notes::serialization)
+    /// for details about how group elements are serialized.
+    pub fn from_compressed(bytes: &[u8; 48]) -> CtOption<Self> {
+        // We already know the point is on the curve because this is established
+        // by the y-coordinate recovery procedure in from_compressed_unchecked().
+
+        Self::from_compressed_unchecked(bytes).and_then(|p| CtOption::new(p, p.is_torsion_free()))
+    }
+
+    /// Attempts to deserialize an uncompressed element, not checking if the
+    /// element is in the correct subgroup.
+    /// **This is dangerous to call unless you trust the bytes you are reading; otherwise,
+    /// API invariants may be broken.** Please consider using `from_compressed()` instead.
+    pub fn from_compressed_unchecked(bytes: &[u8; 48]) -> CtOption<Self> {
+        // Obtain the three flags from the start of the byte sequence
+        let compression_flag_set = Choice::from((bytes[0] >> 7) & 1);
+        let infinity_flag_set = Choice::from((bytes[0] >> 6) & 1);
+        let sort_flag_set = Choice::from((bytes[0] >> 5) & 1);
+
+        // Attempt to obtain the x-coordinate
+        let x = {
+            let mut tmp = [0; 48];
+            tmp.copy_from_slice(&bytes[0..48]);
+
+            // Mask away the flag bits
+            tmp[0] &= 0b0001_1111;
+
+            Fp::from_bytes(&tmp)
+        };
+
+        x.and_then(|x| {
+            // If the infinity flag is set, return the value assuming
+            // the x-coordinate is zero and the sort bit is not set.
+            //
+            // Otherwise, return a recovered point (assuming the correct
+            // y-coordinate can be found) so long as the infinity flag
+            // was not set.
+            CtOption::new(
+                G1Affine::identity(),
+                infinity_flag_set & // Infinity flag should be set
+                    compression_flag_set & // Compression flag should be set
+                    (!sort_flag_set) & // Sort flag should not be set
+                    x.is_zero(), // The x-coordinate should be zero
+            )
+            .or_else(|| {
+                // Recover a y-coordinate given x by y = sqrt(x^3 + 4)
+                ((x.square() * x) + B).sqrt().and_then(|y| {
+                    // Switch to the correct y-coordinate if necessary.
+                    let y = Fp::conditional_select(
+                        &y,
+                        &-y,
+                        y.lexicographically_largest() ^ sort_flag_set,
+                    );
+
+                    CtOption::new(
+                        G1Affine {
+                            x,
+                            y,
+                            infinity: infinity_flag_set.into(),
+                        },
+                        (!infinity_flag_set) & // Infinity flag should not be set
+                                compression_flag_set, // Compression flag should be set
+                    )
+                })
+            })
+        })
+    }
+
     /// Returns true if this element is the identity (the point at infinity).
     #[inline]
     pub fn is_identity(&self) -> Choice {
@@ -251,19 +445,38 @@ fn endomorphism(p: &G1Affine) -> G1Affine {
     // Endomorphism of the points on the curve.
     // endomorphism_p(x,y) = (BETA * x, y)
     // where BETA is a non-trivial cubic root of unity in Fq.
-    let mut res = p.clone();
+    let mut res = *p;
     res.x *= BETA;
     res
 }
 
 /// This is an element of $\mathbb{G}_1$ represented in the projective coordinate space.
+#[cfg_attr(docsrs, doc(cfg(feature = "groups")))]
 #[derive(Copy, Clone, Debug)]
-#[cfg_attr(feature = "rkyv-impl", derive(Archive, RkyvSerialize, RkyvDeserialize))]
-#[cfg_attr(feature = "rkyv-impl", archive_attr(derive(CheckBytes)))]
+#[cfg_attr(
+    feature = "rkyv-impl",
+    derive(Archive, RkyvSerialize, RkyvDeserialize),
+    archive_attr(derive(CheckBytes))
+)]
 pub struct G1Projective {
-    x: Fp,
-    y: Fp,
-    z: Fp,
+    pub(crate) x: Fp,
+    pub(crate) y: Fp,
+    pub(crate) z: Fp,
+}
+
+impl Default for G1Projective {
+    fn default() -> G1Projective {
+        G1Projective::identity()
+    }
+}
+
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for G1Projective {}
+
+impl fmt::Display for G1Projective {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 impl<'a> From<&'a G1Affine> for G1Projective {
@@ -284,16 +497,13 @@ impl From<G1Affine> for G1Projective {
 
 impl ConstantTimeEq for G1Projective {
     fn ct_eq(&self, other: &Self) -> Choice {
-        // Is (xz^2, yz^3, z) equal to (x'z'^2, yz'^3, z') when converted to affine?
+        // Is (xz, yz, z) equal to (x'z', y'z', z') when converted to affine?
 
-        let z = other.z.square();
-        let x1 = self.x * z;
-        let z = z * other.z;
-        let y1 = self.y * z;
-        let z = self.z.square();
-        let x2 = other.x * z;
-        let z = z * self.z;
-        let y2 = other.y * z;
+        let x1 = self.x * other.z;
+        let x2 = other.x * self.z;
+
+        let y1 = self.y * other.z;
+        let y2 = other.y * self.z;
 
         let self_is_zero = self.z.is_zero();
         let other_is_zero = other.z.is_zero();
@@ -378,9 +588,36 @@ impl<'a, 'b> Mul<&'b BlsScalar> for &'a G1Affine {
     }
 }
 
+impl<'a, 'b> Mul<&'b G1Projective> for &'a BlsScalar {
+    type Output = G1Projective;
+
+    #[inline]
+    fn mul(self, rhs: &'b G1Projective) -> Self::Output {
+        rhs * self
+    }
+}
+
+impl<'a, 'b> Mul<&'b G1Affine> for &'a BlsScalar {
+    type Output = G1Projective;
+
+    #[inline]
+    fn mul(self, rhs: &'b G1Affine) -> Self::Output {
+        rhs * self
+    }
+}
+
 impl_binops_additive!(G1Projective, G1Projective);
 impl_binops_multiplicative!(G1Projective, BlsScalar);
 impl_binops_multiplicative_mixed!(G1Affine, BlsScalar, G1Projective);
+impl_binops_multiplicative_mixed!(BlsScalar, G1Affine, G1Projective);
+impl_binops_multiplicative_mixed!(BlsScalar, G1Projective, G1Projective);
+
+#[inline(always)]
+fn mul_by_3b(a: Fp) -> Fp {
+    let a = a + a; // 2
+    let a = a + a; // 4
+    a + a + a // 12
+}
 
 impl G1Projective {
     /// Returns the identity of the group: the point at infinity.
@@ -418,26 +655,26 @@ impl G1Projective {
 
     /// Computes the doubling of this point.
     pub fn double(&self) -> G1Projective {
-        // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
-        //
-        // There are no points of order 2.
+        // Algorithm 9, https://eprint.iacr.org/2015/1060.pdf
 
-        let a = self.x.square();
-        let b = self.y.square();
-        let c = b.square();
-        let d = self.x + b;
-        let d = d.square();
-        let d = d - a - c;
-        let d = d + d;
-        let e = a + a + a;
-        let f = e.square();
-        let z3 = self.z * self.y;
+        let t0 = self.y.square();
+        let z3 = t0 + t0;
         let z3 = z3 + z3;
-        let x3 = f - (d + d);
-        let c = c + c;
-        let c = c + c;
-        let c = c + c;
-        let y3 = e * (d - x3) - c;
+        let z3 = z3 + z3;
+        let t1 = self.y * self.z;
+        let t2 = self.z.square();
+        let t2 = mul_by_3b(t2);
+        let x3 = t2 * z3;
+        let y3 = t0 + t2;
+        let z3 = t1 * z3;
+        let t1 = t2 + t2;
+        let t2 = t1 + t2;
+        let t0 = t0 - t2;
+        let y3 = t0 * y3;
+        let y3 = x3 + y3;
+        let t1 = self.x * self.y;
+        let x3 = t0 * t1;
+        let x3 = x3 + x3;
 
         let tmp = G1Projective {
             x: x3,
@@ -450,139 +687,79 @@ impl G1Projective {
 
     /// Adds this point to another point.
     pub fn add(&self, rhs: &G1Projective) -> G1Projective {
-        // This Jacobian point addition technique is based on the implementation
-        // in libsecp256k1, which assumes that rhs has z=1. Let's address the
-        // case of zero z-coordinates generally.
+        // Algorithm 7, https://eprint.iacr.org/2015/1060.pdf
 
-        // If self is the identity, return rhs. Otherwise, return self. The
-        // other cases will be predicated on neither self nor rhs being the
-        // identity.
-        let f1 = self.is_identity();
-        let res = G1Projective::conditional_select(self, rhs, f1);
-        let f2 = rhs.is_identity();
+        let t0 = self.x * rhs.x;
+        let t1 = self.y * rhs.y;
+        let t2 = self.z * rhs.z;
+        let t3 = self.x + self.y;
+        let t4 = rhs.x + rhs.y;
+        let t3 = t3 * t4;
+        let t4 = t0 + t1;
+        let t3 = t3 - t4;
+        let t4 = self.y + self.z;
+        let x3 = rhs.y + rhs.z;
+        let t4 = t4 * x3;
+        let x3 = t1 + t2;
+        let t4 = t4 - x3;
+        let x3 = self.x + self.z;
+        let y3 = rhs.x + rhs.z;
+        let x3 = x3 * y3;
+        let y3 = t0 + t2;
+        let y3 = x3 - y3;
+        let x3 = t0 + t0;
+        let t0 = x3 + t0;
+        let t2 = mul_by_3b(t2);
+        let z3 = t1 + t2;
+        let t1 = t1 - t2;
+        let y3 = mul_by_3b(y3);
+        let x3 = t4 * y3;
+        let t2 = t3 * t1;
+        let x3 = t2 - x3;
+        let y3 = y3 * t0;
+        let t1 = t1 * z3;
+        let y3 = t1 + y3;
+        let t0 = t0 * t3;
+        let z3 = z3 * t4;
+        let z3 = z3 + t0;
 
-        // If neither are the identity but x1 = x2 and y1 != y2, then return
-        // the identity
-        let z = rhs.z.square();
-        let u1 = self.x * z;
-        let z = z * rhs.z;
-        let s1 = self.y * z;
-        let z = self.z.square();
-        let u2 = rhs.x * z;
-        let z = z * self.z;
-        let s2 = rhs.y * z;
-        let f3 = u1.ct_eq(&u2) & (!s1.ct_eq(&s2));
-        let res =
-            G1Projective::conditional_select(&res, &G1Projective::identity(), (!f1) & (!f2) & f3);
-
-        let t = u1 + u2;
-        let m = s1 + s2;
-        let rr = t.square();
-        let m_alt = -u2;
-        let tt = u1 * m_alt;
-        let rr = rr + tt;
-
-        // Correct for x1 != x2 but y1 = -y2, which can occur because p - 1 is
-        // divisible by 3. libsecp256k1 does this by substituting in an
-        // alternative (defined) expression for lambda.
-        let degenerate = m.is_zero() & rr.is_zero();
-        let rr_alt = s1 + s1;
-        let m_alt = m_alt + u1;
-        let rr_alt = Fp::conditional_select(&rr_alt, &rr, !degenerate);
-        let m_alt = Fp::conditional_select(&m_alt, &m, !degenerate);
-
-        let n = m_alt.square();
-        let q = n * t;
-
-        let n = n.square();
-        let n = Fp::conditional_select(&n, &m, degenerate);
-        let t = rr_alt.square();
-        // We allow rhs.z != 1, so we must account for this.
-        let z3 = m_alt * self.z * rhs.z;
-        let z3 = z3 + z3;
-        let q = -q;
-        let t = t + q;
-        let x3 = t;
-        let t = t + t;
-        let t = t + q;
-        let t = t * rr_alt;
-        let t = t + n;
-        let y3 = -t;
-        let x3 = x3 + x3;
-        let x3 = x3 + x3;
-        let y3 = y3 + y3;
-        let y3 = y3 + y3;
-
-        let tmp = G1Projective {
+        G1Projective {
             x: x3,
             y: y3,
             z: z3,
-        };
-
-        G1Projective::conditional_select(&res, &tmp, (!f1) & (!f2) & (!f3))
+        }
     }
 
     /// Adds this point to another point in the affine model.
     pub fn add_mixed(&self, rhs: &G1Affine) -> G1Projective {
-        // This Jacobian point addition technique is based on the implementation
-        // in libsecp256k1, which assumes that rhs has z=1. Let's address the
-        // case of zero z-coordinates generally.
+        // Algorithm 8, https://eprint.iacr.org/2015/1060.pdf
 
-        // If self is the identity, return rhs. Otherwise, return self. The
-        // other cases will be predicated on neither self nor rhs being the
-        // identity.
-        let f1 = self.is_identity();
-        let res = G1Projective::conditional_select(self, &G1Projective::from(rhs), f1);
-        let f2 = rhs.is_identity();
-
-        // If neither are the identity but x1 = x2 and y1 != y2, then return the
-        // identity
-        let u1 = self.x;
-        let s1 = self.y;
-        let z = self.z.square();
-        let u2 = rhs.x * z;
-        let z = z * self.z;
-        let s2 = rhs.y * z;
-        let f3 = u1.ct_eq(&u2) & (!s1.ct_eq(&s2));
-        let res =
-            G1Projective::conditional_select(&res, &G1Projective::identity(), (!f1) & (!f2) & f3);
-
-        let t = u1 + u2;
-        let m = s1 + s2;
-        let rr = t.square();
-        let m_alt = -u2;
-        let tt = u1 * m_alt;
-        let rr = rr + tt;
-
-        // Correct for x1 != x2 but y1 = -y2, which can occur because p - 1 is
-        // divisible by 3. libsecp256k1 does this by substituting in an
-        // alternative (defined) expression for lambda.
-        let degenerate = m.is_zero() & rr.is_zero();
-        let rr_alt = s1 + s1;
-        let m_alt = m_alt + u1;
-        let rr_alt = Fp::conditional_select(&rr_alt, &rr, !degenerate);
-        let m_alt = Fp::conditional_select(&m_alt, &m, !degenerate);
-
-        let n = m_alt.square();
-        let q = n * t;
-
-        let n = n.square();
-        let n = Fp::conditional_select(&n, &m, degenerate);
-        let t = rr_alt.square();
-        let z3 = m_alt * self.z;
-        let z3 = z3 + z3;
-        let q = -q;
-        let t = t + q;
-        let x3 = t;
-        let t = t + t;
-        let t = t + q;
-        let t = t * rr_alt;
-        let t = t + n;
-        let y3 = -t;
-        let x3 = x3 + x3;
-        let x3 = x3 + x3;
-        let y3 = y3 + y3;
-        let y3 = y3 + y3;
+        let t0 = self.x * rhs.x;
+        let t1 = self.y * rhs.y;
+        let t3 = rhs.x + rhs.y;
+        let t4 = self.x + self.y;
+        let t3 = t3 * t4;
+        let t4 = t0 + t1;
+        let t3 = t3 - t4;
+        let t4 = rhs.y * self.z;
+        let t4 = t4 + self.y;
+        let y3 = rhs.x * self.z;
+        let y3 = y3 + self.x;
+        let x3 = t0 + t0;
+        let t0 = x3 + t0;
+        let t2 = mul_by_3b(self.z);
+        let z3 = t1 + t2;
+        let t1 = t1 - t2;
+        let y3 = mul_by_3b(y3);
+        let x3 = t4 * y3;
+        let t2 = t3 * t1;
+        let x3 = t2 - x3;
+        let y3 = y3 * t0;
+        let t1 = t1 * z3;
+        let y3 = t1 + y3;
+        let t0 = t0 * t3;
+        let z3 = z3 * t4;
+        let z3 = z3 + t0;
 
         let tmp = G1Projective {
             x: x3,
@@ -590,7 +767,7 @@ impl G1Projective {
             z: z3,
         };
 
-        G1Projective::conditional_select(&res, &tmp, (!f1) & (!f2) & (!f3))
+        G1Projective::conditional_select(&tmp, self, rhs.is_identity())
     }
 
     fn multiply(&self, by: &[u8; 32]) -> G1Projective {
@@ -672,14 +849,11 @@ impl G1Projective {
             acc = Fp::conditional_select(&(acc * p.z), &acc, skip);
 
             // Set the coordinates to the correct value
-            let tmp2 = tmp.square();
-            let tmp3 = tmp2 * tmp;
-
-            q.x = p.x * tmp2;
-            q.y = p.y * tmp3;
+            q.x = p.x * tmp;
+            q.y = p.y * tmp;
             q.infinity = 0u8.into();
 
-            *q = G1Affine::conditional_select(&q, &G1Affine::identity(), skip);
+            *q = G1Affine::conditional_select(q, &G1Affine::identity(), skip);
         }
     }
 
@@ -692,11 +866,257 @@ impl G1Projective {
     /// Returns true if this point is on the curve. This should always return
     /// true unless an "unchecked" API was used.
     pub fn is_on_curve(&self) -> Choice {
-        // Y^2 - X^3 = 4(Z^6)
+        // Y^2 Z = X^3 + b Z^3
 
-        (self.y.square() - (self.x.square() * self.x))
-            .ct_eq(&((self.z.square() * self.z).square() * B))
+        (self.y.square() * self.z).ct_eq(&(self.x.square() * self.x + self.z.square() * self.z * B))
             | self.z.is_zero()
+    }
+}
+
+#[derive(Clone, Copy)]
+#[cfg_attr(
+    feature = "rkyv-impl",
+    derive(Archive, RkyvSerialize, RkyvDeserialize),
+    archive_attr(derive(CheckBytes))
+)]
+pub struct G1Compressed([u8; 48]);
+
+impl fmt::Debug for G1Compressed {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0[..].fmt(f)
+    }
+}
+
+impl Default for G1Compressed {
+    fn default() -> Self {
+        G1Compressed([0; 48])
+    }
+}
+
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for G1Compressed {}
+
+impl AsRef<[u8]> for G1Compressed {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl AsMut<[u8]> for G1Compressed {
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.0
+    }
+}
+
+impl ConstantTimeEq for G1Compressed {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        self.0.ct_eq(&other.0)
+    }
+}
+
+impl Eq for G1Compressed {}
+impl PartialEq for G1Compressed {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        bool::from(self.ct_eq(other))
+    }
+}
+
+#[derive(Clone, Copy)]
+#[cfg_attr(
+    feature = "rkyv-impl",
+    derive(Archive, RkyvSerialize, RkyvDeserialize),
+    archive_attr(derive(CheckBytes))
+)]
+pub struct G1Uncompressed([u8; 96]);
+
+impl fmt::Debug for G1Uncompressed {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0[..].fmt(f)
+    }
+}
+
+impl Default for G1Uncompressed {
+    fn default() -> Self {
+        G1Uncompressed([0; 96])
+    }
+}
+
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for G1Uncompressed {}
+
+impl AsRef<[u8]> for G1Uncompressed {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl AsMut<[u8]> for G1Uncompressed {
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.0
+    }
+}
+
+impl ConstantTimeEq for G1Uncompressed {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        self.0.ct_eq(&other.0)
+    }
+}
+
+impl Eq for G1Uncompressed {}
+impl PartialEq for G1Uncompressed {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        bool::from(self.ct_eq(other))
+    }
+}
+
+impl Group for G1Projective {
+    type Scalar = BlsScalar;
+
+    fn random(mut rng: impl RngCore) -> Self {
+        loop {
+            let x = Fp::random(&mut rng);
+            let flip_sign = rng.next_u32() % 2 != 0;
+
+            // Obtain the corresponding y-coordinate given x as y = sqrt(x^3 + 4)
+            let p = ((x.square() * x) + B).sqrt().map(|y| G1Affine {
+                x,
+                y: if flip_sign { -y } else { y },
+                infinity: 0.into(),
+            });
+
+            if p.is_some().into() {
+                let p = p.unwrap().to_curve().clear_cofactor();
+
+                if bool::from(!p.is_identity()) {
+                    return p;
+                }
+            }
+        }
+    }
+
+    fn identity() -> Self {
+        Self::identity()
+    }
+
+    fn generator() -> Self {
+        Self::generator()
+    }
+
+    fn is_identity(&self) -> Choice {
+        self.is_identity()
+    }
+
+    #[must_use]
+    fn double(&self) -> Self {
+        self.double()
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl WnafGroup for G1Projective {
+    fn recommended_wnaf_for_num_scalars(num_scalars: usize) -> usize {
+        const RECOMMENDATIONS: [usize; 12] =
+            [1, 3, 7, 20, 43, 120, 273, 563, 1630, 3128, 7933, 62569];
+
+        let mut ret = 4;
+        for r in &RECOMMENDATIONS {
+            if num_scalars > *r {
+                ret += 1;
+            } else {
+                break;
+            }
+        }
+
+        ret
+    }
+}
+
+impl PrimeGroup for G1Projective {}
+
+impl Curve for G1Projective {
+    type AffineRepr = G1Affine;
+
+    fn batch_normalize(p: &[Self], q: &mut [Self::AffineRepr]) {
+        Self::batch_normalize(p, q);
+    }
+
+    fn to_affine(&self) -> Self::AffineRepr {
+        self.into()
+    }
+}
+
+impl PrimeCurve for G1Projective {
+    type Affine = G1Affine;
+}
+
+impl PrimeCurveAffine for G1Affine {
+    type Scalar = BlsScalar;
+    type Curve = G1Projective;
+
+    fn identity() -> Self {
+        Self::identity()
+    }
+
+    fn generator() -> Self {
+        Self::generator()
+    }
+
+    fn is_identity(&self) -> Choice {
+        self.is_identity()
+    }
+
+    fn to_curve(&self) -> Self::Curve {
+        self.into()
+    }
+}
+
+impl GroupEncoding for G1Projective {
+    type Repr = G1Compressed;
+
+    fn from_bytes(bytes: &Self::Repr) -> CtOption<Self> {
+        <G1Affine as GroupEncoding>::from_bytes(bytes).map(Self::from)
+    }
+
+    fn from_bytes_unchecked(bytes: &Self::Repr) -> CtOption<Self> {
+        G1Affine::from_bytes_unchecked(bytes).map(Self::from)
+    }
+
+    fn to_bytes(&self) -> Self::Repr {
+        <G1Affine as GroupEncoding>::to_bytes(&G1Affine::from(self))
+    }
+}
+
+impl GroupEncoding for G1Affine {
+    type Repr = G1Compressed;
+
+    fn from_bytes(bytes: &Self::Repr) -> CtOption<Self> {
+        Self::from_compressed(&bytes.0)
+    }
+
+    fn from_bytes_unchecked(bytes: &Self::Repr) -> CtOption<Self> {
+        Self::from_compressed_unchecked(&bytes.0)
+    }
+
+    fn to_bytes(&self) -> Self::Repr {
+        G1Compressed(self.to_compressed())
+    }
+}
+
+impl UncompressedEncoding for G1Affine {
+    type Uncompressed = G1Uncompressed;
+
+    fn from_uncompressed(bytes: &Self::Uncompressed) -> CtOption<Self> {
+        Self::from_uncompressed(&bytes.0)
+    }
+
+    fn from_uncompressed_unchecked(bytes: &Self::Uncompressed) -> CtOption<Self> {
+        Self::from_uncompressed_unchecked(&bytes.0)
+    }
+
+    fn to_uncompressed(&self) -> Self::Uncompressed {
+        G1Uncompressed(self.to_uncompressed())
     }
 }
 
@@ -716,7 +1136,6 @@ fn test_beta() {
     assert_ne!(BETA * BETA, Fp::one());
     assert_eq!(BETA * BETA * BETA, Fp::one());
 }
-
 #[test]
 fn test_is_on_curve() {
     assert!(bool::from(G1Affine::identity().is_on_curve()));
@@ -735,8 +1154,8 @@ fn test_is_on_curve() {
 
     let gen = G1Affine::generator();
     let mut test = G1Projective {
-        x: gen.x * (z.square()),
-        y: gen.y * (z.square() * z),
+        x: gen.x * z,
+        y: gen.y * z,
         z,
     };
 
@@ -747,6 +1166,7 @@ fn test_is_on_curve() {
 }
 
 #[test]
+#[allow(clippy::eq_op)]
 fn test_affine_point_equality() {
     let a = G1Affine::generator();
     let b = G1Affine::identity();
@@ -758,6 +1178,7 @@ fn test_affine_point_equality() {
 }
 
 #[test]
+#[allow(clippy::eq_op)]
 fn test_projective_point_equality() {
     let a = G1Projective::generator();
     let b = G1Projective::identity();
@@ -777,8 +1198,8 @@ fn test_projective_point_equality() {
     ]);
 
     let mut c = G1Projective {
-        x: a.x * (z.square()),
-        y: a.y * (z.square() * z),
+        x: a.x * z,
+        y: a.y * z,
         z,
     };
     assert!(bool::from(c.is_on_curve()));
@@ -848,8 +1269,8 @@ fn test_projective_to_affine() {
     ]);
 
     let c = G1Projective {
-        x: a.x * (z.square()),
-        y: a.y * (z.square() * z),
+        x: a.x * z,
+        y: a.y * z,
         z,
     };
 
@@ -927,8 +1348,8 @@ fn test_projective_addition() {
             ]);
 
             b = G1Projective {
-                x: b.x * (z.square()),
-                y: b.y * (z.square() * z),
+                x: b.x * z,
+                y: b.y * z,
                 z,
             };
         }
@@ -951,8 +1372,8 @@ fn test_projective_addition() {
             ]);
 
             b = G1Projective {
-                x: b.x * (z.square()),
-                y: b.y * (z.square() * z),
+                x: b.x * z,
+                y: b.y * z,
                 z,
             };
         }
@@ -968,7 +1389,7 @@ fn test_projective_addition() {
 
         let mut d = G1Projective::generator();
         for _ in 0..5 {
-            d = d + G1Projective::generator();
+            d += G1Projective::generator();
         }
         assert!(!bool::from(c.is_identity()));
         assert!(bool::from(c.is_on_curve()));
@@ -1048,8 +1469,8 @@ fn test_mixed_addition() {
             ]);
 
             b = G1Projective {
-                x: b.x * (z.square()),
-                y: b.y * (z.square() * z),
+                x: b.x * z,
+                y: b.y * z,
                 z,
             };
         }
@@ -1072,8 +1493,8 @@ fn test_mixed_addition() {
             ]);
 
             b = G1Projective {
-                x: b.x * (z.square()),
-                y: b.y * (z.square() * z),
+                x: b.x * z,
+                y: b.y * z,
                 z,
             };
         }
@@ -1089,7 +1510,7 @@ fn test_mixed_addition() {
 
         let mut d = G1Projective::generator();
         for _ in 0..5 {
-            d = d + G1Affine::generator();
+            d += G1Affine::generator();
         }
         assert!(!bool::from(c.is_identity()));
         assert!(bool::from(c.is_on_curve()));
@@ -1148,6 +1569,7 @@ fn test_mixed_addition() {
 }
 
 #[test]
+#[allow(clippy::eq_op)]
 fn test_projective_negation_and_subtraction() {
     let a = G1Projective::generator().double();
     assert_eq!(a + (-a), G1Projective::identity());
@@ -1253,6 +1675,15 @@ fn test_clear_cofactor() {
     let id = G1Projective::identity();
     assert!(bool::from(id.clear_cofactor().is_on_curve()));
 
+    let z = Fp::from_raw_unchecked([
+        0x3d2d1c670671394e,
+        0x0ee3a800a2f7c1ca,
+        0x270f4f21da2e5050,
+        0xe02840a53f1be768,
+        0x55debeb597512690,
+        0x08bd25353dc8f791,
+    ]);
+
     let point = G1Projective {
         x: Fp::from_raw_unchecked([
             0x48af5ff540c817f0,
@@ -1261,7 +1692,7 @@ fn test_clear_cofactor() {
             0x1eda39c30f188b3e,
             0xf618c6d3ccc0f8d8,
             0x0073542cd671e16c,
-        ]),
+        ]) * z,
         y: Fp::from_raw_unchecked([
             0x57bf8be79461d0ba,
             0xfc61459cee3547c3,
@@ -1270,14 +1701,7 @@ fn test_clear_cofactor() {
             0xb0c8cfbe9dc8fdc1,
             0x1328661767ef368b,
         ]),
-        z: Fp::from_raw_unchecked([
-            0x3d2d1c670671394e,
-            0x0ee3a800a2f7c1ca,
-            0x270f4f21da2e5050,
-            0xe02840a53f1be768,
-            0x55debeb597512690,
-            0x08bd25353dc8f791,
-        ]),
+        z: z.square() * z,
     };
 
     assert!(bool::from(point.is_on_curve()));
@@ -1298,9 +1722,9 @@ fn test_batch_normalize() {
     let b = a.double();
     let c = b.double();
 
-    for a_identity in (0..1).map(|n| n == 1) {
-        for b_identity in (0..1).map(|n| n == 1) {
-            for c_identity in (0..1).map(|n| n == 1) {
+    for a_identity in (0..=1).map(|n| n == 1) {
+        for b_identity in (0..=1).map(|n| n == 1) {
+            for c_identity in (0..=1).map(|n| n == 1) {
                 let mut v = [a, b, c];
                 if a_identity {
                     v[0] = G1Projective::identity()
@@ -1331,10 +1755,59 @@ fn test_batch_normalize() {
     }
 }
 
+#[cfg(feature = "zeroize")]
+#[test]
+fn test_zeroize() {
+    use zeroize::Zeroize;
+
+    let mut a = G1Affine::generator();
+    a.zeroize();
+    assert!(bool::from(a.is_identity()));
+
+    let mut a = G1Projective::generator();
+    a.zeroize();
+    assert!(bool::from(a.is_identity()));
+
+    let mut a = GroupEncoding::to_bytes(&G1Affine::generator());
+    a.zeroize();
+    assert_eq!(&a, &G1Compressed::default());
+
+    let mut a = UncompressedEncoding::to_uncompressed(&G1Affine::generator());
+    a.zeroize();
+    assert_eq!(&a, &G1Uncompressed::default());
+}
+
+#[test]
+fn test_commutative_scalar_subgroup_multiplication() {
+    let a = BlsScalar::from_raw([
+        0x1fff_3231_233f_fffd,
+        0x4884_b7fa_0003_4802,
+        0x998c_4fef_ecbc_4ff3,
+        0x1824_b159_acc5_0562,
+    ]);
+
+    let g1_a = G1Affine::generator();
+    let g1_p = G1Projective::generator();
+
+    // By reference.
+    assert_eq!(&g1_a * &a, &a * &g1_a);
+    assert_eq!(&g1_p * &a, &a * &g1_p);
+
+    // Mixed
+    assert_eq!(&g1_a * a.clone(), a.clone() * &g1_a);
+    assert_eq!(&g1_p * a.clone(), a.clone() * &g1_p);
+    assert_eq!(g1_a.clone() * &a, &a * g1_a.clone());
+    assert_eq!(g1_p.clone() * &a, &a * g1_p.clone());
+
+    // By value.
+    assert_eq!(g1_p * a, a * g1_p);
+    assert_eq!(g1_a * a, a * g1_a);
+}
+
 mod dusk {
     use super::*;
 
-    #[cfg(feature = "serde_req")]
+    #[cfg(feature = "serde")]
     use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
     impl G1Affine {
@@ -1494,7 +1967,7 @@ mod dusk {
         }
     }
 
-    #[cfg(feature = "serde_req")]
+    #[cfg(feature = "serde")]
     impl Serialize for G1Affine {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where
@@ -1502,14 +1975,14 @@ mod dusk {
         {
             use serde::ser::SerializeTuple;
             let mut tup = serializer.serialize_tuple(G1Affine::SIZE)?;
-            for byte in self.to_bytes().iter() {
+            for byte in <Self as Serializable<48>>::to_bytes(self).iter() {
                 tup.serialize_element(byte)?;
             }
             tup.end()
         }
     }
 
-    #[cfg(feature = "serde_req")]
+    #[cfg(feature = "serde")]
     impl<'de> Deserialize<'de> for G1Affine {
         fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where
@@ -1536,7 +2009,7 @@ mod dusk {
                             .ok_or(serde::de::Error::invalid_length(i, &"expected 48 bytes"))?;
                     }
 
-                    G1Affine::from_bytes(&bytes).map_err(|_| {
+                    <G1Affine as Serializable<48>>::from_bytes(&bytes).map_err(|_| {
                         serde::de::Error::custom(&"compressed G1Affine was not canonically encoded")
                     })
                 }
@@ -1547,7 +2020,7 @@ mod dusk {
     }
 
     #[test]
-    #[cfg(feature = "serde_req")]
+    #[cfg(feature = "serde")]
     fn g1_affine_serde_roundtrip() {
         use bincode;
 
@@ -1600,22 +2073,5 @@ mod dusk {
         let g_p = unsafe { G1Affine::from_slice_unchecked(&g_p) };
 
         assert_eq!(g, g_p);
-    }
-
-    #[test]
-    fn g1_affine_hex() {
-        use dusk_bytes::ParseHexStr;
-
-        let gen = G1Affine::generator();
-        let ident = G1Affine::identity();
-
-        let gen_p = format!("{:x}", gen);
-        let gen_p = G1Affine::from_hex_str(gen_p.as_str()).unwrap();
-
-        let ident_p = format!("{:x}", ident);
-        let ident_p = G1Affine::from_hex_str(ident_p.as_str()).unwrap();
-
-        assert_eq!(gen, gen_p);
-        assert_eq!(ident, ident_p);
     }
 }

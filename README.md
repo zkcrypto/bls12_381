@@ -2,7 +2,6 @@
 [![Repository](https://img.shields.io/badge/github-dusk--bls12_381-blueviolet?logo=github)](https://github.com/dusk-network/bls12_381)
 [![Documentation](https://img.shields.io/badge/docs-dusk--bls12_381-blue?logo=rust)](https://docs.rs/dusk-bls12_381/)
 
-
 **THIS CRATE IS A FORK OF [https://github.com/zkcrypto/bls12_381](https://github.com/zkcrypto/bls12_381/) where the Dusk-Network team has added a variety of tools required by other libraries built on the top of this one.
 The 99% of the library stills being done by @ebfull and you SHOULD NOT use this one unless you need a specific tool that we've 
 implemented and it's not on the original library.**
@@ -23,18 +22,20 @@ implemented and it's not on the original library.**
 This crate provides an implementation of the BLS12-381 pairing-friendly elliptic curve construction.
 
 * **This implementation has not been reviewed or audited. Use at your own risk.**
-* This implementation targets Rust `1.36` or later.
+* This implementation targets Rust `1.56` or later.
 * This implementation does not require the Rust standard library.
 * All operations are constant time unless explicitly noted.
 
 ## Features
 
+* `bits` (on by default): Enables APIs for obtaining bit iterators for scalars.
 * `groups` (on by default): Enables APIs for performing group arithmetic with G1, G2, and GT.
 * `pairings` (on by default): Enables some APIs for performing pairings.
 * `alloc` (on by default): Enables APIs that require an allocator; these include pairing optimizations.
 * `nightly`: Enables `subtle/nightly` which tries to prevent compiler optimizations that could jeopardize constant time operations. Requires the nightly Rust compiler.
-* `endo`: Enables optimizations that leverage curve endomorphisms, which may run foul of patents US7110538B2 and US7995752B2 set to expire in September 2020.
-* `parallel` (on by default): Enables `rayon` usage for higly parallelizable ops such as multiscalar multiplication.
+* `experimental`: Enables experimental features. These features have no backwards-compatibility guarantees and may change at any time; users that depend on specific behaviour should pin an exact version of this crate. The current list of experimental features:
+  * Hashing to curves ([Internet Draft v12](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-12))
+* `parallel` (on by default): Enables `rayon` usage for highly parallelizable ops such as multiscalar multiplication.
 
 ## [Documentation](https://docs.rs/dusk-bls12_381)
 

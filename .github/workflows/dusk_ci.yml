@@ -17,15 +17,11 @@ jobs:
   test_nightly_std:
     name: Nightly tests std
     uses: dusk-network/.github/.github/workflows/run-tests.yml@main
+    with:
+      test_flags: --all-features
 
   test_nightly_no_std:
     name: Nightly tests no_std
     uses: dusk-network/.github/.github/workflows/run-tests.yml@main
     with:
       test_flags: --no-default-features
-
-  test_nightly_serde:
-    name: Nightly tests serde
-    uses: dusk-network/.github/.github/workflows/run-tests.yml@main
-    with:
-      test_flags: --features serde_req

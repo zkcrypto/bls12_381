@@ -1,6 +1,6 @@
 use core::convert::Infallible;
 
-use dusk_bytes::{HexDebug, Serializable};
+use dusk_bytes::Serializable;
 use subtle::ConditionallySelectable;
 
 #[cfg(feature = "rkyv-impl")]
@@ -9,9 +9,12 @@ use bytecheck::CheckBytes;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 
 /// Wrapper for a [`subtle::Choice`]
-#[derive(Copy, Clone, HexDebug)]
-#[cfg_attr(feature = "rkyv-impl", derive(Archive, RkyvSerialize, RkyvDeserialize))]
-#[cfg_attr(feature = "rkyv-impl", archive_attr(derive(CheckBytes)))]
+#[derive(Copy, Clone, Debug)]
+#[cfg_attr(
+    feature = "rkyv-impl",
+    derive(Archive, RkyvSerialize, RkyvDeserialize),
+    archive_attr(derive(CheckBytes))
+)]
 pub struct Choice(u8);
 
 impl Choice {

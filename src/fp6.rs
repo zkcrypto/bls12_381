@@ -5,14 +5,20 @@ use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
+#[cfg(feature = "pairings")]
+use rand_core::RngCore;
+
 #[cfg(feature = "rkyv-impl")]
 use bytecheck::CheckBytes;
 #[cfg(feature = "rkyv-impl")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 
 /// This represents an element $c_0 + c_1 v + c_2 v^2$ of $\mathbb{F}_{p^6} = \mathbb{F}_{p^2} / v^3 - u - 1$.
-#[cfg_attr(feature = "rkyv-impl", derive(Archive, RkyvSerialize, RkyvDeserialize))]
-#[cfg_attr(feature = "rkyv-impl", archive_attr(derive(CheckBytes)))]
+#[cfg_attr(
+    feature = "rkyv-impl",
+    derive(Archive, RkyvSerialize, RkyvDeserialize),
+    archive_attr(derive(CheckBytes))
+)]
 pub struct Fp6 {
     pub c0: Fp2,
     pub c1: Fp2,
@@ -59,6 +65,9 @@ impl Default for Fp6 {
     }
 }
 
+#[cfg(feature = "zeroize")]
+impl zeroize::DefaultIsZeroes for Fp6 {}
+
 impl fmt::Debug for Fp6 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?} + ({:?})*v + ({:?})*v^2", self.c0, self.c1, self.c2)
@@ -102,18 +111,20 @@ impl Fp6 {
         }
     }
 
-    pub fn mul_by_1(&self, c1: &Fp2) -> Fp6 {
-        let b_b = self.c1 * c1;
-
-        let t1 = (self.c1 + self.c2) * c1 - b_b;
-        let t1 = t1.mul_by_nonresidue();
-
-        let t2 = (self.c0 + self.c1) * c1 - b_b;
-
+    #[cfg(feature = "pairings")]
+    pub(crate) fn random(mut rng: impl RngCore) -> Self {
         Fp6 {
-            c0: t1,
-            c1: t2,
-            c2: b_b,
+            c0: Fp2::random(&mut rng),
+            c1: Fp2::random(&mut rng),
+            c2: Fp2::random(&mut rng),
+        }
+    }
+
+    pub fn mul_by_1(&self, c1: &Fp2) -> Fp6 {
+        Fp6 {
+            c0: (self.c2 * c1).mul_by_nonresidue(),
+            c1: self.c0 * c1,
+            c2: self.c1 * c1,
         }
     }
 
@@ -121,12 +132,11 @@ impl Fp6 {
         let a_a = self.c0 * c0;
         let b_b = self.c1 * c1;
 
-        let t1 = (self.c1 + self.c2) * c1 - b_b;
-        let t1 = t1.mul_by_nonresidue() + a_a;
+        let t1 = (self.c2 * c1).mul_by_nonresidue() + a_a;
 
         let t2 = (c0 + c1) * (self.c0 + self.c1) - a_a - b_b;
 
-        let t3 = (self.c0 + self.c2) * c0 - a_a + b_b;
+        let t3 = self.c2 * c0 + b_b;
 
         Fp6 {
             c0: t1,
@@ -161,12 +171,12 @@ impl Fp6 {
             * Fp2 {
                 c0: Fp::zero(),
                 c1: Fp::from_raw_unchecked([
-                    0xcd03c9e48671f071,
-                    0x5dab22461fcda5d2,
-                    0x587042afd3851b95,
-                    0x8eb60ebe01bacb9e,
-                    0x3f97d6e83d050d2,
-                    0x18f0206554638741,
+                    0xcd03_c9e4_8671_f071,
+                    0x5dab_2246_1fcd_a5d2,
+                    0x5870_42af_d385_1b95,
+                    0x8eb6_0ebe_01ba_cb9e,
+                    0x03f9_7d6e_83d0_50d2,
+                    0x18f0_2065_5463_8741,
                 ]),
             };
 
@@ -174,12 +184,12 @@ impl Fp6 {
         let c2 = c2
             * Fp2 {
                 c0: Fp::from_raw_unchecked([
-                    0x890dc9e4867545c3,
-                    0x2af322533285a5d5,
-                    0x50880866309b7e2c,
-                    0xa20d1b8c7e881024,
-                    0x14e4f04fe2db9068,
-                    0x14e56d3f1564853a,
+                    0x890d_c9e4_8675_45c3,
+                    0x2af3_2253_3285_a5d5,
+                    0x5088_0866_309b_7e2c,
+                    0xa20d_1b8c_7e88_1024,
+                    0x14e4_f04f_e2db_9068,
+                    0x14e5_6d3f_1564_853a,
                 ]),
                 c1: Fp::zero(),
             };
@@ -547,23 +557,30 @@ fn test_arithmetic() {
         },
     };
 
-    assert_eq!(a.square(), &a * &a);
-    assert_eq!(b.square(), &b * &b);
-    assert_eq!(c.square(), &c * &c);
+    assert_eq!(a.square(), a * a);
+    assert_eq!(b.square(), b * b);
+    assert_eq!(c.square(), c * c);
+
+    assert_eq!((a + b) * c.square(), (c * c * a) + (c * c * b));
 
     assert_eq!(
-        (a + b) * c.square(),
-        &(&(&c * &c) * &a) + &(&(&c * &c) * &b)
+        a.invert().unwrap() * b.invert().unwrap(),
+        (a * b).invert().unwrap()
     );
-
-    assert_eq!(
-        &a.invert().unwrap() * &b.invert().unwrap(),
-        (&a * &b).invert().unwrap()
-    );
-    assert_eq!(&a.invert().unwrap() * &a, Fp6::one());
+    assert_eq!(a.invert().unwrap() * a, Fp6::one());
 }
 
-#[cfg(feature = "serde_req")]
+#[cfg(feature = "zeroize")]
+#[test]
+fn test_zeroize() {
+    use zeroize::Zeroize;
+
+    let mut a = Fp6::one();
+    a.zeroize();
+    assert!(bool::from(a.is_zero()));
+}
+
+#[cfg(feature = "serde")]
 mod dusk {
     use super::*;
     use serde::{
