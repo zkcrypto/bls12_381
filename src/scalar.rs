@@ -695,7 +695,7 @@ impl Field for Scalar {
         // (t - 1) // 2 = 6104339283789297388802252303364915521546564123189034618274734669823
         ff::helpers::sqrt_tonelli_shanks(
             self,
-            &[
+            [
                 0x7fff_2dff_7fff_ffff,
                 0x04d0_ec02_a9de_d201,
                 0x94ce_bea4_199c_ec04,
@@ -1524,74 +1524,6 @@ mod dusk {
                     .for_each(|(i, bit)| *bit = (byte >> i) & 1)
             }
             res
-        }
-
-        /// Generate a valid Scalar choosen uniformly using user-
-        /// provided rng.
-        ///
-        /// By `rng` we mean any Rng that implements `RngCore`.
-        pub fn random<T>(rand: &mut T) -> Scalar
-        where
-            T: RngCore,
-        {
-            let mut bytes = [0u8; Self::SIZE];
-            rand.fill_bytes(&mut bytes);
-
-            // Ensure that the value is lower than `MODULUS`.
-            // Since modulus has 254-bits or less, we cut our bytes
-            // to get cannonical Scalars.
-            bytes[31] &= 0b0011_1111;
-
-            <Scalar as Serializable<32>>::from_bytes(&bytes).unwrap_or_default()
-        }
-
-        /// Computes the square root of this element, if it exists.
-        pub fn sqrt(&self) -> CtOption<Self> {
-            // Tonelli-Shank's algorithm for q mod 16 = 1
-            // https://eprint.iacr.org/2012/685.pdf (page 12, algorithm 5)
-
-            // w = self^((t - 1) // 2)
-            //   = self^6104339283789297388802252303364915521546564123189034618274734669823
-            let w = self.pow_vartime(&[
-                0x7fff2dff7fffffff,
-                0x04d0ec02a9ded201,
-                0x94cebea4199cec04,
-                0x0000000039f6d3a9,
-            ]);
-
-            let mut v = TWO_ADACITY;
-            let mut x = self * w;
-            let mut b = x * w;
-
-            // Initialize z as the 2^S root of unity.
-            let mut z = ROOT_OF_UNITY;
-
-            for max_v in (1..=TWO_ADACITY).rev() {
-                let mut k = 1;
-                let mut tmp = b.square();
-                let mut j_less_than_v: Choice = 1.into();
-
-                for j in 2..max_v {
-                    let tmp_is_one = tmp.ct_eq(&Scalar::one());
-                    let squared = Scalar::conditional_select(&tmp, &z, tmp_is_one).square();
-                    tmp = Scalar::conditional_select(&squared, &tmp, tmp_is_one);
-                    let new_z = Scalar::conditional_select(&z, &squared, tmp_is_one);
-                    j_less_than_v &= !j.ct_eq(&v);
-                    k = u32::conditional_select(&j, &k, tmp_is_one);
-                    z = Scalar::conditional_select(&z, &new_z, j_less_than_v);
-                }
-
-                let result = x * z;
-                x = Scalar::conditional_select(&result, &x, b.ct_eq(&Scalar::one()));
-                z = z.square();
-                b *= z;
-                v = k;
-            }
-
-            CtOption::new(
-                x,
-                (x * x).ct_eq(self), // Only return Some if it's the square root.
-            )
         }
 
         /// Reduces the scalar and returns it multiplied by the montgomery
