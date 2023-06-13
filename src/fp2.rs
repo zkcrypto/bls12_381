@@ -356,8 +356,10 @@ impl Fp2 {
 impl Fp2 {
     pub fn to_bytes(self) -> [u8; 2 * 48] {
         let mut res = [0; 2 * 48];
-        res[..48].copy_from_slice(&self.c0.to_bytes());
-        res[48..].copy_from_slice(&self.c1.to_bytes());
+        // Considering this value as a polynomial of degree 2,
+        // serialize the highest coefficient first.
+        res[..48].copy_from_slice(&self.c1.to_bytes());
+        res[48..].copy_from_slice(&self.c0.to_bytes());
 
         res
     }
