@@ -18,6 +18,7 @@ use crate::util::{adc, mac, sbb};
 // The internal representation of this type is four 64-bit unsigned
 // integers in little-endian order. `Scalar` values are always in
 // Montgomery form; i.e., Scalar(a) = aR mod q, with R = 2^256.
+#[wasm_bindgen::prelude::wasm_bindgen]
 #[derive(Clone, Copy, Eq)]
 pub struct Scalar(pub(crate) [u64; 4]);
 
@@ -232,28 +233,30 @@ impl Default for Scalar {
 impl zeroize::DefaultIsZeroes for Scalar {}
 
 impl Scalar {
-    /// Returns zero, the additive identity.
+    /// Returns zero, the additive identity. Private impl.
     #[inline]
-    pub const fn zero() -> Scalar {
+    pub(crate) const fn _zero() -> Scalar {
         Scalar([0, 0, 0, 0])
     }
 
-    /// Returns one, the multiplicative identity.
+    /// Returns one, the multiplicative identity. Private impl.
     #[inline]
-    pub const fn one() -> Scalar {
+    pub(crate) const fn _one() -> Scalar {
         R
     }
 
-    /// Doubles this field element.
+    /// Doubles this field element. Private impl.
     #[inline]
-    pub const fn double(&self) -> Scalar {
+    pub(crate) const fn _double(&self) -> Scalar {
         // TODO: This can be achieved more efficiently with a bitshift.
-        self.add(self)
+        self._add(self)
     }
 
     /// Attempts to convert a little-endian byte representation of
     /// a scalar into a `Scalar`, failing if the input is not canonical.
-    pub fn from_bytes(bytes: &[u8; 32]) -> CtOption<Scalar> {
+    /// Private impl.
+    #[inline]
+    pub(crate) fn _from_bytes(bytes: &[u8; 32]) -> CtOption<Scalar> {
         let mut tmp = Scalar([0, 0, 0, 0]);
 
         tmp.0[0] = u64::from_le_bytes(<[u8; 8]>::try_from(&bytes[0..8]).unwrap());
@@ -280,8 +283,9 @@ impl Scalar {
     }
 
     /// Converts an element of `Scalar` into a byte representation in
-    /// little-endian byte order.
-    pub fn to_bytes(&self) -> [u8; 32] {
+    /// little-endian byte order. Private impl.
+    #[inline]
+    pub(crate) fn _to_bytes(&self) -> [u8; 32] {
         // Turn into canonical form by computing
         // (a.R) / R = a
         let tmp = Scalar::montgomery_reduce(self.0[0], self.0[1], self.0[2], self.0[3], 0, 0, 0, 0);
@@ -296,8 +300,9 @@ impl Scalar {
     }
 
     /// Converts a 512-bit little endian integer into
-    /// a `Scalar` by reducing by the modulus.
-    pub fn from_bytes_wide(bytes: &[u8; 64]) -> Scalar {
+    /// a `Scalar` by reducing by the modulus. Private impl.
+    #[inline]
+    pub(crate) fn _from_bytes_wide(bytes: &[u8; 64]) -> Scalar {
         Scalar::from_u512([
             u64::from_le_bytes(<[u8; 8]>::try_from(&bytes[0..8]).unwrap()),
             u64::from_le_bytes(<[u8; 8]>::try_from(&bytes[8..16]).unwrap()),
@@ -332,13 +337,15 @@ impl Scalar {
 
     /// Converts from an integer represented in little endian
     /// into its (congruent) `Scalar` representation.
-    pub const fn from_raw(val: [u64; 4]) -> Self {
-        (&Scalar(val)).mul(&R2)
+    /// Private impl.
+    #[inline]
+    pub(crate) const fn _from_raw(val: [u64; 4]) -> Self {
+        (&Scalar(val))._mul(&R2)
     }
 
-    /// Squares this element.
+    /// Squares this element. Private impl.
     #[inline]
-    pub const fn square(&self) -> Scalar {
+    pub(crate) const fn _square(&self) -> Scalar {
         let (r1, carry) = mac(0, self.0[0], self.0[1], 0);
         let (r2, carry) = mac(0, self.0[0], self.0[2], carry);
         let (r3, r4) = mac(0, self.0[0], self.0[3], carry);
@@ -369,8 +376,9 @@ impl Scalar {
     }
 
     /// Exponentiates `self` by `by`, where `by` is a
-    /// little-endian order integer exponent.
-    pub fn pow(&self, by: &[u64; 4]) -> Self {
+    /// little-endian order integer exponent. Private impl.
+    #[inline]
+    pub(crate) fn _pow(&self, by: &[u64; 4]) -> Self {
         let mut res = Self::one();
         for e in by.iter().rev() {
             for i in (0..64).rev() {
@@ -389,7 +397,9 @@ impl Scalar {
     /// **This operation is variable time with respect
     /// to the exponent.** If the exponent is fixed,
     /// this operation is effectively constant time.
-    pub fn pow_vartime(&self, by: &[u64; 4]) -> Self {
+    /// Private impl.
+    #[inline]
+    pub(crate) fn _pow_vartime(&self, by: &[u64; 4]) -> Self {
         let mut res = Self::one();
         for e in by.iter().rev() {
             for i in (0..64).rev() {
@@ -404,8 +414,9 @@ impl Scalar {
     }
 
     /// Computes the multiplicative inverse of this element,
-    /// failing if the element is zero.
-    pub fn invert(&self) -> CtOption<Self> {
+    /// failing if the element is zero. Private impl.
+    #[inline]
+    pub(crate) fn _invert(&self) -> CtOption<Self> {
         #[inline(always)]
         fn square_assign_multi(n: &mut Scalar, num_times: usize) {
             for _ in 0..num_times {
@@ -546,12 +557,13 @@ impl Scalar {
         let (r7, _) = adc(r7, carry2, carry);
 
         // Result may be within MODULUS of the correct value
-        (&Scalar([r4, r5, r6, r7])).sub(&MODULUS)
+        (&Scalar([r4, r5, r6, r7]))._sub(&MODULUS)
     }
 
     /// Multiplies `rhs` by `self`, returning the result.
+    /// Private impl.
     #[inline]
-    pub const fn mul(&self, rhs: &Self) -> Self {
+    pub(crate) const fn _mul(&self, rhs: &Self) -> Self {
         // Schoolbook multiplication
 
         let (r0, carry) = mac(0, self.0[0], rhs.0[0], 0);
@@ -578,8 +590,9 @@ impl Scalar {
     }
 
     /// Subtracts `rhs` from `self`, returning the result.
+    /// Private impl.
     #[inline]
-    pub const fn sub(&self, rhs: &Self) -> Self {
+    pub(crate) const fn _sub(&self, rhs: &Self) -> Self {
         let (d0, borrow) = sbb(self.0[0], rhs.0[0], 0);
         let (d1, borrow) = sbb(self.0[1], rhs.0[1], borrow);
         let (d2, borrow) = sbb(self.0[2], rhs.0[2], borrow);
@@ -596,8 +609,9 @@ impl Scalar {
     }
 
     /// Adds `rhs` to `self`, returning the result.
+    /// Private impl.
     #[inline]
-    pub const fn add(&self, rhs: &Self) -> Self {
+    pub(crate) const fn _add(&self, rhs: &Self) -> Self {
         let (d0, carry) = adc(self.0[0], rhs.0[0], 0);
         let (d1, carry) = adc(self.0[1], rhs.0[1], carry);
         let (d2, carry) = adc(self.0[2], rhs.0[2], carry);
@@ -605,12 +619,12 @@ impl Scalar {
 
         // Attempt to subtract the modulus, to ensure the value
         // is smaller than the modulus.
-        (&Scalar([d0, d1, d2, d3])).sub(&MODULUS)
+        (&Scalar([d0, d1, d2, d3]))._sub(&MODULUS)
     }
 
-    /// Negates `self`.
+    /// Negates `self`. Private impl.
     #[inline]
-    pub const fn neg(&self) -> Self {
+    pub(crate) const fn _neg(&self) -> Self {
         // Subtract `self` from `MODULUS` to negate. Ignore the final
         // borrow because it cannot underflow; self is guaranteed to
         // be in the field.
@@ -627,26 +641,243 @@ impl Scalar {
     }
 }
 
+#[cfg(not(target_family = "wasm"))]
+impl Scalar {
+    /// Returns zero, the additive identity.
+    #[inline]
+    pub const fn zero() -> Scalar {
+        Scalar::_zero()
+    }
+
+    /// Returns one, the multiplicative identity.
+    #[inline]
+    pub const fn one() -> Scalar {
+        Scalar::_one()
+    }
+
+    /// Doubles this field element.
+    #[inline]
+    pub const fn double(&self) -> Scalar {
+        self._double()
+    }
+
+    /// Attempts to convert a little-endian byte representation of
+    /// a scalar into a `Scalar`, failing if the input is not canonical.
+    pub fn from_bytes(bytes: &[u8; 32]) -> CtOption<Scalar> {
+        Scalar::_from_bytes(bytes)
+    }
+
+    /// Converts an element of `Scalar` into a byte representation in
+    /// little-endian byte order.
+    pub fn to_bytes(&self) -> [u8; 32] {
+        self._to_bytes()
+    }
+
+    /// Converts a 512-bit little endian integer into
+    /// a `Scalar` by reducing by the modulus.
+    pub fn from_bytes_wide(bytes: &[u8; 64]) -> Scalar {
+        Scalar::_from_bytes_wide(bytes)
+    }
+
+    /// Converts from an integer represented in little endian
+    /// into its (congruent) `Scalar` representation.
+    pub const fn from_raw(val: [u64; 4]) -> Self {
+        Scalar::_from_raw(val)
+    }
+
+    /// Squares this element.
+    #[inline]
+    pub const fn square(&self) -> Scalar {
+        self._square()
+    }
+
+    /// Exponentiates `self` by `by`, where `by` is a
+    /// little-endian order integer exponent.
+    pub fn pow(&self, by: &[u64; 4]) -> Self {
+        self._pow(by)
+    }
+
+    /// Exponentiates `self` by `by`, where `by` is a
+    /// little-endian order integer exponent.
+    ///
+    /// **This operation is variable time with respect
+    /// to the exponent.** If the exponent is fixed,
+    /// this operation is effectively constant time.
+    pub fn pow_vartime(&self, by: &[u64; 4]) -> Self {
+        self._pow_vartime(by)
+    }
+
+    /// Computes the multiplicative inverse of this element,
+    /// failing if the element is zero.
+    pub fn invert(&self) -> CtOption<Self> {
+        self._invert()
+    }
+
+    /// Multiplies `rhs` by `self`, returning the result.
+    #[inline]
+    pub const fn mul(&self, rhs: &Self) -> Self {
+        self._mul(rhs)
+    }
+
+    /// Subtracts `rhs` from `self`, returning the result.
+    #[inline]
+    pub const fn sub(&self, rhs: &Self) -> Self {
+        self._sub(rhs)
+    }
+
+    /// Adds `rhs` to `self`, returning the result.
+    #[inline]
+    pub const fn add(&self, rhs: &Self) -> Self {
+        self._add(rhs)
+    }
+
+    /// Negates `self`.
+    #[inline]
+    pub const fn neg(&self) -> Self {
+        self._neg()
+    }
+}
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+impl Scalar {
+    /// Creates a default instance of Scalar.
+    #[wasm_bindgen::prelude::wasm_bindgen(constructor)]
+    pub fn constructor() -> Scalar {
+        Scalar::default()
+    }
+    /// Returns zero, the additive identity.
+    #[inline]
+    pub fn zero() -> Scalar {
+        Scalar::_zero()
+    }
+
+    /// Returns one, the multiplicative identity.
+    #[inline]
+    pub fn one() -> Scalar {
+        Scalar::_one()
+    }
+
+    /// Doubles this field element.
+    #[inline]
+    pub fn double(&self) -> Scalar {
+        self._double()
+    }
+
+    /// Attempts to convert a little-endian byte representation of
+    /// a scalar into a `Scalar`, failing if the input is not canonical.
+    pub fn from_bytes(bytes: Vec<u8>) -> Option<Scalar> {
+        assert!(bytes.len() == 32);
+        let mut b = [0u8; 32];
+        b.copy_from_slice(bytes.as_slice());
+        Option::from(Scalar::_from_bytes(&b))
+    }
+
+    /// Converts an element of `Scalar` into a byte representation in
+    /// little-endian byte order.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let r = self._to_bytes();
+        assert!(r.len() == 32);
+        r.to_vec()
+    }
+
+    /// Converts a 512-bit little endian integer into
+    /// a `Scalar` by reducing by the modulus.
+    pub fn from_bytes_wide(bytes: Vec<u8>) -> Scalar {
+        assert!(bytes.len() == 64);
+        let mut b = [0u8; 64];
+        b.copy_from_slice(bytes.as_slice());
+        Scalar::_from_bytes_wide(&b)
+    }
+
+    /// Converts from an integer represented in little endian
+    /// into its (congruent) `Scalar` representation.
+    pub fn from_raw(val: Vec<u64>) -> Self {
+        assert!(val.len() == 4);
+        let mut b = [0u64; 4];
+        b.copy_from_slice(val.as_slice());
+        Scalar::_from_raw(b)
+    }
+
+    /// Squares this element.
+    #[inline]
+    pub fn square(&self) -> Scalar {
+        self._square()
+    }
+
+    /// Exponentiates `self` by `by`, where `by` is a
+    /// little-endian order integer exponent.
+    pub fn pow(&self, by: Vec<u64>) -> Self {
+        assert!(by.len() == 4);
+        let mut b = [0u64; 4];
+        b.copy_from_slice(by.as_slice());
+        self._pow(&b)
+    }
+
+    /// Exponentiates `self` by `by`, where `by` is a
+    /// little-endian order integer exponent.
+    ///
+    /// **This operation is variable time with respect
+    /// to the exponent.** If the exponent is fixed,
+    /// this operation is effectively constant time.
+    pub fn pow_vartime(&self, by: Vec<u64>) -> Self {
+        assert!(by.len() == 4);
+        let mut b = [0u64; 4];
+        b.copy_from_slice(by.as_slice());
+        self._pow_vartime(&b)
+    }
+
+    /// Computes the multiplicative inverse of this element,
+    /// failing if the element is zero.
+    pub fn invert(&self) -> Option<Scalar> {
+        Option::from(self._invert())
+    }
+
+    /// Multiplies `rhs` by `self`, returning the result.
+    #[inline]
+    pub fn mul(&self, rhs: &Scalar) -> Scalar {
+        self._mul(rhs)
+    }
+
+    /// Subtracts `rhs` from `self`, returning the result.
+    #[inline]
+    pub fn sub(&self, rhs: &Scalar) -> Scalar {
+        self._sub(rhs)
+    }
+
+    /// Adds `rhs` to `self`, returning the result.
+    #[inline]
+    pub fn add(&self, rhs: &Scalar) -> Scalar {
+        self._add(rhs)
+    }
+
+    /// Negates `self`.
+    #[inline]
+    pub fn neg(&self) -> Scalar {
+        self._neg()
+    }
+}
+
 impl From<Scalar> for [u8; 32] {
     fn from(value: Scalar) -> [u8; 32] {
-        value.to_bytes()
+        value._to_bytes()
     }
 }
 
 impl<'a> From<&'a Scalar> for [u8; 32] {
     fn from(value: &'a Scalar) -> [u8; 32] {
-        value.to_bytes()
+        value._to_bytes()
     }
 }
 
 impl Field for Scalar {
-    const ZERO: Self = Self::zero();
-    const ONE: Self = Self::one();
+    const ZERO: Self = Scalar::_zero();
+    const ONE: Self = Scalar::_one();
 
     fn random(mut rng: impl RngCore) -> Self {
         let mut buf = [0; 64];
         rng.fill_bytes(&mut buf);
-        Self::from_bytes_wide(&buf)
+        Self::_from_bytes_wide(&buf)
     }
 
     #[must_use]
@@ -660,7 +891,7 @@ impl Field for Scalar {
     }
 
     fn invert(&self) -> CtOption<Self> {
-        self.invert()
+        self._invert()
     }
 
     fn sqrt_ratio(num: &Self, div: &Self) -> (Choice, Self) {
@@ -689,11 +920,11 @@ impl PrimeField for Scalar {
     type Repr = [u8; 32];
 
     fn from_repr(r: Self::Repr) -> CtOption<Self> {
-        Self::from_bytes(&r)
+        Self::_from_bytes(&r)
     }
 
     fn to_repr(&self) -> Self::Repr {
-        self.to_bytes()
+        self._to_bytes()
     }
 
     fn is_odd(&self) -> Choice {
