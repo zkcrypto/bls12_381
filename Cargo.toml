@@ -12,6 +12,9 @@ repository = "https://github.com/zkcrypto/bls12_381"
 version = "0.8.0"
 edition = "2021"
 
+[lib]
+crate-type = [ "rlib", "cdylib" ]
+
 [package.metadata.docs.rs]
 rustdoc-args = [ "--html-in-header", "katex-header.html" ]
 
@@ -62,6 +65,9 @@ default-features = false
 version = "1.4"
 default-features = false
 optional = true
+
+[dependencies.wasm-bindgen]
+version = "~0.2"
 
 [features]
 default = ["groups", "pairings", "alloc", "bits"]
