@@ -675,7 +675,7 @@ impl From<Fp> for FpW {
 #[cfg(target_family = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen]
 impl FpW {
-    /// Creates a default instance of Scalar.
+    /// Creates a default instance of FpW.
     #[wasm_bindgen::prelude::wasm_bindgen(constructor)]
     pub fn constructor() -> FpW {
         Fp::default().into()

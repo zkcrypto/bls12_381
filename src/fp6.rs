@@ -312,6 +312,121 @@ impl Fp6 {
     }
 }
 
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+#[derive(Debug, Copy, Clone)]
+pub struct Fp6W(pub(crate) Fp6);
+
+#[cfg(target_family = "wasm")]
+impl From<Fp6> for Fp6W {
+    fn from(value: Fp6) -> Self {
+        Fp6W(value)
+    }
+}
+
+#[cfg(target_family = "wasm")]
+impl From<FpW> for Fp6W {
+    fn from(value: FpW) -> Self {
+        Fp6::from(Fp2::from(value.0)).into()
+    }
+}
+
+#[cfg(target_family = "wasm")]
+impl From<Fp2W> for Fp6W {
+    fn from(value: Fp2W) -> Self {
+        Fp6::from(value.0).into()
+    }
+}
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+impl Fp6W {
+    /// Creates a default instance of Fp6W.
+    #[wasm_bindgen::prelude::wasm_bindgen(constructor)]
+    pub fn constructor() -> Fp6W {
+        Fp6::default().into()
+    }
+
+    #[wasm_bindgen::prelude::wasm_bindgen(getter)]
+    pub fn c0(&self) -> Fp2W {
+        self.0.c0.into()
+    }
+
+    #[wasm_bindgen::prelude::wasm_bindgen(setter)]
+    pub fn set_c0(&mut self, val: Fp2W) {
+        self.0.c0 = val.0;
+    }
+
+    #[wasm_bindgen::prelude::wasm_bindgen(getter)]
+    pub fn c1(&self) -> Fp2W {
+        self.0.c1.into()
+    }
+
+    #[wasm_bindgen::prelude::wasm_bindgen(setter)]
+    pub fn set_c1(&mut self, val: Fp2W) {
+        self.0.c1 = val.0;
+    }
+
+    #[wasm_bindgen::prelude::wasm_bindgen(getter)]
+    pub fn c2(&self) -> Fp2W {
+        self.0.c2.into()
+    }
+
+    #[wasm_bindgen::prelude::wasm_bindgen(setter)]
+    pub fn set_c2(&mut self, val: Fp2W) {
+        self.0.c2 = val.0;
+    }
+
+    #[inline]
+    pub fn zero() -> Fp6W {
+        Fp6::zero().into()
+    }
+
+    #[inline]
+    pub fn one() -> Fp6W {
+        Fp6::one().into()
+    }
+
+    pub fn mul_by_1(&self, c1: &Fp2W) -> Fp6W {
+        self.0.mul_by_1(&c1.0).into()
+    }
+
+    pub fn mul_by_01(&self, c0: &Fp2W, c1: &Fp2W) -> Fp6W {
+        self.0.mul_by_01(&c0.0, &c1.0).into()
+    }
+
+    /// Multiply by quadratic nonresidue v.
+    pub fn mul_by_nonresidue(&self) -> Fp6W {
+        self.0.mul_by_nonresidue().into()
+    }
+
+    /// Raises this element to p.
+    #[inline(always)]
+    pub fn frobenius_map(&self) -> Fp6W {
+        self.0.frobenius_map().into()
+    }
+
+    #[inline(always)]
+    pub fn is_zero(&self) -> bool {
+        self.0.is_zero().into()
+    }
+
+    #[inline]
+    pub fn square(&self) -> Fp6W {
+        self.0.square().into()
+    }
+
+    #[inline]
+    pub fn invert(&self) -> Option<Fp6W> {
+        let f6_option = self.0.invert();
+        if f6_option.is_some().into() {
+            Some(f6_option.unwrap().into())
+        } else {
+            None
+        }
+    }
+}
+
 impl<'a, 'b> Mul<&'b Fp6> for &'a Fp6 {
     type Output = Fp6;
 

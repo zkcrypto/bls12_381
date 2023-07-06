@@ -377,6 +377,12 @@ impl From<FpW> for Fp2W {
 #[cfg(target_family = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen]
 impl Fp2W {
+    /// Creates a default instance of Fp2W.
+    #[wasm_bindgen::prelude::wasm_bindgen(constructor)]
+    pub fn constructor() -> Fp2W {
+        Fp2::default().into()
+    }
+
     #[wasm_bindgen::prelude::wasm_bindgen(getter)]
     pub fn c0(&self) -> FpW {
         self.0.c0.into()
