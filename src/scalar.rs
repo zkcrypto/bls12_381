@@ -746,6 +746,7 @@ impl Scalar {
     pub fn constructor() -> Scalar {
         Scalar::default()
     }
+
     /// Returns zero, the additive identity.
     #[inline]
     pub fn zero() -> Scalar {

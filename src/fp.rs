@@ -660,6 +660,145 @@ impl Fp {
     }
 }
 
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+#[derive(Debug, Copy, Clone)]
+pub struct FpW(pub(crate) Fp);
+
+#[cfg(target_family = "wasm")]
+impl From<Fp> for FpW {
+    fn from(value: Fp) -> Self {
+        FpW(value)
+    }
+}
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+impl FpW {
+    /// Creates a default instance of Scalar.
+    #[wasm_bindgen::prelude::wasm_bindgen(constructor)]
+    pub fn constructor() -> FpW {
+        Fp::default().into()
+    }
+
+    /// Returns zero, the additive identity.
+    #[inline]
+    pub fn zero() -> FpW {
+        Fp::zero().into()
+    }
+
+    /// Returns one, the multiplicative identity.
+    #[inline]
+    pub fn one() -> FpW {
+        Fp::one().into()
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.0.is_zero().into()
+    }
+
+    /// Attempts to convert a big-endian byte representation of
+    /// a scalar into an `Fp`, failing if the input is not canonical.
+    pub fn from_bytes(bytes: Vec<u8>) -> Option<FpW> {
+        assert!(bytes.len() == 48);
+        let mut b = [0u8; 48];
+        b.copy_from_slice(bytes.as_slice());
+        let f_option = Fp::from_bytes(&b);
+        if f_option.is_some().into() {
+            Some(f_option.unwrap().into())
+        } else {
+            None
+        }
+    }
+
+    /// Converts an element of `Fp` into a byte representation in
+    /// big-endian byte order.
+    pub fn to_bytes(self) -> Vec<u8> {
+        let bytes = self.0.to_bytes();
+        assert!(bytes.len() == 48);
+        bytes.to_vec()
+    }
+
+    /// Returns whether or not this element is strictly lexicographically
+    /// larger than its negation.
+    pub fn lexicographically_largest(&self) -> bool {
+        self.0.lexicographically_largest().into()
+    }
+
+    /// Constructs an element of `Fp` without checking that it is
+    /// canonical.
+    pub fn from_raw_unchecked(v: Vec<u64>) -> FpW {
+        assert!(v.len() == 6);
+        let mut b = [0u64; 6];
+        b.copy_from_slice(v.as_slice());
+        Fp::from_raw_unchecked(b).into()
+    }
+
+    /// Although this is labeled "vartime", it is only
+    /// variable time with respect to the exponent. It
+    /// is also not exposed in the public API.
+    pub fn pow_vartime(&self, by: Vec<u64>) -> FpW {
+        assert!(by.len() == 6);
+        let mut b = [0u64; 6];
+        b.copy_from_slice(by.as_slice());
+        self.0.pow_vartime(&b).into()
+    }
+
+    #[inline]
+    pub fn sqrt(&self) -> Option<FpW> {
+        // We use Shank's method, as p = 3 (mod 4). This means
+        // we only need to exponentiate by (p+1)/4. This only
+        // works for elements that are actually quadratic residue,
+        // so we check that we got the correct result at the end.
+
+        let f_option = self.0.sqrt();
+        if f_option.is_some().into() {
+            Some(f_option.unwrap().into())
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    /// Computes the multiplicative inverse of this field
+    /// element, returning None in the case that this element
+    /// is zero.
+    pub fn invert(&self) -> Option<FpW> {
+        let f_option = self.0.invert();
+        if f_option.is_some().into() {
+            Some(f_option.unwrap().into())
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    pub fn add(&self, rhs: &FpW) -> FpW {
+        self.0.add(rhs.0).into()
+    }
+
+    #[inline]
+    pub fn neg(&self) -> FpW {
+        self.0.neg().into()
+    }
+
+    #[inline]
+    pub fn sub(&self, rhs: &FpW) -> FpW {
+        rhs.neg().add(self)
+    }
+
+    #[inline]
+    pub fn mul(&self, rhs: &FpW) -> FpW {
+        self.0.mul(rhs.0).into()
+    }
+
+    /// Squares this element.
+    #[inline]
+    pub fn square(&self) -> FpW {
+        self.0.square().into()
+    }
+}
+
 #[test]
 fn test_conditional_selection() {
     let a = Fp([1, 2, 3, 4, 5, 6]);
