@@ -312,6 +312,7 @@ impl Fp6 {
     }
 }
 
+/// This represents an element $c_0 + c_1 v + c_2 v^2$ of $\mathbb{F}_{p^6} = \mathbb{F}_{p^2} / v^3 - u - 1$.
 #[cfg(target_family = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen]
 #[derive(Debug, Copy, Clone)]
@@ -327,7 +328,7 @@ impl From<Fp6> for Fp6W {
 #[cfg(target_family = "wasm")]
 impl From<FpW> for Fp6W {
     fn from(value: FpW) -> Self {
-        Fp6::from(Fp2::from(value.0)).into()
+        Fp6::from(value.0).into()
     }
 }
 

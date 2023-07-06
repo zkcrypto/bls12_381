@@ -194,6 +194,114 @@ impl Fp12 {
     }
 }
 
+/// This represents an element $c_0 + c_1 w$ of $\mathbb{F}_{p^12} = \mathbb{F}_{p^6} / w^2 - v$.
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+#[derive(Debug, Copy, Clone)]
+pub struct Fp12W(pub(crate) Fp12);
+
+#[cfg(target_family = "wasm")]
+impl From<Fp12> for Fp12W {
+    fn from(value: Fp12) -> Self {
+        Fp12W(value)
+    }
+}
+
+#[cfg(target_family = "wasm")]
+impl From<FpW> for Fp12W {
+    fn from(value: FpW) -> Self {
+        Fp12::from(value.0).into()
+    }
+}
+
+#[cfg(target_family = "wasm")]
+impl From<Fp2W> for Fp12W {
+    fn from(value: Fp2W) -> Self {
+        Fp12::from(value.0).into()
+    }
+}
+
+#[cfg(target_family = "wasm")]
+impl From<Fp6W> for Fp12W {
+    fn from(value: Fp6W) -> Self {
+        Fp12::from(value.0).into()
+    }
+}
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+impl Fp12W {
+    /// Creates a default instance of Fp12W.
+    #[wasm_bindgen::prelude::wasm_bindgen(constructor)]
+    pub fn constructor() -> Fp12W {
+        Fp12::default().into()
+    }
+
+    #[wasm_bindgen::prelude::wasm_bindgen(getter)]
+    pub fn c0(&self) -> Fp6W {
+        self.0.c0.into()
+    }
+
+    #[wasm_bindgen::prelude::wasm_bindgen(setter)]
+    pub fn set_c0(&mut self, val: Fp6W) {
+        self.0.c0 = val.0;
+    }
+
+    #[wasm_bindgen::prelude::wasm_bindgen(getter)]
+    pub fn c1(&self) -> Fp6W {
+        self.0.c1.into()
+    }
+
+    #[wasm_bindgen::prelude::wasm_bindgen(setter)]
+    pub fn set_c1(&mut self, val: Fp6W) {
+        self.0.c1 = val.0;
+    }
+
+    #[inline]
+    pub fn zero() -> Fp12W {
+        Fp12::zero().into()
+    }
+
+    #[inline]
+    pub fn one() -> Fp12W {
+        Fp12::one().into()
+    }
+
+    pub fn mul_by_014(&self, c0: &Fp2W, c1: &Fp2W, c4: &Fp2W) -> Fp12W {
+        self.0.mul_by_014(&c0.0, &c1.0, &c4.0).into()
+    }
+
+    #[inline(always)]
+    pub fn is_zero(&self) -> bool {
+        self.0.is_zero().into()
+    }
+
+    #[inline(always)]
+    pub fn conjugate(&self) -> Fp12W {
+        self.0.conjugate().into()
+    }
+
+    /// Raises this element to p.
+    #[inline(always)]
+    pub fn frobenius_map(&self) -> Fp12W {
+        self.0.frobenius_map().into()
+    }
+
+    #[inline]
+    pub fn square(&self) -> Fp12W {
+        self.0.square().into()
+    }
+
+    pub fn invert(&self) -> Option<Fp12W> {
+        let f12_option = self.0.invert();
+        if f12_option.is_some().into() {
+            Some(f12_option.unwrap().into())
+        } else {
+            None
+        }
+    }
+}
+
 impl<'a, 'b> Mul<&'b Fp12> for &'a Fp12 {
     type Output = Fp12;
 
