@@ -6,6 +6,8 @@ use rand_core::RngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::fp::Fp;
+#[cfg(target_family = "wasm")]
+use crate::fp::FpW;
 
 #[derive(Copy, Clone)]
 pub struct Fp2 {
@@ -350,6 +352,139 @@ impl Fp2 {
             }
         }
         res
+    }
+}
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+#[derive(Debug, Copy, Clone)]
+pub struct Fp2W(pub(crate) Fp2);
+
+#[cfg(target_family = "wasm")]
+impl From<Fp2> for Fp2W {
+    fn from(value: Fp2) -> Self {
+        Fp2W(value)
+    }
+}
+
+#[cfg(target_family = "wasm")]
+impl From<FpW> for Fp2W {
+    fn from(value: FpW) -> Self {
+        Fp2::from(value.0).into()
+    }
+}
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+impl Fp2W {
+    #[wasm_bindgen::prelude::wasm_bindgen(getter)]
+    pub fn c0(&self) -> FpW {
+        self.0.c0.into()
+    }
+
+    #[wasm_bindgen::prelude::wasm_bindgen(setter)]
+    pub fn set_c0(&mut self, val: FpW) {
+        self.0.c0 = val.0;
+    }
+
+    #[wasm_bindgen::prelude::wasm_bindgen(getter)]
+    pub fn c1(&self) -> FpW {
+        self.0.c1.into()
+    }
+
+    #[wasm_bindgen::prelude::wasm_bindgen(setter)]
+    pub fn set_c1(&mut self, val: FpW) {
+        self.0.c1 = val.0;
+    }
+
+    #[inline]
+    pub fn zero() -> Fp2W {
+        Fp2::zero().into()
+    }
+
+    #[inline]
+    pub fn one() -> Fp2W {
+        Fp2::one().into()
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.0.is_zero().into()
+    }
+
+    /// Raises this element to p.
+    #[inline(always)]
+    pub fn frobenius_map(&self) -> Fp2W {
+        // This is always just a conjugation. If you're curious why, here's
+        // an article about it: https://alicebob.cryptoland.net/the-frobenius-endomorphism-with-finite-fields/
+        self.0.frobenius_map().into()
+    }
+
+    #[inline(always)]
+    pub fn conjugate(&self) -> Fp2W {
+        self.0.conjugate().into()
+    }
+
+    #[inline(always)]
+    pub fn mul_by_nonresidue(&self) -> Fp2W {
+        self.0.mul_by_nonresidue().into()
+    }
+
+    /// Returns whether or not this element is strictly lexicographically
+    /// larger than its negation.
+    #[inline]
+    pub fn lexicographically_largest(&self) -> bool {
+        self.0.lexicographically_largest().into()
+    }
+
+    pub fn square(&self) -> Fp2W {
+        self.0.square().into()
+    }
+
+    pub fn mul(&self, rhs: &Fp2W) -> Fp2W {
+        self.0.mul(rhs.0).into()
+    }
+
+    pub fn add(&self, rhs: &Fp2W) -> Fp2W {
+        self.0.add(rhs.0).into()
+    }
+
+    pub fn sub(&self, rhs: &Fp2W) -> Fp2W {
+        self.0.sub(rhs.0).into()
+    }
+
+    pub fn neg(&self) -> Fp2W {
+        self.0.neg().into()
+    }
+
+    pub fn sqrt(&self) -> Option<Fp2W> {
+        let f2_option = self.0.sqrt();
+        if f2_option.is_some().into() {
+            Some(f2_option.unwrap().into())
+        } else {
+            None
+        }
+    }
+
+    /// Computes the multiplicative inverse of this field
+    /// element, returning None in the case that this element
+    /// is zero.
+    pub fn invert(&self) -> Option<Fp2W> {
+        let f2_option = self.0.invert();
+        if f2_option.is_some().into() {
+            Some(f2_option.unwrap().into())
+        } else {
+            None
+        }
+    }
+
+    /// Although this is labeled "vartime", it is only
+    /// variable time with respect to the exponent. It
+    /// is also not exposed in the public API.
+    pub fn pow_vartime(&self, by: Vec<u64>) -> Fp2W {
+        assert!(by.len() == 6);
+        let mut b = [0u64; 6];
+        b.copy_from_slice(by.as_slice());
+        self.0.pow_vartime(&b).into()
     }
 }
 
