@@ -19,6 +19,36 @@ pub const fn mac(a: u64, b: u64, c: u64, carry: u64) -> (u64, u64) {
     (ret as u64, (ret >> 64) as u64)
 }
 
+/// Compute a + b + carry, returning the result and the new carry over.
+#[inline(always)]
+#[allow(unused)]
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+pub fn adc_(a: u64, b: u64, carry: u64) -> Vec<u64> {
+    let r = adc(a, b, carry);
+    vec![r.0, r.1]
+}
+
+/// Compute a - (b + borrow), returning the result and the new borrow.
+#[inline(always)]
+#[allow(unused)]
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+pub fn sbb_(a: u64, b: u64, borrow: u64) -> Vec<u64> {
+    let r = sbb(a, b, borrow);
+    vec![r.0, r.1]
+}
+
+/// Compute a + (b * c) + carry, returning the result and the new carry over.
+#[inline(always)]
+#[allow(unused)]
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+pub fn mac_(a: u64, b: u64, c: u64, carry: u64) -> Vec<u64> {
+    let r = mac(a, b, c, carry);
+    vec![r.0, r.1]
+}
+
 macro_rules! impl_add_binop_specify_output {
     ($lhs:ident, $rhs:ident, $output:ident) => {
         impl<'b> Add<&'b $rhs> for $lhs {
