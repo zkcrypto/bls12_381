@@ -21,6 +21,7 @@ use pairing::MultiMillerLoop;
 /// Represents results of a Miller loop, one of the most expensive portions
 /// of the pairing function. `MillerLoopResult`s cannot be compared with each
 /// other until `.final_exponentiation()` is called, which is also expensive.
+#[wasm_bindgen::prelude::wasm_bindgen]
 #[cfg_attr(docsrs, doc(cfg(feature = "pairings")))]
 #[derive(Copy, Clone, Debug)]
 pub struct MillerLoopResult(pub(crate) Fp12);
@@ -40,7 +41,15 @@ impl ConditionallySelectable for MillerLoopResult {
     }
 }
 
+#[wasm_bindgen::prelude::wasm_bindgen]
 impl MillerLoopResult {
+    /// Creates a default instance of MillerLoopResult.
+    #[cfg(target_family = "wasm")]
+    #[wasm_bindgen::prelude::wasm_bindgen(constructor)]
+    pub fn constructor() -> MillerLoopResult {
+        MillerLoopResult::default()
+    }
+
     /// This performs a "final exponentiation" routine to convert the result
     /// of a Miller loop into an element of `Gt` with help of efficient squaring
     /// operation in the so-called `cyclotomic subgroup` of `Fq6` so that
@@ -206,6 +215,7 @@ impl<'b> AddAssign<&'b MillerLoopResult> for MillerLoopResult {
 ///
 /// Typically, $\mathbb{G}_T$ is written multiplicatively but we will write it additively to
 /// keep code and abstractions consistent.
+#[wasm_bindgen::prelude::wasm_bindgen]
 #[cfg_attr(docsrs, doc(cfg(feature = "pairings")))]
 #[derive(Copy, Clone, Debug)]
 pub struct Gt(pub(crate) Fp12);
@@ -245,7 +255,14 @@ impl PartialEq for Gt {
     }
 }
 
+#[wasm_bindgen::prelude::wasm_bindgen]
 impl Gt {
+    /// Creates a default instance of Gt.
+    #[cfg(target_family = "wasm")]
+    #[wasm_bindgen::prelude::wasm_bindgen(constructor)]
+    pub fn constructor() -> Gt {
+        Gt::default()
+    }
     /// Returns the group identity, which is $1$.
     pub fn identity() -> Gt {
         Gt(Fp12::one())
