@@ -417,6 +417,140 @@ impl G1Affine {
     }
 }
 
+/// This is an element of $\mathbb{G}_1$ represented in the affine coordinate space.
+/// It is ideal to keep elements in this representation to reduce memory usage and
+/// improve performance through the use of mixed curve model arithmetic.
+///
+/// Values of `G1Affine` are guaranteed to be in the $q$-order subgroup unless an
+/// "unchecked" API was misused.
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+#[cfg_attr(docsrs, doc(cfg(feature = "groups")))]
+#[derive(Copy, Clone, Debug)]
+pub struct G1AffineW(pub(crate) G1Affine);
+
+#[cfg(target_family = "wasm")]
+impl From<G1Affine> for G1AffineW {
+    fn from(value: G1Affine) -> Self {
+        G1AffineW(value)
+    }
+}
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+impl G1AffineW {
+    /// Creates a default instance of G1AffineW.
+    #[wasm_bindgen::prelude::wasm_bindgen(constructor)]
+    pub fn constructor() -> G1AffineW {
+        G1Affine::default().into()
+    }
+
+    /// Returns the identity of the group: the point at infinity.
+    pub fn identity() -> G1AffineW {
+        G1Affine::identity().into()
+    }
+
+    /// Returns a fixed generator of the group. See [`notes::design`](notes/design/index.html#fixed-generators)
+    /// for how this generator is chosen.
+    pub fn generator() -> G1AffineW {
+        G1Affine::generator().into()
+    }
+
+    /// Serializes this element into compressed form. See [`notes::serialization`](crate::notes::serialization)
+    /// for details about how group elements are serialized.
+    pub fn to_compressed(&self) -> Vec<u8> {
+        let r = self.0.to_compressed();
+        assert!(r.len() == 48);
+        r.to_vec()
+    }
+
+    /// Serializes this element into uncompressed form. See [`notes::serialization`](crate::notes::serialization)
+    /// for details about how group elements are serialized.
+    pub fn to_uncompressed(&self) -> Vec<u8> {
+        let r = self.0.to_uncompressed();
+        assert!(r.len() == 96);
+        r.to_vec()
+    }
+
+    /// Attempts to deserialize an uncompressed element. See [`notes::serialization`](crate::notes::serialization)
+    /// for details about how group elements are serialized.
+    pub fn from_uncompressed(bytes: Vec<u8>) -> Option<G1AffineW> {
+        assert!(bytes.len() == 96);
+        let mut b = [0u8; 96];
+        b.copy_from_slice(bytes.as_slice());
+        let g1_option = G1Affine::from_uncompressed(&b);
+        if g1_option.is_some().into() {
+            Some(g1_option.unwrap().into())
+        } else {
+            None
+        }
+    }
+
+    /// Attempts to deserialize an uncompressed element, not checking if the
+    /// element is on the curve and not checking if it is in the correct subgroup.
+    /// **This is dangerous to call unless you trust the bytes you are reading; otherwise,
+    /// API invariants may be broken.** Please consider using `from_uncompressed()` instead.
+    pub fn from_uncompressed_unchecked(bytes: Vec<u8>) -> Option<G1AffineW> {
+        assert!(bytes.len() == 96);
+        let mut b = [0u8; 96];
+        b.copy_from_slice(bytes.as_slice());
+        let g1_option = G1Affine::from_uncompressed_unchecked(&b);
+        if g1_option.is_some().into() {
+            Some(g1_option.unwrap().into())
+        } else {
+            None
+        }
+    }
+
+    /// Attempts to deserialize a compressed element. See [`notes::serialization`](crate::notes::serialization)
+    /// for details about how group elements are serialized.
+    pub fn from_compressed(bytes: Vec<u8>) -> Option<G1AffineW> {
+        assert!(bytes.len() == 48);
+        let mut b = [0u8; 48];
+        b.copy_from_slice(bytes.as_slice());
+        let g1_option = G1Affine::from_compressed(&b);
+        if g1_option.is_some().into() {
+            Some(g1_option.unwrap().into())
+        } else {
+            None
+        }
+    }
+
+    /// Attempts to deserialize an uncompressed element, not checking if the
+    /// element is in the correct subgroup.
+    /// **This is dangerous to call unless you trust the bytes you are reading; otherwise,
+    /// API invariants may be broken.** Please consider using `from_compressed()` instead.
+    pub fn from_compressed_unchecked(bytes: Vec<u8>) -> Option<G1AffineW> {
+        assert!(bytes.len() == 48);
+        let mut b = [0u8; 48];
+        b.copy_from_slice(bytes.as_slice());
+        let g1_option = G1Affine::from_compressed_unchecked(&b);
+        if g1_option.is_some().into() {
+            Some(g1_option.unwrap().into())
+        } else {
+            None
+        }
+    }
+
+    /// Returns true if this element is the identity (the point at infinity).
+    #[inline]
+    pub fn is_identity(&self) -> bool {
+        self.0.is_identity().into()
+    }
+
+    /// Returns true if this point is free of an $h$-torsion component, and so it
+    /// exists within the $q$-order subgroup $\mathbb{G}_1$. This should always return true
+    /// unless an "unchecked" API was used.
+    pub fn is_torsion_free(&self) -> bool {
+        self.0.is_torsion_free().into()
+    }
+
+    /// Returns true if this point is on the curve. This should always return
+    /// true unless an "unchecked" API was used.
+    pub fn is_on_curve(&self) -> bool {
+        self.0.is_on_curve().into()
+    }
+}
+
 /// A nontrivial third root of unity in Fp
 pub const BETA: Fp = Fp::from_raw_unchecked([
     0x30f1_361b_798a_64e8,
@@ -854,6 +988,93 @@ impl G1Projective {
     }
 }
 
+/// This is an element of $\mathbb{G}_1$ represented in the projective coordinate space.
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+#[cfg_attr(docsrs, doc(cfg(feature = "groups")))]
+#[derive(Copy, Clone, Debug)]
+pub struct G1ProjectiveW(pub(crate) G1Projective);
+
+#[cfg(target_family = "wasm")]
+impl From<G1Projective> for G1ProjectiveW {
+    fn from(value: G1Projective) -> Self {
+        G1ProjectiveW(value)
+    }
+}
+
+#[cfg(target_family = "wasm")]
+impl From<G1AffineW> for G1ProjectiveW {
+    fn from(p: G1AffineW) -> G1ProjectiveW {
+        G1Projective::from(p.0).into()
+    }
+}
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+impl G1ProjectiveW {
+    /// Creates a default instance of G1ProjectiveW.
+    #[wasm_bindgen::prelude::wasm_bindgen(constructor)]
+    pub fn constructor() -> G1ProjectiveW {
+        G1Projective::default().into()
+    }
+
+    /// Returns the identity of the group: the point at infinity.
+    pub fn identity() -> G1ProjectiveW {
+        G1Projective::identity().into()
+    }
+
+    /// Returns a fixed generator of the group. See [`notes::design`](notes/design/index.html#fixed-generators)
+    /// for how this generator is chosen.
+    pub fn generator() -> G1ProjectiveW {
+        G1Projective::generator().into()
+    }
+
+    /// Computes the doubling of this point.
+    pub fn double(&self) -> G1ProjectiveW {
+        self.0.double().into()
+    }
+
+    /// Adds this point to another point.
+    pub fn add(&self, rhs: &G1ProjectiveW) -> G1ProjectiveW {
+        self.0.add(rhs.0).into()
+    }
+
+    /// Adds this point to another point in the affine model.
+    pub fn add_mixed(&self, rhs: &G1AffineW) -> G1ProjectiveW {
+        self.0.add_mixed(&rhs.0).into()
+    }
+
+    /// Multiplies by $(1 - z)$, where $z$ is the parameter of BLS12-381, which
+    /// [suffices to clear](https://ia.cr/2019/403) the cofactor and map
+    /// elliptic curve points to elements of $\mathbb{G}\_1$.
+    pub fn clear_cofactor(&self) -> G1ProjectiveW {
+        self.0.clear_cofactor().into()
+    }
+
+    // TODO: make it working
+    // /// Converts a batch of `G1Projective` elements into `G1Affine` elements. This
+    // /// function will panic if `p.len() != q.len()`.
+    // pub fn batch_normalize(p: &Vec<G1ProjectiveW>, q: &mut Vec<G1AffineW>) {
+    //     assert!(p.len() == q.len());
+    //     let p_v = p.map(|e| e.0).as_slice();
+    //     let mut q_v = q.map(|e| e.0).as_slice();
+    //     G1Projective::batch_normalize(p_v, &mut q_v);
+    // }
+
+    /// Returns true if this element is the identity (the point at infinity).
+    #[inline]
+    pub fn is_identity(&self) -> bool {
+        self.0.is_identity().into()
+    }
+
+    /// Returns true if this point is on the curve. This should always return
+    /// true unless an "unchecked" API was used.
+    pub fn is_on_curve(&self) -> bool {
+        self.0.is_on_curve().into()
+    }
+}
+
+#[wasm_bindgen::prelude::wasm_bindgen]
 #[derive(Clone, Copy)]
 pub struct G1Compressed([u8; 48]);
 
@@ -898,6 +1119,17 @@ impl PartialEq for G1Compressed {
     }
 }
 
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+impl G1Compressed {
+    /// Creates a default instance of G1Compressed.
+    #[wasm_bindgen::prelude::wasm_bindgen(constructor)]
+    pub fn constructor() -> G1Compressed {
+        G1Compressed::default()
+    }
+}
+
+#[wasm_bindgen::prelude::wasm_bindgen]
 #[derive(Clone, Copy)]
 pub struct G1Uncompressed([u8; 96]);
 
@@ -939,6 +1171,16 @@ impl PartialEq for G1Uncompressed {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         bool::from(self.ct_eq(other))
+    }
+}
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+impl G1Uncompressed {
+    /// Creates a default instance of G1Uncompressed.
+    #[wasm_bindgen::prelude::wasm_bindgen(constructor)]
+    pub fn constructor() -> G1Uncompressed {
+        G1Uncompressed::default()
     }
 }
 
