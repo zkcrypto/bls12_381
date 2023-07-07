@@ -435,6 +435,13 @@ impl From<G1Affine> for G1AffineW {
         G1AffineW(value)
     }
 }
+
+#[cfg(target_family = "wasm")]
+impl From<G1ProjectiveW> for G1AffineW {
+    fn from(value: G1ProjectiveW) -> Self {
+        G1Affine::from(value.0).into()
+    }
+}
 #[cfg(target_family = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen]
 impl G1AffineW {
