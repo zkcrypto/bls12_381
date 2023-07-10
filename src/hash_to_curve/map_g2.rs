@@ -2,7 +2,7 @@
 
 use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable, ConstantTimeEq};
 
-use super::chain::chain_p2m9div16;
+use super::chain::_chain_p2m9div16;
 use super::{HashToField, MapToCurve, Sgn0};
 use crate::generic_array::{
     typenum::{U128, U64},
@@ -406,7 +406,7 @@ fn map_to_curve_simple_swu(u: &Fp2) -> G2Projective {
         let v_4 = vsq.square(); // v^4
         let uv_7 = gx0_num * v_3 * v_4; // u v^7
         let uv_15 = uv_7 * v_4.square(); // u v^15
-        uv_7 * chain_p2m9div16(&uv_15) // u v^7 (u v^15) ^ ((p^2 - 9) // 16)
+        uv_7 * _chain_p2m9div16(&uv_15) // u v^7 (u v^15) ^ ((p^2 - 9) // 16)
     };
 
     // set y = sqrt_candidate * Fp2::one(), check candidate against other roots of unity

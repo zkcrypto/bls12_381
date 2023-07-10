@@ -5,6 +5,8 @@
 use core::ops::MulAssign;
 
 use crate::{fp::Fp, fp2::Fp2};
+#[cfg(target_family = "wasm")]
+use crate::{fp::FpW, fp2::Fp2W};
 
 macro_rules! square {
     ($var:expr, $n:expr) => {
@@ -15,10 +17,8 @@ macro_rules! square {
 }
 
 #[allow(clippy::cognitive_complexity)]
-/// addchain for 1000602388805416848354447456433976039139220704984751971333014534031007912622709466110671907282253916009473568139946
-/// Bos-Coster (win=4) : 458 links, 16 variables */
-/// Addition chain implementing exponentiation by (p - 3) // 4.
-pub fn chain_pm3div4(var0: &Fp) -> Fp {
+#[inline]
+pub(crate) fn _chain_pm3div4(var0: &Fp) -> Fp {
     let mut var1 = var0.square();
     //Self::sqr(var1, var0);                              /*    0 : 2 */
     let var9 = var1 * var0;
@@ -321,11 +321,29 @@ pub fn chain_pm3div4(var0: &Fp) -> Fp {
     var1.square()
 }
 
+/// addchain for 1000602388805416848354447456433976039139220704984751971333014534031007912622709466110671907282253916009473568139946
+/// Bos-Coster (win=4) : 458 links, 16 variables
+/// Addition chain implementing exponentiation by (p - 3) // 4.
+#[allow(unused)]
+#[cfg(not(target_family = "wasm"))]
+pub fn chain_pm3div4(var0: &Fp) -> Fp {
+    _chain_pm3div4(var0)
+}
+
+/// addchain for 1000602388805416848354447456433976039139220704984751971333014534031007912622709466110671907282253916009473568139946
+/// Bos-Coster (win=4) : 458 links, 16 variables
+/// Addition chain implementing exponentiation by (p - 3) // 4.
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+pub fn chain_pm3div4(var0: &FpW) -> FpW {
+    _chain_pm3div4(&var0.0).into()
+}
+
 #[allow(clippy::cognitive_complexity)]
 /// addchain for 1001205140483106588246484290269935788605945006208159541241399033561623546780709821462541004956387089373434649096260670658193992783731681621012512651314777238193313314641988297376025498093520728838658813979860931248214124593092835
 /// Bos-Coster (win=4) : 895 links, 17 variables
 /// Addition chain implementing exponentiation by (p**2 - 9) // 16.
-pub fn chain_p2m9div16(var0: &Fp2) -> Fp2 {
+pub(crate) fn _chain_p2m9div16(var0: &Fp2) -> Fp2 {
     let mut var1 = var0.square();
     //Self::sqr(var1, var0);                              /*    0 : 2 */
     let var2 = var1 * var0;
@@ -860,6 +878,24 @@ pub fn chain_p2m9div16(var0: &Fp2) -> Fp2 {
     square!(var1, 5);
     //  893 : 1001205140483106588246484290269935788605945006208159541241399033561623546780709821462541004956387089373434649096260670658193992783731681621012512651314777238193313314641988297376025498093520728838658813979860931248214124593092835
     var1 * var2
+}
+
+/// addchain for 1001205140483106588246484290269935788605945006208159541241399033561623546780709821462541004956387089373434649096260670658193992783731681621012512651314777238193313314641988297376025498093520728838658813979860931248214124593092835
+/// Bos-Coster (win=4) : 895 links, 17 variables
+/// Addition chain implementing exponentiation by (p**2 - 9) // 16.
+#[allow(unused)]
+#[cfg(not(target_family = "wasm"))]
+pub fn chain_p2m9div16(var0: &Fp2) -> Fp2 {
+    _chain_p2m9div16(var0)
+}
+
+/// addchain for 1001205140483106588246484290269935788605945006208159541241399033561623546780709821462541004956387089373434649096260670658193992783731681621012512651314777238193313314641988297376025498093520728838658813979860931248214124593092835
+/// Bos-Coster (win=4) : 895 links, 17 variables
+/// Addition chain implementing exponentiation by (p**2 - 9) // 16.
+#[allow(unused)]
+#[cfg(target_family = "wasm")]
+pub fn chain_p2m9div16(var0: &Fp2W) -> Fp2W {
+    _chain_p2m9div16(&var0.0).into()
 }
 
 /// Tests for addition chains
