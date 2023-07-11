@@ -19,11 +19,7 @@ use crate::fp2::Fp2;
 use crate::Scalar;
 
 #[cfg(target_family = "wasm")]
-use serde::{de::MapAccess, de::Visitor, Deserialize, Deserializer};
-#[cfg(target_family = "wasm")]
-use serde_wasm_bindgen;
-#[cfg(target_family = "wasm")]
-use wasm_bindgen::JsValue;
+use js_sys::Array;
 
 /// This is an element of $\mathbb{G}_2$ represented in the affine coordinate space.
 /// It is ideal to keep elements in this representation to reduce memory usage and
@@ -42,31 +38,6 @@ pub struct G2Affine {
 impl Default for G2Affine {
     fn default() -> G2Affine {
         G2Affine::identity()
-    }
-}
-
-#[cfg(target_family = "wasm")]
-impl<'de> Visitor<'de> for G2Affine {
-    type Value = G2Affine;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a very special map")
-    }
-    fn visit_map<M>(self, mut _access: M) -> Result<Self::Value, M::Error>
-    where
-        M: MapAccess<'de>,
-    {
-        Ok(G2Affine::default())
-    }
-}
-
-#[cfg(target_family = "wasm")]
-impl<'de> Deserialize<'de> for G2Affine {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_map(G2Affine::default())
     }
 }
 
@@ -530,7 +501,7 @@ impl G2Affine {
 #[cfg(target_family = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen]
 #[cfg_attr(docsrs, doc(cfg(feature = "groups")))]
-#[derive(Copy, Clone, Debug, Deserialize)]
+#[derive(Copy, Clone, Debug)]
 pub struct G2AffineW(pub(crate) G2Affine);
 
 #[cfg(target_family = "wasm")]
@@ -659,7 +630,6 @@ impl G2AffineW {
 
 /// This is an element of $\mathbb{G}_2$ represented in the projective coordinate space.
 #[cfg_attr(docsrs, doc(cfg(feature = "groups")))]
-#[cfg_attr(target_family = "wasm", derive(Deserialize))]
 #[derive(Copy, Clone, Debug)]
 pub struct G2Projective {
     pub(crate) x: Fp2,
@@ -1172,7 +1142,7 @@ impl G2Projective {
 #[cfg(target_family = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen]
 #[cfg_attr(docsrs, doc(cfg(feature = "groups")))]
-#[derive(Copy, Clone, Debug, Deserialize)]
+#[derive(Copy, Clone, Debug)]
 pub struct G2ProjectiveW(pub(crate) G2Projective);
 
 #[cfg(target_family = "wasm")]
@@ -1233,15 +1203,73 @@ impl G2ProjectiveW {
 
     /// Converts a batch of `G2Projective` elements into `G2Affine` elements. This
     /// function will panic if `p.len() != q.len()`.
-    pub fn batch_normalize(p: JsValue, q: JsValue) {
-        assert!(p.is_array());
-        assert!(q.is_array());
-        let p_v: Vec<G2ProjectiveW> = serde_wasm_bindgen::from_value(p).unwrap();
-        let q_v: Vec<G2AffineW> = serde_wasm_bindgen::from_value(q).unwrap();
-        assert!(p_v.len() == q_v.len());
-        let p = p_v.into_iter().map(|e| e.0).collect::<Vec<_>>();
-        let mut q = q_v.into_iter().map(|e| e.0).collect::<Vec<_>>();
-        G2Projective::batch_normalize(p.as_slice(), &mut q[..]);
+    pub fn batch_normalize(p: Array, q: Array) {
+        assert_eq!(p.length(), q.length());
+        // the standard way of serialization/deserialization doesn't work
+        // the way with casting of WebAssembly pointers works and it should be much faster
+
+        // unwrap results because function can throw errors but not return an Error
+        let p_v = p
+            .into_iter()
+            .map(|e| {
+                let proto_name = js_sys::Reflect::get_prototype_of(&e)
+                    .unwrap()
+                    .constructor()
+                    .name();
+                assert!(
+                    proto_name == "G2ProjectiveW",
+                    "Expects instance of \"G2ProjectiveW\", byt got {}.",
+                    proto_name
+                );
+                let ptr_f64 = js_sys::Reflect::get(&e, &"__wbg_ptr".into())
+                    .unwrap()
+                    .as_f64()
+                    .unwrap();
+                assert!(
+                    ptr_f64 > 0.0,
+                    "Expects valid instance pointer, but used moved value."
+                );
+                // the 8 is one byte offset between pointer and the data of the instance
+                let ptr = (ptr_f64 as u32 + 8) as *const G2ProjectiveW;
+                ptr
+            })
+            .collect::<Vec<_>>();
+        let q_v = q
+            .into_iter()
+            .map(|e| {
+                let proto_name = js_sys::Reflect::get_prototype_of(&e)
+                    .unwrap() // unwrap because function can throw errors but not return an Error
+                    .constructor()
+                    .name();
+                assert!(
+                    proto_name == "G2AffineW",
+                    "Expects instance of \"G2AffineW\", byt got {}.",
+                    proto_name
+                );
+                let ptr_f64 = js_sys::Reflect::get(&e, &"__wbg_ptr".into())
+                    .unwrap()
+                    .as_f64()
+                    .unwrap();
+                assert!(
+                    ptr_f64 > 0.0,
+                    "Expects valid instance pointer, but used moved value."
+                );
+                // the 8 is one byte offset between pointer and the data of the instance
+                let ptr = (ptr_f64 as u32 + 8) as *const G2AffineW;
+                ptr
+            })
+            .collect::<Vec<_>>();
+
+        // Safety:
+        // - the objects are placed in single memory instance
+        // - checked that pointer is valid
+        // - checked prototype of the object
+        #[allow(unsafe_code)]
+        unsafe {
+            let p: Vec<G2Projective> = p_v.into_iter().map(|e| (*e).0).collect();
+            let mut q: Vec<G2Affine> = q_v.into_iter().map(|e| (*e).0).collect();
+            G2Projective::batch_normalize(p.as_slice(), &mut q[..]);
+        }
     }
 
     /// Returns true if this element is the identity (the point at infinity).
