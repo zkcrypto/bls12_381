@@ -664,13 +664,7 @@ impl Fp {
 #[wasm_bindgen::prelude::wasm_bindgen]
 #[derive(Debug, Copy, Clone)]
 pub struct FpW(pub(crate) Fp);
-
-#[cfg(target_family = "wasm")]
-impl From<Fp> for FpW {
-    fn from(value: Fp) -> Self {
-        FpW(value)
-    }
-}
+impl_from_direct!(FpW, Fp);
 
 #[cfg(target_family = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen]

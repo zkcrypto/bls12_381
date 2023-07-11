@@ -431,20 +431,9 @@ impl G1Affine {
 #[cfg_attr(docsrs, doc(cfg(feature = "groups")))]
 #[derive(Copy, Clone, Debug)]
 pub struct G1AffineW(pub(crate) G1Affine);
+impl_from_direct!(G1AffineW, G1Affine);
+impl_from_for_wasm_wrapped!(G1AffineW, G1Affine, G1ProjectiveW);
 
-#[cfg(target_family = "wasm")]
-impl From<G1Affine> for G1AffineW {
-    fn from(value: G1Affine) -> Self {
-        G1AffineW(value)
-    }
-}
-
-#[cfg(target_family = "wasm")]
-impl From<G1ProjectiveW> for G1AffineW {
-    fn from(value: G1ProjectiveW) -> Self {
-        G1Affine::from(value.0).into()
-    }
-}
 #[cfg(target_family = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen]
 impl G1AffineW {
@@ -1004,20 +993,8 @@ impl G1Projective {
 #[cfg_attr(docsrs, doc(cfg(feature = "groups")))]
 #[derive(Copy, Clone, Debug)]
 pub struct G1ProjectiveW(pub(crate) G1Projective);
-
-#[cfg(target_family = "wasm")]
-impl From<G1Projective> for G1ProjectiveW {
-    fn from(value: G1Projective) -> Self {
-        G1ProjectiveW(value)
-    }
-}
-
-#[cfg(target_family = "wasm")]
-impl From<G1AffineW> for G1ProjectiveW {
-    fn from(p: G1AffineW) -> G1ProjectiveW {
-        G1Projective::from(p.0).into()
-    }
-}
+impl_from_direct!(G1ProjectiveW, G1Projective);
+impl_from_for_wasm_wrapped!(G1ProjectiveW, G1Projective, G1AffineW);
 
 #[cfg(target_family = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen]
@@ -1145,7 +1122,7 @@ impl G1ProjectiveW {
     }
 }
 
-#[wasm_bindgen::prelude::wasm_bindgen]
+#[cfg_attr(target_family = "wasm", wasm_bindgen::prelude::wasm_bindgen)]
 #[derive(Clone, Copy)]
 pub struct G1Compressed([u8; 48]);
 
@@ -1200,7 +1177,7 @@ impl G1Compressed {
     }
 }
 
-#[wasm_bindgen::prelude::wasm_bindgen]
+#[cfg_attr(target_family = "wasm", wasm_bindgen::prelude::wasm_bindgen)]
 #[derive(Clone, Copy)]
 pub struct G1Uncompressed([u8; 96]);
 

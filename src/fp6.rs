@@ -317,27 +317,9 @@ impl Fp6 {
 #[wasm_bindgen::prelude::wasm_bindgen]
 #[derive(Debug, Copy, Clone)]
 pub struct Fp6W(pub(crate) Fp6);
-
-#[cfg(target_family = "wasm")]
-impl From<Fp6> for Fp6W {
-    fn from(value: Fp6) -> Self {
-        Fp6W(value)
-    }
-}
-
-#[cfg(target_family = "wasm")]
-impl From<FpW> for Fp6W {
-    fn from(value: FpW) -> Self {
-        Fp6::from(value.0).into()
-    }
-}
-
-#[cfg(target_family = "wasm")]
-impl From<Fp2W> for Fp6W {
-    fn from(value: Fp2W) -> Self {
-        Fp6::from(value.0).into()
-    }
-}
+impl_from_direct!(Fp6W, Fp6);
+impl_from_for_wasm_wrapped!(Fp6W, Fp6, FpW);
+impl_from_for_wasm_wrapped!(Fp6W, Fp6, Fp2W);
 
 #[cfg(target_family = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen]

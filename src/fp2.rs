@@ -359,20 +359,8 @@ impl Fp2 {
 #[wasm_bindgen::prelude::wasm_bindgen]
 #[derive(Debug, Copy, Clone)]
 pub struct Fp2W(pub(crate) Fp2);
-
-#[cfg(target_family = "wasm")]
-impl From<Fp2> for Fp2W {
-    fn from(value: Fp2) -> Self {
-        Fp2W(value)
-    }
-}
-
-#[cfg(target_family = "wasm")]
-impl From<FpW> for Fp2W {
-    fn from(value: FpW) -> Self {
-        Fp2::from(value.0).into()
-    }
-}
+impl_from_direct!(Fp2W, Fp2);
+impl_from_for_wasm_wrapped!(Fp2W, Fp2, FpW);
 
 #[cfg(target_family = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen]

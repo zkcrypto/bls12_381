@@ -49,6 +49,28 @@ pub fn mac_(a: u64, b: u64, c: u64, carry: u64) -> Vec<u64> {
     vec![r.0, r.1]
 }
 
+macro_rules! impl_from_direct {
+    ($wrapper:ident, $original:ident) => {
+        #[cfg(target_family = "wasm")]
+        impl From<$original> for $wrapper {
+            fn from(value: $original) -> Self {
+                $wrapper(value)
+            }
+        }
+    };
+}
+
+macro_rules! impl_from_for_wasm_wrapped {
+    ($wrapper:ident, $original:ident, $type:ident) => {
+        #[cfg(target_family = "wasm")]
+        impl From<$type> for $wrapper {
+            fn from(value: $type) -> Self {
+                $original::from(value.0).into()
+            }
+        }
+    };
+}
+
 macro_rules! impl_add_binop_specify_output {
     ($lhs:ident, $rhs:ident, $output:ident) => {
         impl<'b> Add<&'b $rhs> for $lhs {
