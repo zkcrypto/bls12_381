@@ -9,7 +9,6 @@ use crate::fp::Fp;
 #[cfg(target_family = "wasm")]
 use crate::fp::FpW;
 
-#[cfg_attr(target_family = "wasm", derive(serde::Deserialize))]
 #[derive(Copy, Clone)]
 pub struct Fp2 {
     pub c0: Fp,
