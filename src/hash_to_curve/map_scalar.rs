@@ -12,7 +12,7 @@ impl HashToField for Scalar {
         let mut bs = [0u8; 64];
         bs[16..].copy_from_slice(okm);
         bs.reverse(); // into little endian
-        Scalar::_from_bytes_wide(&bs)
+        Scalar::from_bytes_wide(&bs)
     }
 }
 

@@ -690,7 +690,7 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a G1Projective {
     type Output = G1Projective;
 
     fn mul(self, other: &'b Scalar) -> Self::Output {
-        self.multiply(&other._to_bytes())
+        self.multiply(&other.to_bytes())
     }
 }
 
@@ -707,7 +707,7 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a G1Affine {
     type Output = G1Projective;
 
     fn mul(self, other: &'b Scalar) -> Self::Output {
-        G1Projective::from(self).multiply(&other._to_bytes())
+        G1Projective::from(self).multiply(&other.to_bytes())
     }
 }
 
