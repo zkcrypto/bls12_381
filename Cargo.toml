@@ -71,3 +71,6 @@ pairings = ["groups", "pairing"]
 alloc = ["group/alloc"]
 experimental = ["digest"]
 nightly = ["subtle/nightly"]
+
+[patch.crates-io]
+group = { git = "https://github.com/zkcrypto/group.git", rev = "85c484fff517135cedfe265ef893bd4b8d745300" }

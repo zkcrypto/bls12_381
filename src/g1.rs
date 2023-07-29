@@ -5,8 +5,8 @@ use core::fmt;
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use group::{
-    prime::{PrimeCurve, PrimeCurveAffine, PrimeGroup},
-    Curve, Group, GroupEncoding, UncompressedEncoding,
+    prime::{PrimeCurve, PrimeGroup},
+    Curve, CurveAffine, Group, GroupEncoding, UncompressedEncoding,
 };
 use rand_core::RngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
@@ -1007,22 +1007,20 @@ impl WnafGroup for G1Projective {
 impl PrimeGroup for G1Projective {}
 
 impl Curve for G1Projective {
-    type AffineRepr = G1Affine;
+    type Affine = G1Affine;
 
-    fn batch_normalize(p: &[Self], q: &mut [Self::AffineRepr]) {
+    fn batch_normalize(p: &[Self], q: &mut [Self::Affine]) {
         Self::batch_normalize(p, q);
     }
 
-    fn to_affine(&self) -> Self::AffineRepr {
+    fn to_affine(&self) -> Self::Affine {
         self.into()
     }
 }
 
-impl PrimeCurve for G1Projective {
-    type Affine = G1Affine;
-}
+impl PrimeCurve for G1Projective {}
 
-impl PrimeCurveAffine for G1Affine {
+impl CurveAffine for G1Affine {
     type Scalar = Scalar;
     type Curve = G1Projective;
 
