@@ -63,3 +63,6 @@ required-features = ["groups"]
 name = "hash_to_curve"
 harness = false
 required-features = ["experimental"]
+
+[patch.crates-io]
+group = { git = "https://github.com/zkcrypto/group.git", rev = "21104854da7f316c470213ab4a2ace239d24dd28" }
