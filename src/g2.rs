@@ -5,10 +5,10 @@ use core::fmt;
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use group::{
-    Curve, Group, GroupEncoding, UncompressedEncoding,
-    prime::{PrimeCurve, PrimeCurveAffine, PrimeGroup},
+    Curve, CurveAffine, Group, GroupEncoding, UncompressedEncoding,
+    prime::{PrimeCurve, PrimeGroup},
 };
-use rand_core::TryRngCore;
+use rand_core::TryRng;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 #[cfg(feature = "alloc")]
@@ -1090,9 +1090,9 @@ impl PartialEq for G2Uncompressed {
 impl Group for G2Projective {
     type Scalar = Scalar;
 
-    fn try_from_rng<R: TryRngCore + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
+    fn try_random<R: TryRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
         loop {
-            let x = Fp2::try_from_rng(rng)?;
+            let x = Fp2::try_random(rng)?;
             let flip_sign = rng.try_next_u32()? % 2 != 0;
 
             // Obtain the corresponding y-coordinate given x as y = sqrt(x^3 + 4)
@@ -1151,22 +1151,20 @@ impl WnafGroup for G2Projective {
 impl PrimeGroup for G2Projective {}
 
 impl Curve for G2Projective {
-    type AffineRepr = G2Affine;
+    type Affine = G2Affine;
 
-    fn batch_normalize(p: &[Self], q: &mut [Self::AffineRepr]) {
+    fn batch_normalize(p: &[Self], q: &mut [Self::Affine]) {
         Self::batch_normalize(p, q);
     }
 
-    fn to_affine(&self) -> Self::AffineRepr {
+    fn to_affine(&self) -> Self::Affine {
         self.into()
     }
 }
 
-impl PrimeCurve for G2Projective {
-    type Affine = G2Affine;
-}
+impl PrimeCurve for G2Projective {}
 
-impl PrimeCurveAffine for G2Affine {
+impl CurveAffine for G2Affine {
     type Scalar = Scalar;
     type Curve = G2Projective;
 

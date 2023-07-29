@@ -10,7 +10,7 @@ use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use group::Group;
 use pairing::{Engine, PairingCurveAffine};
-use rand_core::TryRngCore;
+use rand_core::TryRng;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
 #[cfg(feature = "alloc")]
@@ -339,9 +339,9 @@ where
 impl Group for Gt {
     type Scalar = Scalar;
 
-    fn try_from_rng<R: TryRngCore + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
+    fn try_random<R: TryRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
         loop {
-            let inner = Fp12::try_from_rng(rng)?;
+            let inner = Fp12::try_random(rng)?;
 
             // Not all elements of Fp12 are elements of the prime-order multiplicative
             // subgroup. We run the random element through final_exponentiation to obtain

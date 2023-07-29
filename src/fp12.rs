@@ -7,7 +7,7 @@ use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 #[cfg(feature = "pairings")]
-use rand_core::TryRngCore;
+use rand_core::TryRng;
 
 /// This represents an element $c_0 + c_1 w$ of $\mathbb{F}_{p^12} = \mathbb{F}_{p^6} / w^2 - v$.
 pub struct Fp12 {
@@ -106,10 +106,10 @@ impl Fp12 {
     }
 
     #[cfg(feature = "pairings")]
-    pub(crate) fn try_from_rng<R: TryRngCore + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
+    pub(crate) fn try_random<R: TryRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
         Ok(Fp12 {
-            c0: Fp6::try_from_rng(rng)?,
-            c1: Fp6::try_from_rng(rng)?,
+            c0: Fp6::try_random(rng)?,
+            c1: Fp6::try_random(rng)?,
         })
     }
 

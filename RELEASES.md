@@ -2,7 +2,7 @@
 ## Changed
 - MSRV is now 1.85.0.
 - Bumped dependencies to `digest 0.10`, `ff 0.14`, `group 0.14`, `pairing 0.24`,
-  `rand_core 0.9`.
+  `rand_core 0.10`.
 
 # 0.8.0
 ## Changed
