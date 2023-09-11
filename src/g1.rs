@@ -1748,6 +1748,7 @@ fn test_zeroize() {
     assert_eq!(&a, &G1Uncompressed::default());
 }
 
+#[allow(clippy::op_ref)]
 #[test]
 fn test_commutative_scalar_subgroup_multiplication() {
     let a = Scalar::from_raw([
