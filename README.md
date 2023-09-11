@@ -16,6 +16,7 @@ This crate provides an implementation of the BLS12-381 pairing-friendly elliptic
 * `nightly`: Enables `subtle/nightly` which tries to prevent compiler optimizations that could jeopardize constant time operations. Requires the nightly Rust compiler.
 * `experimental`: Enables experimental features. These features have no backwards-compatibility guarantees and may change at any time; users that depend on specific behaviour should pin an exact version of this crate. The current list of experimental features:
   * Hashing to curves ([Internet Draft v12](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-12))
+* `basefield`: Leaves the struct `Fp` public to the library user.
 
 ## [Documentation](https://docs.rs/bls12_381)
 

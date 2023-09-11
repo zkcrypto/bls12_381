@@ -48,6 +48,9 @@ mod scalar;
 
 pub use scalar::Scalar;
 
+#[cfg(feature = "basefield")]
+pub use fp::Fp;
+
 #[cfg(feature = "groups")]
 mod fp;
 #[cfg(feature = "groups")]
