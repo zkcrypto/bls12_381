@@ -9,7 +9,6 @@ use crate::fp2::Fp2;
 
 use super::G2Prepared;
 
-#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
 #[cfg(feature = "serde")]
@@ -19,7 +18,6 @@ use serde::{
 #[cfg(feature = "serde")]
 use subtle::Choice;
 
-#[cfg(feature = "alloc")]
 impl G2Prepared {
     /// Raw bytes representation
     ///

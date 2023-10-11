@@ -1,5 +1,7 @@
+#[cfg(all(feature = "alloc", feature = "pairing"))]
 mod dusk;
 
+#[cfg(all(feature = "alloc", feature = "pairing"))]
 use crate::choice;
 use crate::fp::Fp;
 use crate::fp12::Fp12;
