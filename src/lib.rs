@@ -44,6 +44,7 @@ pub mod notes {
 }
 
 mod dusk;
+#[cfg(feature = "groups")]
 use dusk::choice;
 #[cfg(all(feature = "groups", feature = "alloc"))]
 pub use dusk::multiscalar_mul;
