@@ -18,13 +18,14 @@ use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
 impl PartialOrd for Scalar {
     fn partial_cmp(&self, other: &Scalar) -> Option<Ordering> {
-        Some(self.cmp(&other))
+        Some(self.cmp(other))
     }
 }
 
 impl Ord for Scalar {
     fn cmp(&self, other: &Self) -> Ordering {
         for i in (0..4).rev() {
+            #[allow(clippy::comparison_chain)]
             if self.0[i] > other.0[i] {
                 return Ordering::Greater;
             } else if self.0[i] < other.0[i] {

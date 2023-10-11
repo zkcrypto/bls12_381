@@ -52,6 +52,7 @@ impl G2Prepared {
     /// Create a `G2Prepared` from a set of bytes created by
     /// `G2Prepared::to_raw_bytes`.
     ///
+    /// # Safety
     /// No check is performed and no constant time is granted. The
     /// `infinity` attribute is also lost. The expected usage of this
     /// function is for trusted bytes where performance is critical.

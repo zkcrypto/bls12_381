@@ -42,13 +42,13 @@ impl G2Affine {
 
     /// Create a `G2Affine` from a set of bytes created by `G2Affine::to_raw_bytes`.
     ///
-    /// No check is performed and no constant time is granted. The expected usage of this function
-    /// is for trusted bytes where performance is critical.
-    ///
-    /// For secure serialization, check `from_bytes`
-    ///
-    /// After generating the point, you can check `is_on_curve` and `is_torsion_free` to grant its
-    /// security
+    /// # Safety
+    /// No check is performed and no constant time is granted. The expected
+    /// usage of this function is for trusted bytes where performance is
+    /// critical.
+    /// For secure serialization, check `from_bytes`.
+    /// After generating the point, you can check `is_on_curve` and
+    /// `is_torsion_free` to grant its security.
     pub unsafe fn from_slice_unchecked(bytes: &[u8]) -> Self {
         let mut xc0 = [0u64; 6];
         let mut xc1 = [0u64; 6];
@@ -98,8 +98,8 @@ impl Serializable<96> for G2Affine {
 
         let mut res = [0; Self::SIZE];
 
-        (&mut res[0..48]).copy_from_slice(&x.c1.to_bytes()[..]);
-        (&mut res[48..96]).copy_from_slice(&x.c0.to_bytes()[..]);
+        (res[0..48]).copy_from_slice(&x.c1.to_bytes()[..]);
+        (res[48..96]).copy_from_slice(&x.c0.to_bytes()[..]);
 
         // This point is in compressed form, so we set the most significant bit.
         res[0] |= 1u8 << 7;

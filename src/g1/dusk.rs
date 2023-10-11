@@ -41,13 +41,12 @@ impl G1Affine {
 
     /// Create a `G1Affine` from a set of bytes created by `G1Affine::to_raw_bytes`.
     ///
-    /// No check is performed and no constant time is granted. The expected usage of this function
-    /// is for trusted bytes where performance is critical.
-    ///
-    /// For secure serialization, check `from_bytes`
-    ///
-    /// After generating the point, you can check `is_on_curve` and `is_torsion_free` to grant its
-    /// security
+    /// # Safety
+    /// No check is performed and no constant time is granted. The expected
+    /// usage of this function is for trusted bytes where performance is critical.
+    /// For secure serialization, check `from_bytes`.
+    /// After generating the point, you can check `is_on_curve` and
+    /// `is_torsion_free` to grant its security.
     pub unsafe fn from_slice_unchecked(bytes: &[u8]) -> Self {
         let mut x = [0u64; 6];
         let mut y = [0u64; 6];
