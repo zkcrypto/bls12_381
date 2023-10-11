@@ -108,8 +108,8 @@ const MODULUS_LIMBS_32: [u32; 8] = [
 // The number of bits needed to represent the modulus.
 const MODULUS_BITS: u32 = 255;
 
-// GENERATOR = 7 (multiplicative generator of r-1 order, that is also quadratic nonresidue)
-const GENERATOR: Scalar = Scalar([
+/// GENERATOR = 7 (multiplicative generator of r-1 order, that is also quadratic nonresidue)
+pub const GENERATOR: Scalar = Scalar([
     0x0000_000e_ffff_fff1,
     0x17e3_63d3_0018_9c0f,
     0xff9c_5787_6f84_57b0,
