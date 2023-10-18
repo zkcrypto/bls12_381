@@ -2,6 +2,7 @@
 //! where `q = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001`
 
 use core::fmt;
+use core::hash::{Hash, Hasher};
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand_core::RngCore;
 
@@ -57,6 +58,13 @@ impl PartialEq for Scalar {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         bool::from(self.ct_eq(other))
+    }
+}
+
+impl Hash for Scalar {
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
     }
 }
 
@@ -1259,6 +1267,37 @@ fn test_double() {
     ]);
 
     assert_eq!(a.double(), a + a);
+}
+
+#[test]
+fn test_scalar_eq_and_hash() {
+    use sha3::{Digest, Keccak256};
+
+    let r0 = Scalar::from_raw([
+        0x1fff_3231_233f_fffd,
+        0x4884_b7fa_0003_4802,
+        0x998c_4fef_ecbc_4ff3,
+        0x1824_b159_acc5_0562,
+    ]);
+    let r1 = Scalar::from_raw([
+        0x1fff_3231_233f_fffd,
+        0x4884_b7fa_0003_4802,
+        0x998c_4fef_ecbc_4ff3,
+        0x1824_b159_acc5_0562,
+    ]);
+    let r2 = Scalar::from(7);
+
+    // Check PartialEq
+    assert!(r0 == r1);
+    assert!(r0 != r2);
+
+    let hash_r0 = Keccak256::digest(&r0.to_bytes());
+    let hash_r1 = Keccak256::digest(&r1.to_bytes());
+    let hash_r2 = Keccak256::digest(&r2.to_bytes());
+
+    // Check if hash results are consistent with PartialEq results
+    assert_eq!(hash_r0, hash_r1);
+    assert_ne!(hash_r0, hash_r2);
 }
 
 #[cfg(feature = "zeroize")]
