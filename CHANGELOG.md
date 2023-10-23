@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `uni_random` scalar generation [#125]
+
 ## [0.12.2] - 2023-10-11
 
 ### Fixed
@@ -210,24 +214,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rename `S` to `TWO_ADACITY` and export it
 
 <!-- Issues -->
-[#117]: (https://github.com/dusk-network/bls12_381/issues/117)
-[#109]: (https://github.com/dusk-network/bls12_381/issues/109)
-[#108]: (https://github.com/dusk-network/bls12_381/issues/108)
-[#100]: (https://github.com/dusk-network/bls12_381/issues/100)
-[#93]: (https://github.com/dusk-network/bls12_381/issues/93)
-[#75]: (https://github.com/dusk-network/bls12_381/issues/75)
-[#84]: (https://github.com/dusk-network/bls12_381/issues/84)
-[#94]: (https://github.com/dusk-network/bls12_381/issues/94)
-[#90]: (https://github.com/dusk-network/bls12_381/issues/90)
-[#86]: (https://github.com/dusk-network/bls12_381/issues/86)
-[#78]: (https://github.com/dusk-network/bls12_381/issues/78)
-[#61]: (https://github.com/dusk-network/bls12_381/issues/61)
-[#67]: (https://github.com/dusk-network/bls12_381/issues/67)
-[#54]: (https://github.com/dusk-network/bls12_381/issues/54)
-[#59]: (https://github.com/dusk-network/bls12_381/issues/59)
-[#58]: (https://github.com/dusk-network/bls12_381/issues/58)
-[#52]: (https://github.com/dusk-network/bls12_381/issues/52)
-[#50]: (https://github.com/dusk-network/bls12_381/issues/50)
+[#125]: https://github.com/dusk-network/bls12_381/issues/125
+[#117]: https://github.com/dusk-network/bls12_381/issues/117
+[#109]: https://github.com/dusk-network/bls12_381/issues/109
+[#108]: https://github.com/dusk-network/bls12_381/issues/108
+[#100]: https://github.com/dusk-network/bls12_381/issues/100
+[#93]: https://github.com/dusk-network/bls12_381/issues/93
+[#75]: https://github.com/dusk-network/bls12_381/issues/75
+[#84]: https://github.com/dusk-network/bls12_381/issues/84
+[#94]: https://github.com/dusk-network/bls12_381/issues/94
+[#90]: https://github.com/dusk-network/bls12_381/issues/90
+[#86]: https://github.com/dusk-network/bls12_381/issues/86
+[#78]: https://github.com/dusk-network/bls12_381/issues/78
+[#61]: https://github.com/dusk-network/bls12_381/issues/61
+[#67]: https://github.com/dusk-network/bls12_381/issues/67
+[#54]: https://github.com/dusk-network/bls12_381/issues/54
+[#59]: https://github.com/dusk-network/bls12_381/issues/59
+[#58]: https://github.com/dusk-network/bls12_381/issues/58
+[#52]: https://github.com/dusk-network/bls12_381/issues/52
+[#50]: https://github.com/dusk-network/bls12_381/issues/50
 
 <!-- Versions -->
 [Unreleased]: https://github.com/dusk-network/bls12_381/compare/v0.12.2...HEAD
