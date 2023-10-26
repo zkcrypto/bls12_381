@@ -657,13 +657,11 @@ impl G1Projective {
         let x3 = t0 * t1;
         let x3 = x3 + x3;
 
-        let tmp = G1Projective {
+        G1Projective {
             x: x3,
             y: y3,
             z: z3,
-        };
-
-        G1Projective::conditional_select(&tmp, &G1Projective::identity(), self.is_identity())
+        }
     }
 
     /// Adds this point to another point.
