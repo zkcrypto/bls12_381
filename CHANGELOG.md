@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add `uni_random` scalar generation [#125]
 
+### Changed
+
+- Change `Hash` derive on `Scalar` to explicit implementation [#106]
+
 ## [0.12.2] - 2023-10-11
 
 ### Fixed
@@ -218,6 +222,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#117]: https://github.com/dusk-network/bls12_381/issues/117
 [#109]: https://github.com/dusk-network/bls12_381/issues/109
 [#108]: https://github.com/dusk-network/bls12_381/issues/108
+[#106]: https://github.com/dusk-network/bls12_381/issues/106
 [#100]: https://github.com/dusk-network/bls12_381/issues/100
 [#93]: https://github.com/dusk-network/bls12_381/issues/93
 [#75]: https://github.com/dusk-network/bls12_381/issues/75
