@@ -6,6 +6,7 @@
 
 use core::cmp::{Ord, Ordering, PartialOrd};
 use core::convert::TryFrom;
+use core::hash::{Hash, Hasher};
 use core::ops::{BitAnd, BitXor};
 use dusk_bytes::{Error as BytesError, Serializable};
 use rand_core::{CryptoRng, RngCore};
@@ -202,6 +203,13 @@ impl<'a, 'b> BitAnd<&'b Scalar> for &'a Scalar {
             a_red.0[2] & b_red.0[2],
             a_red.0[3] & b_red.0[3],
         ])
+    }
+}
+
+impl Hash for Scalar {
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
     }
 }
 
@@ -406,4 +414,35 @@ fn pow_of_two_test() {
     for i in 0..1000 {
         assert_eq!(Scalar::pow_of_2(i as u64), two.pow(&[i as u64, 0, 0, 0]));
     }
+}
+
+#[test]
+fn test_scalar_eq_and_hash() {
+    use sha3::{Digest, Keccak256};
+
+    let r0 = Scalar::from_raw([
+        0x1fff_3231_233f_fffd,
+        0x4884_b7fa_0003_4802,
+        0x998c_4fef_ecbc_4ff3,
+        0x1824_b159_acc5_0562,
+    ]);
+    let r1 = Scalar::from_raw([
+        0x1fff_3231_233f_fffd,
+        0x4884_b7fa_0003_4802,
+        0x998c_4fef_ecbc_4ff3,
+        0x1824_b159_acc5_0562,
+    ]);
+    let r2 = Scalar::from(7);
+
+    // Check PartialEq
+    assert!(r0 == r1);
+    assert!(r0 != r2);
+
+    let hash_r0 = Keccak256::digest(&r0.to_bytes());
+    let hash_r1 = Keccak256::digest(&r1.to_bytes());
+    let hash_r2 = Keccak256::digest(&r2.to_bytes());
+
+    // Check if hash results are consistent with PartialEq results
+    assert_eq!(hash_r0, hash_r1);
+    assert_ne!(hash_r0, hash_r2);
 }
