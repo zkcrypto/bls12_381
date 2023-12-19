@@ -7,6 +7,12 @@ This crate provides an implementation of the BLS12-381 pairing-friendly elliptic
 * This implementation does not require the Rust standard library.
 * All operations are constant time unless explicitly noted.
 
+## RFC process
+
+This crate follows the [zkcrypto RFC process](https://zkcrypto.github.io/rfcs/).
+If you want to propose "substantial" changes to this crate, please
+[create an RFC](https://github.com/zkcrypto/rfcs) for wider discussion.
+
 ## Features
 
 * `bits` (on by default): Enables APIs for obtaining bit iterators for scalars.
