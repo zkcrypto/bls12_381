@@ -2,7 +2,7 @@ use super::*;
 
 macro_rules! test_vectors {
     ($projective:ident, $affine:ident, $serialize:ident, $deserialize:ident, $expected:ident) => {
-        let mut e = $projective::identity();
+        let mut e = $projective::IDENTITY;
 
         let mut v = vec![];
         {
@@ -19,7 +19,7 @@ macro_rules! test_vectors {
                 let decoded = $affine::$deserialize(&decoded).unwrap();
                 assert_eq!(e_affine, decoded);
 
-                e = &e + &$projective::generator();
+                e = &e + &$projective::GENERATOR;
             }
         }
 

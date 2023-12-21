@@ -2,20 +2,21 @@ use crate::fp::Fp;
 use crate::fp12::Fp12;
 use crate::fp2::Fp2;
 use crate::fp6::Fp6;
+use crate::util::decode_hex_byte;
 use crate::{G1Affine, G1Projective, G2Affine, G2Projective, Scalar, BLS_X, BLS_X_IS_NEGATIVE};
 
-use core::borrow::Borrow;
-use core::fmt;
-use core::iter::Sum;
-use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use group::Group;
+use arrayref::array_ref;
+use core::{
+    borrow::Borrow,
+    fmt::{self, Display, Formatter, LowerHex, UpperHex},
+    iter::Sum,
+    ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign},
+};
+use group::{Group, GroupEncoding};
 use pairing::{Engine, PairingCurveAffine};
 use rand_core::RngCore;
-use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
+use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
-#[cfg(feature = "alloc")]
-use alloc::vec::Vec;
-#[cfg(feature = "alloc")]
 use pairing::MultiMillerLoop;
 
 /// Represents results of a Miller loop, one of the most expensive portions
@@ -27,7 +28,7 @@ pub struct MillerLoopResult(pub(crate) Fp12);
 
 impl Default for MillerLoopResult {
     fn default() -> Self {
-        MillerLoopResult(Fp12::one())
+        MillerLoopResult(Fp12::ONE)
     }
 }
 
@@ -114,7 +115,7 @@ impl MillerLoopResult {
         #[must_use]
         fn cycolotomic_exp(f: Fp12) -> Fp12 {
             let x = BLS_X;
-            let mut tmp = Fp12::one();
+            let mut tmp = Fp12::ONE;
             let mut found_one = false;
             for i in (0..64).rev().map(|b| ((x >> b) & 1) == 1) {
                 if found_one {
@@ -212,15 +213,35 @@ pub struct Gt(pub(crate) Fp12);
 
 impl Default for Gt {
     fn default() -> Self {
-        Self::identity()
+        Self::IDENTITY
     }
 }
 
 #[cfg(feature = "zeroize")]
 impl zeroize::DefaultIsZeroes for Gt {}
 
-impl fmt::Display for Gt {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl LowerHex for Gt {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let bytes = self.to_bytes();
+        for &b in bytes.iter() {
+            write!(f, "{:02x}", b)?;
+        }
+        Ok(())
+    }
+}
+
+impl UpperHex for Gt {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let bytes = self.to_bytes();
+        for &b in bytes.iter() {
+            write!(f, "{:02X}", b)?;
+        }
+        Ok(())
+    }
+}
+
+impl Display for Gt {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self)
     }
 }
@@ -246,14 +267,126 @@ impl PartialEq for Gt {
 }
 
 impl Gt {
+    /// The group identity, which is $1$.
+    pub const IDENTITY: Self = Self(Fp12::ONE);
+
+    /// Bytes to represent this field
+    pub const BYTES: usize = 576;
+
     /// Returns the group identity, which is $1$.
     pub fn identity() -> Gt {
-        Gt(Fp12::one())
+        Gt(Fp12::ONE)
     }
 
     /// Doubles this group element.
     pub fn double(&self) -> Gt {
         Gt(self.0.square())
+    }
+
+    /// Return the byte representation of this value in big-endian
+    pub fn to_bytes(&self) -> [u8; Self::BYTES] {
+        let mut output = [0u8; Self::BYTES];
+        output[..48].copy_from_slice(&self.0.c0.c0.c0.to_bytes());
+        output[48..96].copy_from_slice(&self.0.c0.c0.c1.to_bytes());
+        output[96..144].copy_from_slice(&self.0.c0.c1.c0.to_bytes());
+        output[144..192].copy_from_slice(&self.0.c0.c1.c1.to_bytes());
+        output[192..240].copy_from_slice(&self.0.c0.c2.c0.to_bytes());
+        output[240..288].copy_from_slice(&self.0.c0.c2.c1.to_bytes());
+        output[288..336].copy_from_slice(&self.0.c1.c0.c0.to_bytes());
+        output[336..384].copy_from_slice(&self.0.c1.c0.c1.to_bytes());
+        output[384..432].copy_from_slice(&self.0.c1.c1.c0.to_bytes());
+        output[432..480].copy_from_slice(&self.0.c1.c1.c1.to_bytes());
+        output[480..528].copy_from_slice(&self.0.c1.c2.c0.to_bytes());
+        output[528..Self::BYTES].copy_from_slice(&self.0.c1.c2.c1.to_bytes());
+        output
+    }
+
+    /// Attempts to convert a big-endian byte representation of
+    /// a scalar into a `Gt`, failing if the input is not canonical.
+    pub fn from_bytes(bytes: &[u8; Self::BYTES]) -> CtOption<Self> {
+        let c000 = Fp::from_bytes(array_ref![bytes, 0, 48]);
+        let c001 = Fp::from_bytes(array_ref![bytes, 48, 48]);
+        let c010 = Fp::from_bytes(array_ref![bytes, 96, 48]);
+        let c011 = Fp::from_bytes(array_ref![bytes, 144, 48]);
+        let c020 = Fp::from_bytes(array_ref![bytes, 192, 48]);
+        let c021 = Fp::from_bytes(array_ref![bytes, 240, 48]);
+        let c100 = Fp::from_bytes(array_ref![bytes, 288, 48]);
+        let c101 = Fp::from_bytes(array_ref![bytes, 336, 48]);
+        let c110 = Fp::from_bytes(array_ref![bytes, 384, 48]);
+        let c111 = Fp::from_bytes(array_ref![bytes, 432, 48]);
+        let c120 = Fp::from_bytes(array_ref![bytes, 480, 48]);
+        let c121 = Fp::from_bytes(array_ref![bytes, 528, 48]);
+
+        c000.and_then(|cc000| {
+            c001.and_then(|cc001| {
+                c010.and_then(|cc010| {
+                    c011.and_then(|cc011| {
+                        c020.and_then(|cc020| {
+                            c021.and_then(|cc021| {
+                                c100.and_then(|cc100| {
+                                    c101.and_then(|cc101| {
+                                        c110.and_then(|cc110| {
+                                            c111.and_then(|cc111| {
+                                                c120.and_then(|cc120| {
+                                                    c121.and_then(|cc121| {
+                                                        CtOption::new(
+                                                            Gt(Fp12 {
+                                                                c0: Fp6 {
+                                                                    c0: Fp2 {
+                                                                        c0: cc000,
+                                                                        c1: cc001,
+                                                                    },
+                                                                    c1: Fp2 {
+                                                                        c0: cc010,
+                                                                        c1: cc011,
+                                                                    },
+                                                                    c2: Fp2 {
+                                                                        c0: cc020,
+                                                                        c1: cc021,
+                                                                    },
+                                                                },
+                                                                c1: Fp6 {
+                                                                    c0: Fp2 {
+                                                                        c0: cc100,
+                                                                        c1: cc101,
+                                                                    },
+                                                                    c1: Fp2 {
+                                                                        c0: cc110,
+                                                                        c1: cc111,
+                                                                    },
+                                                                    c2: Fp2 {
+                                                                        c0: cc120,
+                                                                        c1: cc121,
+                                                                    },
+                                                                },
+                                                            }),
+                                                            Choice::from(1u8),
+                                                        )
+                                                    })
+                                                })
+                                            })
+                                        })
+                                    })
+                                })
+                            })
+                        })
+                    })
+                })
+            })
+        })
+    }
+
+    /// Attempts to convert a big-endian hex representation of
+    /// a scalar into a `Gt`, failing if the input is not canonical.
+    pub fn from_hex_be(hex: &str) -> CtOption<Self> {
+        let bytes = hex.as_bytes();
+        let mut buf = [0u8; Self::BYTES];
+        let mut i = 0;
+        while i < Self::BYTES {
+            buf[i] = decode_hex_byte([bytes[i * 2], bytes[i * 2 + 1]]);
+            i += 1;
+        }
+        Self::from_bytes(&buf)
     }
 }
 
@@ -298,7 +431,7 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a Gt {
     type Output = Gt;
 
     fn mul(self, other: &'b Scalar) -> Self::Output {
-        let mut acc = Gt::identity();
+        let mut acc = Gt::IDENTITY;
 
         // This is a simple double-and-add implementation of group element
         // multiplication, moving from most significant to least
@@ -307,7 +440,7 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a Gt {
         // We skip the leading bit because it's always unset for Fq
         // elements.
         for bit in other
-            .to_bytes()
+            .to_le_bytes()
             .iter()
             .rev()
             .flat_map(|byte| (0..8).rev().map(move |i| Choice::from((byte >> i) & 1u8)))
@@ -332,7 +465,7 @@ where
     where
         I: Iterator<Item = T>,
     {
-        iter.fold(Self::identity(), |acc, item| acc + item.borrow())
+        iter.fold(Self::IDENTITY, |acc, item| acc + item.borrow())
     }
 }
 
@@ -353,7 +486,7 @@ impl Group for Gt {
     }
 
     fn identity() -> Self {
-        Self::identity()
+        Self::IDENTITY
     }
 
     fn generator() -> Self {
@@ -475,7 +608,7 @@ impl Group for Gt {
     }
 
     fn is_identity(&self) -> Choice {
-        self.ct_eq(&Self::identity())
+        self.ct_eq(&Self::IDENTITY)
     }
 
     #[must_use]
@@ -484,8 +617,45 @@ impl Group for Gt {
     }
 }
 
-#[cfg(feature = "alloc")]
-#[cfg_attr(docsrs, doc(cfg(all(feature = "pairings", feature = "alloc"))))]
+impl GroupEncoding for Gt {
+    type Repr = GtRepr;
+
+    fn from_bytes(bytes: &Self::Repr) -> CtOption<Self> {
+        Self::from_bytes(&bytes.0)
+    }
+
+    fn from_bytes_unchecked(bytes: &Self::Repr) -> CtOption<Self> {
+        Self::from_bytes(&bytes.0)
+    }
+
+    fn to_bytes(&self) -> Self::Repr {
+        GtRepr(self.to_bytes())
+    }
+}
+
+/// The representation of bytes for GT
+#[derive(Copy, Clone, Debug)]
+pub struct GtRepr([u8; Gt::BYTES]);
+
+impl Default for GtRepr {
+    fn default() -> Self {
+        Self([0u8; Gt::BYTES])
+    }
+}
+
+impl AsRef<[u8]> for GtRepr {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl AsMut<[u8]> for GtRepr {
+    fn as_mut(&mut self) -> &mut [u8] {
+        self.0.as_mut()
+    }
+}
+
+#[cfg_attr(docsrs, doc(cfg(all(feature = "pairings"))))]
 #[derive(Clone, Debug)]
 /// This structure contains cached computations pertaining to a $\mathbb{G}_2$
 /// element as part of the pairing function (specifically, the Miller loop) and
@@ -494,19 +664,18 @@ impl Group for Gt {
 /// conjunction with the [`multi_miller_loop`](crate::multi_miller_loop)
 /// function provided by this crate.
 ///
-/// Requires the `alloc` and `pairing` crate features to be enabled.
+/// Requires the `pairing` crate features to be enabled.
 pub struct G2Prepared {
     infinity: Choice,
-    coeffs: Vec<(Fp2, Fp2, Fp2)>,
+    coeffs: PairingCoefficients,
 }
 
-#[cfg(feature = "alloc")]
 impl From<G2Affine> for G2Prepared {
     fn from(q: G2Affine) -> G2Prepared {
         struct Adder {
             cur: G2Projective,
             base: G2Affine,
-            coeffs: Vec<(Fp2, Fp2, Fp2)>,
+            coeffs: PairingCoefficients,
         }
 
         impl MillerLoopDriver for Adder {
@@ -531,12 +700,12 @@ impl From<G2Affine> for G2Prepared {
         let mut adder = Adder {
             cur: G2Projective::from(q),
             base: q,
-            coeffs: Vec::with_capacity(68),
+            coeffs: PairingCoefficients::default(),
         };
 
         miller_loop(&mut adder);
 
-        assert_eq!(adder.coeffs.len(), 68);
+        debug_assert_eq!(adder.coeffs.len(), 68);
 
         G2Prepared {
             infinity: is_identity,
@@ -545,12 +714,11 @@ impl From<G2Affine> for G2Prepared {
     }
 }
 
-#[cfg(feature = "alloc")]
-#[cfg_attr(docsrs, doc(cfg(all(feature = "pairings", feature = "alloc"))))]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "pairings"))))]
 /// Computes $$\sum_{i=1}^n \textbf{ML}(a_i, b_i)$$ given a series of terms
 /// $$(a_1, b_1), (a_2, b_2), ..., (a_n, b_n).$$
 ///
-/// Requires the `alloc` and `pairing` crate features to be enabled.
+/// Requires the `pairing` crate features to be enabled.
 pub fn multi_miller_loop(terms: &[(&G1Affine, &G2Prepared)]) -> MillerLoopResult {
     struct Adder<'a, 'b, 'c> {
         terms: &'c [(&'a G1Affine, &'b G2Prepared)],
@@ -591,7 +759,7 @@ pub fn multi_miller_loop(terms: &[(&G1Affine, &G2Prepared)]) -> MillerLoopResult
             f.conjugate()
         }
         fn one() -> Self::Output {
-            Fp12::one()
+            Fp12::ONE
         }
     }
 
@@ -629,7 +797,7 @@ pub fn pairing(p: &G1Affine, q: &G2Affine) -> Gt {
             f.conjugate()
         }
         fn one() -> Self::Output {
-            Fp12::one()
+            Fp12::ONE
         }
     }
 
@@ -644,11 +812,7 @@ pub fn pairing(p: &G1Affine, q: &G2Affine) -> Gt {
     };
 
     let tmp = miller_loop(&mut adder);
-    let tmp = MillerLoopResult(Fp12::conditional_select(
-        &tmp,
-        &Fp12::one(),
-        either_identity,
-    ));
+    let tmp = MillerLoopResult(Fp12::conditional_select(&tmp, &Fp12::ONE, either_identity));
     tmp.final_exponentiation()
 }
 
@@ -823,6 +987,40 @@ impl MultiMillerLoop for Bls12 {
     }
 }
 
+#[derive(Clone, Debug)]
+struct PairingCoefficients {
+    space: [(Fp2, Fp2, Fp2); 68],
+    length: usize,
+}
+
+impl Default for PairingCoefficients {
+    fn default() -> Self {
+        Self {
+            space: [(Fp2::ZERO, Fp2::ZERO, Fp2::ZERO); 68],
+            length: 0,
+        }
+    }
+}
+
+impl core::ops::Index<usize> for PairingCoefficients {
+    type Output = (Fp2, Fp2, Fp2);
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.space[index]
+    }
+}
+
+impl PairingCoefficients {
+    pub fn push(&mut self, coeffs: (Fp2, Fp2, Fp2)) {
+        self.space[self.length] = coeffs;
+        self.length += 1;
+    }
+
+    pub fn len(&self) -> usize {
+        self.length
+    }
+}
+
 #[test]
 fn test_gt_generator() {
     assert_eq!(
@@ -843,7 +1041,7 @@ fn test_bilinearity() {
     let h = G2Affine::from(G2Affine::generator() * b);
     let p = pairing(&g, &h);
 
-    assert!(p != Gt::identity());
+    assert_ne!(p, Gt::IDENTITY);
 
     let expected = G1Affine::from(G1Affine::generator() * c);
 
@@ -866,7 +1064,6 @@ fn test_unitary() {
     assert_eq!(q, r);
 }
 
-#[cfg(feature = "alloc")]
 #[test]
 fn test_multi_miller_loop() {
     let a1 = G1Affine::generator();
@@ -924,7 +1121,7 @@ fn test_multi_miller_loop() {
 fn test_miller_loop_result_default() {
     assert_eq!(
         MillerLoopResult::default().final_exponentiation(),
-        Gt::identity(),
+        Gt::IDENTITY,
     );
 }
 
@@ -945,11 +1142,11 @@ fn test_miller_loop_result_zeroize() {
 fn tricking_miller_loop_result() {
     assert_eq!(
         multi_miller_loop(&[(&G1Affine::identity(), &G2Affine::generator().into())]).0,
-        Fp12::one()
+        Fp12::ONE
     );
     assert_eq!(
         multi_miller_loop(&[(&G1Affine::generator(), &G2Affine::identity().into())]).0,
-        Fp12::one()
+        Fp12::ONE
     );
     assert_ne!(
         multi_miller_loop(&[
@@ -957,7 +1154,7 @@ fn tricking_miller_loop_result() {
             (&-G1Affine::generator(), &G2Affine::generator().into())
         ])
         .0,
-        Fp12::one()
+        Fp12::ONE
     );
     assert_eq!(
         multi_miller_loop(&[
@@ -965,6 +1162,14 @@ fn tricking_miller_loop_result() {
             (&-G1Affine::generator(), &G2Affine::generator().into())
         ])
         .final_exponentiation(),
-        Gt::identity()
+        Gt::IDENTITY
     );
+}
+#[test]
+fn test_hex() {
+    let s1 = Gt::generator();
+    let hex = format!("{:x}", s1);
+    let s2 = Gt::from_hex_be(&hex);
+    assert_eq!(s2.is_some().unwrap_u8(), 1u8);
+    assert_eq!(s1, s2.unwrap());
 }

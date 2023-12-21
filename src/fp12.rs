@@ -19,7 +19,7 @@ impl From<Fp> for Fp12 {
     fn from(f: Fp) -> Fp12 {
         Fp12 {
             c0: Fp6::from(f),
-            c1: Fp6::zero(),
+            c1: Fp6::ZERO,
         }
     }
 }
@@ -28,7 +28,7 @@ impl From<Fp2> for Fp12 {
     fn from(f: Fp2) -> Fp12 {
         Fp12 {
             c0: Fp6::from(f),
-            c1: Fp6::zero(),
+            c1: Fp6::ZERO,
         }
     }
 }
@@ -37,7 +37,7 @@ impl From<Fp6> for Fp12 {
     fn from(f: Fp6) -> Fp12 {
         Fp12 {
             c0: f,
-            c1: Fp6::zero(),
+            c1: Fp6::ZERO,
         }
     }
 }
@@ -58,7 +58,7 @@ impl Clone for Fp12 {
 
 impl Default for Fp12 {
     fn default() -> Self {
-        Fp12::zero()
+        Fp12::ZERO
     }
 }
 
@@ -89,19 +89,28 @@ impl ConstantTimeEq for Fp12 {
 }
 
 impl Fp12 {
+    pub const ZERO: Fp12 = Fp12 {
+        c0: Fp6::ZERO,
+        c1: Fp6::ZERO,
+    };
+    pub const ONE: Fp12 = Fp12 {
+        c0: Fp6::ONE,
+        c1: Fp6::ZERO,
+    };
+
     #[inline]
     pub fn zero() -> Self {
         Fp12 {
-            c0: Fp6::zero(),
-            c1: Fp6::zero(),
+            c0: Fp6::ZERO,
+            c1: Fp6::ZERO,
         }
     }
 
     #[inline]
     pub fn one() -> Self {
         Fp12 {
-            c0: Fp6::one(),
-            c1: Fp6::zero(),
+            c0: Fp6::ONE,
+            c1: Fp6::ZERO,
         }
     }
 
@@ -628,7 +637,7 @@ fn test_arithmetic() {
         a.invert().unwrap() * b.invert().unwrap(),
         (a * b).invert().unwrap()
     );
-    assert_eq!(a.invert().unwrap() * a, Fp12::one());
+    assert_eq!(a.invert().unwrap() * a, Fp12::ONE);
 
     assert!(a != a.frobenius_map());
     assert_eq!(
@@ -653,7 +662,7 @@ fn test_arithmetic() {
 fn test_zeroize() {
     use zeroize::Zeroize;
 
-    let mut a = Fp12::one();
+    let mut a = Fp12::ONE;
     a.zeroize();
     assert!(bool::from(a.is_zero()));
 }

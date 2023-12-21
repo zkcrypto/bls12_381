@@ -1,7 +1,7 @@
 //! This module provides an implementation of the $\mathbb{G}_1$ group of BLS12-381.
 
 use core::borrow::Borrow;
-use core::fmt;
+use core::fmt::{self, Formatter};
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use group::{
@@ -15,7 +15,13 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 use group::WnafGroup;
 
 use crate::fp::Fp;
+use crate::util::decode_hex_into_slice;
 use crate::Scalar;
+#[cfg(feature = "hashing")]
+use elliptic_curve::{
+    group::cofactor::CofactorGroup,
+    hash2curve::{ExpandMsg, MapToCurve},
+};
 
 /// This is an element of $\mathbb{G}_1$ represented in the affine coordinate space.
 /// It is ideal to keep elements in this representation to reduce memory usage and
@@ -46,9 +52,29 @@ impl fmt::Display for G1Affine {
     }
 }
 
+impl fmt::LowerHex for G1Affine {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let bytes = self.to_compressed();
+        for &b in bytes.iter() {
+            write!(f, "{:02x}", b)?;
+        }
+        Ok(())
+    }
+}
+
+impl fmt::UpperHex for G1Affine {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let bytes = self.to_compressed();
+        for &b in bytes.iter() {
+            write!(f, "{:02X}", b)?;
+        }
+        Ok(())
+    }
+}
+
 impl<'a> From<&'a G1Projective> for G1Affine {
     fn from(p: &'a G1Projective) -> G1Affine {
-        let zinv = p.z.invert().unwrap_or(Fp::zero());
+        let zinv = p.z.invert().unwrap_or(Fp::ZERO);
         let x = p.x * zinv;
         let y = p.y * zinv;
 
@@ -107,7 +133,7 @@ impl<'a> Neg for &'a G1Affine {
     fn neg(self) -> G1Affine {
         G1Affine {
             x: self.x,
-            y: Fp::conditional_select(&-self.y, &Fp::one(), self.infinity),
+            y: Fp::conditional_select(&-self.y, &Fp::ONE, self.infinity),
             infinity: self.infinity,
         }
     }
@@ -166,7 +192,7 @@ where
     where
         I: Iterator<Item = T>,
     {
-        iter.fold(Self::identity(), |acc, item| acc + item.borrow())
+        iter.fold(Self::IDENTITY, |acc, item| acc + item.borrow())
     }
 }
 
@@ -183,11 +209,15 @@ const B: Fp = Fp::from_raw_unchecked([
 ]);
 
 impl G1Affine {
+    /// Bytes to represent this point compressed
+    pub const COMPRESSED_BYTES: usize = 48;
+    /// Bytes to represent this point uncompressed
+    pub const UNCOMPRESSED_BYTES: usize = 96;
     /// Returns the identity of the group: the point at infinity.
     pub fn identity() -> G1Affine {
         G1Affine {
-            x: Fp::zero(),
-            y: Fp::one(),
+            x: Fp::ZERO,
+            y: Fp::ONE,
             infinity: Choice::from(1u8),
         }
     }
@@ -221,7 +251,7 @@ impl G1Affine {
     pub fn to_compressed(&self) -> [u8; 48] {
         // Strictly speaking, self.x is zero already when self.infinity is true, but
         // to guard against implementation mistakes we do not assume this.
-        let mut res = Fp::conditional_select(&self.x, &Fp::zero(), self.infinity).to_bytes();
+        let mut res = Fp::conditional_select(&self.x, &Fp::ZERO, self.infinity).to_bytes();
 
         // This point is in compressed form, so we set the most significant bit.
         res[0] |= 1u8 << 7;
@@ -247,10 +277,10 @@ impl G1Affine {
         let mut res = [0; 96];
 
         res[0..48].copy_from_slice(
-            &Fp::conditional_select(&self.x, &Fp::zero(), self.infinity).to_bytes()[..],
+            &Fp::conditional_select(&self.x, &Fp::ZERO, self.infinity).to_bytes()[..],
         );
         res[48..96].copy_from_slice(
-            &Fp::conditional_select(&self.y, &Fp::zero(), self.infinity).to_bytes()[..],
+            &Fp::conditional_select(&self.y, &Fp::ZERO, self.infinity).to_bytes()[..],
         );
 
         // Is this point at infinity? If so, set the second-most significant bit.
@@ -389,6 +419,22 @@ impl G1Affine {
         })
     }
 
+    /// Attempts to deserialize a compressed element hex string. See [`notes::serialization`](crate::notes::serialization)
+    /// for details about how group elements are serialized.
+    pub fn from_compressed_hex(hex: &str) -> CtOption<Self> {
+        let mut buf = [0u8; Self::COMPRESSED_BYTES];
+        decode_hex_into_slice(&mut buf, hex.as_bytes());
+        Self::from_compressed(&buf)
+    }
+
+    /// Attempts to deserialize a uncompressed element hex string. See [`notes::serialization`](crate::notes::serialization)
+    /// for details about how group elements are serialized.
+    pub fn from_uncompressed_hex(hex: &str) -> CtOption<Self> {
+        let mut buf = [0u8; Self::UNCOMPRESSED_BYTES];
+        decode_hex_into_slice(&mut buf, hex.as_bytes());
+        Self::from_uncompressed(&buf)
+    }
+
     /// Returns true if this element is the identity (the point at infinity).
     #[inline]
     pub fn is_identity(&self) -> Choice {
@@ -447,7 +493,7 @@ pub struct G1Projective {
 
 impl Default for G1Projective {
     fn default() -> G1Projective {
-        G1Projective::identity()
+        G1Projective::IDENTITY
     }
 }
 
@@ -465,7 +511,7 @@ impl<'a> From<&'a G1Affine> for G1Projective {
         G1Projective {
             x: p.x,
             y: p.y,
-            z: Fp::conditional_select(&Fp::one(), &Fp::zero(), p.infinity),
+            z: Fp::conditional_select(&Fp::ONE, &Fp::ZERO, p.infinity),
         }
     }
 }
@@ -557,7 +603,7 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a G1Projective {
     type Output = G1Projective;
 
     fn mul(self, other: &'b Scalar) -> Self::Output {
-        self.multiply(&other.to_bytes())
+        self.multiply(&other.to_le_bytes())
     }
 }
 
@@ -574,7 +620,7 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a G1Affine {
     type Output = G1Projective;
 
     fn mul(self, other: &'b Scalar) -> Self::Output {
-        G1Projective::from(self).multiply(&other.to_bytes())
+        G1Projective::from(self).multiply(&other.to_le_bytes())
     }
 }
 
@@ -593,6 +639,38 @@ impl_binops_multiplicative_mixed!(G1Affine, Scalar, G1Projective);
 impl_binops_multiplicative_mixed!(Scalar, G1Affine, G1Projective);
 impl_binops_multiplicative_mixed!(Scalar, G1Projective, G1Projective);
 
+impl fmt::LowerHex for G1Projective {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{:x}", self.to_affine())
+    }
+}
+
+impl fmt::UpperHex for G1Projective {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{:X}", self.to_affine())
+    }
+}
+
+#[cfg(feature = "hashing")]
+impl CofactorGroup for G1Projective {
+    type Subgroup = G1Projective;
+
+    /// Multiplies by $(1 - z)$, where $z$ is the parameter of BLS12-381, which
+    /// [suffices to clear](https://ia.cr/2019/403) the cofactor and map
+    /// elliptic curve points to elements of $\mathbb{G}\_1$.
+    fn clear_cofactor(&self) -> Self::Subgroup {
+        self - self.mul_by_x()
+    }
+
+    fn into_subgroup(self) -> CtOption<Self::Subgroup> {
+        CtOption::new(self, 1.into())
+    }
+
+    fn is_torsion_free(&self) -> Choice {
+        self.is_on_curve()
+    }
+}
+
 #[inline(always)]
 fn mul_by_3b(a: Fp) -> Fp {
     let a = a + a; // 2
@@ -601,38 +679,39 @@ fn mul_by_3b(a: Fp) -> Fp {
 }
 
 impl G1Projective {
-    /// Returns the identity of the group: the point at infinity.
-    pub fn identity() -> G1Projective {
-        G1Projective {
-            x: Fp::zero(),
-            y: Fp::one(),
-            z: Fp::zero(),
-        }
-    }
+    /// Bytes to represent this point compressed
+    pub const COMPRESSED_BYTES: usize = 48;
+    /// Bytes to represent this point uncompressed
+    pub const UNCOMPRESSED_BYTES: usize = 96;
 
-    /// Returns a fixed generator of the group. See [`notes::design`](notes/design/index.html#fixed-generators)
+    /// The identity of the group: the point at infinity.
+    pub const IDENTITY: Self = Self {
+        x: Fp::ZERO,
+        y: Fp::ONE,
+        z: Fp::ZERO,
+    };
+
+    /// The fixed generator of the group. See [`notes::design`](notes/design/index.html#fixed-generators)
     /// for how this generator is chosen.
-    pub fn generator() -> G1Projective {
-        G1Projective {
-            x: Fp::from_raw_unchecked([
-                0x5cb3_8790_fd53_0c16,
-                0x7817_fc67_9976_fff5,
-                0x154f_95c7_143b_a1c1,
-                0xf0ae_6acd_f3d0_e747,
-                0xedce_6ecc_21db_f440,
-                0x1201_7741_9e0b_fb75,
-            ]),
-            y: Fp::from_raw_unchecked([
-                0xbaac_93d5_0ce7_2271,
-                0x8c22_631a_7918_fd8e,
-                0xdd59_5f13_5707_25ce,
-                0x51ac_5829_5040_5194,
-                0x0e1c_8c3f_ad00_59c0,
-                0x0bbc_3efc_5008_a26a,
-            ]),
-            z: Fp::one(),
-        }
-    }
+    pub const GENERATOR: Self = Self {
+        x: Fp::from_raw_unchecked([
+            0x5cb3_8790_fd53_0c16,
+            0x7817_fc67_9976_fff5,
+            0x154f_95c7_143b_a1c1,
+            0xf0ae_6acd_f3d0_e747,
+            0xedce_6ecc_21db_f440,
+            0x1201_7741_9e0b_fb75,
+        ]),
+        y: Fp::from_raw_unchecked([
+            0xbaac_93d5_0ce7_2271,
+            0x8c22_631a_7918_fd8e,
+            0xdd59_5f13_5707_25ce,
+            0x51ac_5829_5040_5194,
+            0x0e1c_8c3f_ad00_59c0,
+            0x0bbc_3efc_5008_a26a,
+        ]),
+        z: Fp::ONE,
+    };
 
     /// Computes the doubling of this point.
     pub fn double(&self) -> G1Projective {
@@ -663,7 +742,7 @@ impl G1Projective {
             z: z3,
         };
 
-        G1Projective::conditional_select(&tmp, &G1Projective::identity(), self.is_identity())
+        G1Projective::conditional_select(&tmp, &G1Projective::IDENTITY, self.is_identity())
     }
 
     /// Adds this point to another point.
@@ -752,7 +831,7 @@ impl G1Projective {
     }
 
     fn multiply(&self, by: &[u8; 32]) -> G1Projective {
-        let mut acc = G1Projective::identity();
+        let mut acc = G1Projective::IDENTITY;
 
         // This is a simple double-and-add implementation of point
         // multiplication, moving from most significant to least
@@ -775,7 +854,7 @@ impl G1Projective {
 
     /// Multiply `self` by `crate::BLS_X`, using double and add.
     fn mul_by_x(&self) -> G1Projective {
-        let mut xself = G1Projective::identity();
+        let mut xself = G1Projective::IDENTITY;
         // NOTE: in BLS12-381 we can just skip the first bit.
         let mut x = crate::BLS_X >> 1;
         let mut tmp = *self;
@@ -794,19 +873,12 @@ impl G1Projective {
         xself
     }
 
-    /// Multiplies by $(1 - z)$, where $z$ is the parameter of BLS12-381, which
-    /// [suffices to clear](https://ia.cr/2019/403) the cofactor and map
-    /// elliptic curve points to elements of $\mathbb{G}\_1$.
-    pub fn clear_cofactor(&self) -> G1Projective {
-        self - self.mul_by_x()
-    }
-
     /// Converts a batch of `G1Projective` elements into `G1Affine` elements. This
     /// function will panic if `p.len() != q.len()`.
     pub fn batch_normalize(p: &[Self], q: &mut [G1Affine]) {
         assert_eq!(p.len(), q.len());
 
-        let mut acc = Fp::one();
+        let mut acc = Fp::ONE;
         for (p, q) in p.iter().zip(q.iter_mut()) {
             // We use the `x` field of `G1Affine` to store the product
             // of previous z-coordinates seen.
@@ -852,6 +924,31 @@ impl G1Projective {
         (self.y.square() * self.z).ct_eq(&(self.x.square() * self.x + self.z.square() * self.z * B))
             | self.z.is_zero()
     }
+
+    #[cfg(feature = "hashing")]
+    /// Use a random oracle to map a value to a curve point
+    pub fn hash<X>(msg: &[u8], dst: &[u8]) -> Self
+    where
+        X: for<'a> ExpandMsg<'a>,
+    {
+        {
+            let u = Fp::hash::<X>(msg, dst);
+            u[0].map_to_curve() + u[1].map_to_curve()
+        }
+        .clear_cofactor()
+    }
+
+    #[cfg(feature = "hashing")]
+    /// Use injective encoding to map a value to a curve point
+    pub fn encode<X>(msg: &[u8], dst: &[u8]) -> Self
+    where
+        X: for<'a> ExpandMsg<'a>,
+    {
+        let u = Fp::encode::<X>(msg, dst);
+        u.map_to_curve().clear_cofactor()
+    }
+
+    impl_pippenger_sum_of_products!();
 }
 
 #[derive(Clone, Copy)]
@@ -968,11 +1065,11 @@ impl Group for G1Projective {
     }
 
     fn identity() -> Self {
-        Self::identity()
+        Self::IDENTITY
     }
 
     fn generator() -> Self {
-        Self::generator()
+        Self::GENERATOR
     }
 
     fn is_identity(&self) -> Choice {
@@ -1103,16 +1200,16 @@ fn test_beta() {
         ])
         .unwrap()
     );
-    assert_ne!(BETA, Fp::one());
-    assert_ne!(BETA * BETA, Fp::one());
-    assert_eq!(BETA * BETA * BETA, Fp::one());
+    assert_ne!(BETA, Fp::ONE);
+    assert_ne!(BETA * BETA, Fp::ONE);
+    assert_eq!(BETA * BETA * BETA, Fp::ONE);
 }
 #[test]
 fn test_is_on_curve() {
     assert!(bool::from(G1Affine::identity().is_on_curve()));
     assert!(bool::from(G1Affine::generator().is_on_curve()));
-    assert!(bool::from(G1Projective::identity().is_on_curve()));
-    assert!(bool::from(G1Projective::generator().is_on_curve()));
+    assert!(bool::from(G1Projective::IDENTITY.is_on_curve()));
+    assert!(bool::from(G1Projective::GENERATOR.is_on_curve()));
 
     let z = Fp::from_raw_unchecked([
         0xba7a_fa1f_9a6f_e250,
@@ -1151,8 +1248,8 @@ fn test_affine_point_equality() {
 #[test]
 #[allow(clippy::eq_op)]
 fn test_projective_point_equality() {
-    let a = G1Projective::generator();
-    let b = G1Projective::identity();
+    let a = G1Projective::GENERATOR;
+    let b = G1Projective::IDENTITY;
 
     assert!(a == a);
     assert!(b == b);
@@ -1207,8 +1304,8 @@ fn test_conditionally_select_affine() {
 
 #[test]
 fn test_conditionally_select_projective() {
-    let a = G1Projective::generator();
-    let b = G1Projective::identity();
+    let a = G1Projective::GENERATOR;
+    let b = G1Projective::IDENTITY;
 
     assert_eq!(
         G1Projective::conditional_select(&a, &b, Choice::from(0u8)),
@@ -1222,8 +1319,8 @@ fn test_conditionally_select_projective() {
 
 #[test]
 fn test_projective_to_affine() {
-    let a = G1Projective::generator();
-    let b = G1Projective::identity();
+    let a = G1Projective::GENERATOR;
+    let b = G1Projective::IDENTITY;
 
     assert!(bool::from(G1Affine::from(a).is_on_curve()));
     assert!(!bool::from(G1Affine::from(a).is_identity()));
@@ -1262,12 +1359,12 @@ fn test_affine_to_projective() {
 #[test]
 fn test_doubling() {
     {
-        let tmp = G1Projective::identity().double();
+        let tmp = G1Projective::IDENTITY.double();
         assert!(bool::from(tmp.is_identity()));
         assert!(bool::from(tmp.is_on_curve()));
     }
     {
-        let tmp = G1Projective::generator().double();
+        let tmp = G1Projective::GENERATOR.double();
         assert!(!bool::from(tmp.is_identity()));
         assert!(bool::from(tmp.is_on_curve()));
 
@@ -1299,15 +1396,15 @@ fn test_doubling() {
 #[test]
 fn test_projective_addition() {
     {
-        let a = G1Projective::identity();
-        let b = G1Projective::identity();
+        let a = G1Projective::IDENTITY;
+        let b = G1Projective::IDENTITY;
         let c = a + b;
         assert!(bool::from(c.is_identity()));
         assert!(bool::from(c.is_on_curve()));
     }
     {
-        let a = G1Projective::identity();
-        let mut b = G1Projective::generator();
+        let a = G1Projective::IDENTITY;
+        let mut b = G1Projective::GENERATOR;
         {
             let z = Fp::from_raw_unchecked([
                 0xba7a_fa1f_9a6f_e250,
@@ -1327,11 +1424,11 @@ fn test_projective_addition() {
         let c = a + b;
         assert!(!bool::from(c.is_identity()));
         assert!(bool::from(c.is_on_curve()));
-        assert!(c == G1Projective::generator());
+        assert!(c == G1Projective::GENERATOR);
     }
     {
-        let a = G1Projective::identity();
-        let mut b = G1Projective::generator();
+        let a = G1Projective::IDENTITY;
+        let mut b = G1Projective::GENERATOR;
         {
             let z = Fp::from_raw_unchecked([
                 0xba7a_fa1f_9a6f_e250,
@@ -1351,16 +1448,16 @@ fn test_projective_addition() {
         let c = b + a;
         assert!(!bool::from(c.is_identity()));
         assert!(bool::from(c.is_on_curve()));
-        assert!(c == G1Projective::generator());
+        assert!(c == G1Projective::GENERATOR);
     }
     {
-        let a = G1Projective::generator().double().double(); // 4P
-        let b = G1Projective::generator().double(); // 2P
+        let a = G1Projective::GENERATOR.double().double(); // 4P
+        let b = G1Projective::GENERATOR.double(); // 2P
         let c = a + b;
 
-        let mut d = G1Projective::generator();
+        let mut d = G1Projective::GENERATOR;
         for _ in 0..5 {
-            d += G1Projective::generator();
+            d += G1Projective::GENERATOR;
         }
         assert!(!bool::from(c.is_identity()));
         assert!(bool::from(c.is_on_curve()));
@@ -1380,7 +1477,7 @@ fn test_projective_addition() {
             0x18f0_2065_5463_8741,
         ]);
         let beta = beta.square();
-        let a = G1Projective::generator().double().double();
+        let a = G1Projective::GENERATOR.double().double();
         let b = G1Projective {
             x: a.x * beta,
             y: -a.y,
@@ -1409,7 +1506,7 @@ fn test_projective_addition() {
                     0x0bc3_b8d5_fb04_47f7,
                     0x07bf_a4c7_210f_4f44,
                 ]),
-                z: Fp::one()
+                z: Fp::ONE
             })
         );
         assert!(!bool::from(c.is_identity()));
@@ -1421,14 +1518,14 @@ fn test_projective_addition() {
 fn test_mixed_addition() {
     {
         let a = G1Affine::identity();
-        let b = G1Projective::identity();
+        let b = G1Projective::IDENTITY;
         let c = a + b;
         assert!(bool::from(c.is_identity()));
         assert!(bool::from(c.is_on_curve()));
     }
     {
         let a = G1Affine::identity();
-        let mut b = G1Projective::generator();
+        let mut b = G1Projective::GENERATOR;
         {
             let z = Fp::from_raw_unchecked([
                 0xba7a_fa1f_9a6f_e250,
@@ -1448,11 +1545,11 @@ fn test_mixed_addition() {
         let c = a + b;
         assert!(!bool::from(c.is_identity()));
         assert!(bool::from(c.is_on_curve()));
-        assert!(c == G1Projective::generator());
+        assert!(c == G1Projective::GENERATOR);
     }
     {
         let a = G1Affine::identity();
-        let mut b = G1Projective::generator();
+        let mut b = G1Projective::GENERATOR;
         {
             let z = Fp::from_raw_unchecked([
                 0xba7a_fa1f_9a6f_e250,
@@ -1472,14 +1569,14 @@ fn test_mixed_addition() {
         let c = b + a;
         assert!(!bool::from(c.is_identity()));
         assert!(bool::from(c.is_on_curve()));
-        assert!(c == G1Projective::generator());
+        assert!(c == G1Projective::GENERATOR);
     }
     {
-        let a = G1Projective::generator().double().double(); // 4P
-        let b = G1Projective::generator().double(); // 2P
+        let a = G1Projective::GENERATOR.double().double(); // 4P
+        let b = G1Projective::GENERATOR.double(); // 2P
         let c = a + b;
 
-        let mut d = G1Projective::generator();
+        let mut d = G1Projective::GENERATOR;
         for _ in 0..5 {
             d += G1Affine::generator();
         }
@@ -1501,7 +1598,7 @@ fn test_mixed_addition() {
             0x18f0_2065_5463_8741,
         ]);
         let beta = beta.square();
-        let a = G1Projective::generator().double().double();
+        let a = G1Projective::GENERATOR.double().double();
         let b = G1Projective {
             x: a.x * beta,
             y: -a.y,
@@ -1531,7 +1628,7 @@ fn test_mixed_addition() {
                     0x0bc3_b8d5_fb04_47f7,
                     0x07bf_a4c7_210f_4f44,
                 ]),
-                z: Fp::one()
+                z: Fp::ONE
             })
         );
         assert!(!bool::from(c.is_identity()));
@@ -1542,21 +1639,21 @@ fn test_mixed_addition() {
 #[test]
 #[allow(clippy::eq_op)]
 fn test_projective_negation_and_subtraction() {
-    let a = G1Projective::generator().double();
-    assert_eq!(a + (-a), G1Projective::identity());
+    let a = G1Projective::GENERATOR.double();
+    assert_eq!(a + (-a), G1Projective::IDENTITY);
     assert_eq!(a + (-a), a - a);
 }
 
 #[test]
 fn test_affine_negation_and_subtraction() {
     let a = G1Affine::generator();
-    assert_eq!(G1Projective::from(a) + (-a), G1Projective::identity());
+    assert_eq!(G1Projective::from(a) + (-a), G1Projective::IDENTITY);
     assert_eq!(G1Projective::from(a) + (-a), G1Projective::from(a) - a);
 }
 
 #[test]
 fn test_projective_scalar_multiplication() {
-    let g = G1Projective::generator();
+    let g = G1Projective::GENERATOR;
     let a = Scalar::from_raw([
         0x2b56_8297_a56d_a71c,
         0xd8c3_9ecb_0ef3_75d1,
@@ -1625,7 +1722,7 @@ fn test_is_torsion_free() {
 fn test_mul_by_x() {
     // multiplying by `x` a point in G1 is the same as multiplying by
     // the equivalent scalar.
-    let generator = G1Projective::generator();
+    let generator = G1Projective::GENERATOR;
     let x = if crate::BLS_X_IS_NEGATIVE {
         -Scalar::from(crate::BLS_X)
     } else {
@@ -1633,7 +1730,7 @@ fn test_mul_by_x() {
     };
     assert_eq!(generator.mul_by_x(), generator * x);
 
-    let point = G1Projective::generator() * Scalar::from(42);
+    let point = G1Projective::GENERATOR * Scalar::from(42);
     assert_eq!(point.mul_by_x(), point * x);
 }
 
@@ -1641,9 +1738,9 @@ fn test_mul_by_x() {
 fn test_clear_cofactor() {
     // the generator (and the identity) are always on the curve,
     // even after clearing the cofactor
-    let generator = G1Projective::generator();
+    let generator = G1Projective::GENERATOR;
     assert!(bool::from(generator.clear_cofactor().is_on_curve()));
-    let id = G1Projective::identity();
+    let id = G1Projective::IDENTITY;
     assert!(bool::from(id.clear_cofactor().is_on_curve()));
 
     let z = Fp::from_raw_unchecked([
@@ -1689,7 +1786,7 @@ fn test_clear_cofactor() {
 
 #[test]
 fn test_batch_normalize() {
-    let a = G1Projective::generator().double();
+    let a = G1Projective::GENERATOR.double();
     let b = a.double();
     let c = b.double();
 
@@ -1698,13 +1795,13 @@ fn test_batch_normalize() {
             for c_identity in (0..=1).map(|n| n == 1) {
                 let mut v = [a, b, c];
                 if a_identity {
-                    v[0] = G1Projective::identity()
+                    v[0] = G1Projective::IDENTITY
                 }
                 if b_identity {
-                    v[1] = G1Projective::identity()
+                    v[1] = G1Projective::IDENTITY
                 }
                 if c_identity {
-                    v[2] = G1Projective::identity()
+                    v[2] = G1Projective::IDENTITY
                 }
 
                 let mut t = [
@@ -1735,7 +1832,7 @@ fn test_zeroize() {
     a.zeroize();
     assert!(bool::from(a.is_identity()));
 
-    let mut a = G1Projective::generator();
+    let mut a = G1Projective::GENERATOR;
     a.zeroize();
     assert!(bool::from(a.is_identity()));
 
@@ -1758,7 +1855,7 @@ fn test_commutative_scalar_subgroup_multiplication() {
     ]);
 
     let g1_a = G1Affine::generator();
-    let g1_p = G1Projective::generator();
+    let g1_p = G1Projective::GENERATOR;
 
     // By reference.
     assert_eq!(&g1_a * &a, &a * &g1_a);
@@ -1773,4 +1870,113 @@ fn test_commutative_scalar_subgroup_multiplication() {
     // By value.
     assert_eq!(g1_p * a, a * g1_p);
     assert_eq!(g1_a * a, a * g1_a);
+}
+
+#[test]
+fn test_sum_of_products() {
+    use ff::Field;
+    use rand_core::SeedableRng;
+    use rand_xorshift::XorShiftRng;
+
+    let seed = [1u8; 16];
+    let mut rng = XorShiftRng::from_seed(seed);
+
+    let h0 = G1Projective::random(&mut rng);
+
+    let s = Scalar::random(&mut rng);
+    let s_tilde = Scalar::random(&mut rng);
+    let c = Scalar::random(&mut rng);
+
+    assert_eq!(
+        h0 * s,
+        G1Projective::sum_of_products_in_place(&[h0], &mut [s])
+    );
+    assert_eq!(
+        h0 * s_tilde,
+        G1Projective::sum_of_products_in_place(&[h0], &mut [s_tilde])
+    );
+
+    // test schnorr proof
+    let u = h0 * s;
+    let u_tilde = h0 * s_tilde;
+    let s_hat = s_tilde - c * s;
+    assert_eq!(u_tilde, u * c + h0 * s_hat);
+    assert_eq!(
+        u_tilde,
+        G1Projective::sum_of_products_in_place(&[u, h0], &mut [c, s_hat])
+    );
+}
+
+#[cfg(feature = "alloc")]
+#[test]
+fn test_sum_of_products_alloc() {
+    use ff::Field;
+    use rand_core::SeedableRng;
+    use rand_xorshift::XorShiftRng;
+
+    let seed = [1u8; 16];
+    let mut rng = XorShiftRng::from_seed(seed);
+
+    let h0 = G1Projective::random(&mut rng);
+
+    let s = Scalar::random(&mut rng);
+    let s_clone = s.clone();
+    let s_tilde = Scalar::random(&mut rng);
+    let c = Scalar::random(&mut rng);
+
+    assert_eq!(
+        h0 * s,
+        G1Projective::sum_of_products_in_place(&[h0], &mut [s])
+    );
+    assert_eq!(s, s_clone);
+    assert_eq!(
+        h0 * s_tilde,
+        G1Projective::sum_of_products(&[h0], &mut [s_tilde])
+    );
+
+    // test schnorr proof
+    let u = h0 * s;
+    let u_tilde = h0 * s_tilde;
+    let s_hat = s_tilde - c * s;
+    assert_eq!(u_tilde, u * c + h0 * s_hat);
+    assert_eq!(
+        u_tilde,
+        G1Projective::sum_of_products(&[u, h0], &mut [c, s_hat])
+    );
+}
+
+#[cfg(feature = "hashing")]
+#[test]
+fn test_hash() {
+    use elliptic_curve::hash2curve::ExpandMsgXmd;
+    use std::convert::TryFrom;
+    const DST: &'static [u8] = b"QUUX-V01-CS02-with-BLS12381G1_XMD:SHA-256_SSWU_RO_";
+
+    let tests: [(&'static [u8], &'static str); 5] = [
+        (b"", "052926add2207b76ca4fa57a8734416c8dc95e24501772c814278700eed6d1e4e8cf62d9c09db0fac349612b759e79a108ba738453bfed09cb546dbb0783dbb3a5f1f566ed67bb6be0e8c67e2e81a4cc68ee29813bb7994998f3eae0c9c6a265"),
+        (b"abc", "03567bc5ef9c690c2ab2ecdf6a96ef1c139cc0b2f284dca0a9a7943388a49a3aee664ba5379a7655d3c68900be2f69030b9c15f3fe6e5cf4211f346271d7b01c8f3b28be689c8429c85b67af215533311f0b8dfaaa154fa6b88176c229f2885d"),
+        (b"abcdef0123456789", "11e0b079dea29a68f0383ee94fed1b940995272407e3bb916bbf268c263ddd57a6a27200a784cbc248e84f357ce82d9803a87ae2caf14e8ee52e51fa2ed8eefe80f02457004ba4d486d6aa1f517c0889501dc7413753f9599b099ebcbbd2d709"),
+        (b"q128_qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq", "15f68eaa693b95ccb85215dc65fa81038d69629f70aeee0d0f677cf22285e7bf58d7cb86eefe8f2e9bc3f8cb84fac4881807a1d50c29f430b8cafc4f8638dfeeadf51211e1602a5f184443076715f91bb90a48ba1e370edce6ae1062f5e6dd38"),
+        (b"a512_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "082aabae8b7dedb0e78aeb619ad3bfd9277a2f77ba7fad20ef6aabdc6c31d19ba5a6d12283553294c1825c4b3ca2dcfe05b84ae5a942248eea39e1d91030458c40153f3b654ab7872d779ad1e942856a20c438e8d99bc8abfbf74729ce1f7ac8"),
+    ];
+
+    for (msg, exp) in &tests {
+        let a = G1Projective::hash::<ExpandMsgXmd<sha2::Sha256>>(msg, DST);
+        let d = <[u8; 96]>::try_from(hex::decode(exp).unwrap().as_slice()).unwrap();
+        let e = G1Affine::from_uncompressed(&d).unwrap();
+        assert_eq!(a.to_affine(), e);
+    }
+}
+
+#[test]
+fn test_hex() {
+    let g1 = G1Projective::GENERATOR;
+    let hex = format!("{:x}", g1);
+    let g2 = G1Affine::from_compressed_hex(&hex).map(G1Projective::from);
+    assert_eq!(g2.is_some().unwrap_u8(), 1u8);
+    assert_eq!(g1, g2.unwrap());
+    let hex = hex::encode(g1.to_affine().to_uncompressed().as_ref());
+    let g2 = G1Affine::from_uncompressed_hex(&hex).map(G1Projective::from);
+    assert_eq!(g2.is_some().unwrap_u8(), 1u8);
+    assert_eq!(g1, g2.unwrap());
 }

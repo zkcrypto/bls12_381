@@ -1,7 +1,7 @@
 //! This module provides an implementation of the $\mathbb{G}_2$ group of BLS12-381.
 
 use core::borrow::Borrow;
-use core::fmt;
+use core::fmt::{self, Formatter};
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use group::{
@@ -9,14 +9,20 @@ use group::{
     Curve, Group, GroupEncoding, UncompressedEncoding,
 };
 use rand_core::RngCore;
-use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
+use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 #[cfg(feature = "alloc")]
 use group::WnafGroup;
 
 use crate::fp::Fp;
 use crate::fp2::Fp2;
+use crate::util::decode_hex_into_slice;
 use crate::Scalar;
+#[cfg(feature = "hashing")]
+use elliptic_curve::{
+    group::cofactor::CofactorGroup,
+    hash2curve::{ExpandMsg, Sgn0},
+};
 
 /// This is an element of $\mathbb{G}_2$ represented in the affine coordinate space.
 /// It is ideal to keep elements in this representation to reduce memory usage and
@@ -41,6 +47,26 @@ impl Default for G2Affine {
 #[cfg(feature = "zeroize")]
 impl zeroize::DefaultIsZeroes for G2Affine {}
 
+impl fmt::LowerHex for G2Affine {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let bytes = self.to_compressed();
+        for &b in bytes.iter() {
+            write!(f, "{:02x}", b)?;
+        }
+        Ok(())
+    }
+}
+
+impl fmt::UpperHex for G2Affine {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let bytes = self.to_compressed();
+        for &b in bytes.iter() {
+            write!(f, "{:02X}", b)?;
+        }
+        Ok(())
+    }
+}
+
 impl fmt::Display for G2Affine {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
@@ -49,7 +75,7 @@ impl fmt::Display for G2Affine {
 
 impl<'a> From<&'a G2Projective> for G2Affine {
     fn from(p: &'a G2Projective) -> G2Affine {
-        let zinv = p.z.invert().unwrap_or(Fp2::zero());
+        let zinv = p.z.invert().unwrap_or(Fp2::ZERO);
         let x = p.x * zinv;
         let y = p.y * zinv;
 
@@ -108,7 +134,7 @@ impl<'a> Neg for &'a G2Affine {
     fn neg(self) -> G2Affine {
         G2Affine {
             x: self.x,
-            y: Fp2::conditional_select(&-self.y, &Fp2::one(), self.infinity),
+            y: Fp2::conditional_select(&-self.y, &Fp2::ONE, self.infinity),
             infinity: self.infinity,
         }
     }
@@ -167,7 +193,7 @@ where
     where
         I: Iterator<Item = T>,
     {
-        iter.fold(Self::identity(), |acc, item| acc + item.borrow())
+        iter.fold(Self::IDENTITY, |acc, item| acc + item.borrow())
     }
 }
 
@@ -196,11 +222,15 @@ const B: Fp2 = Fp2 {
 const B3: Fp2 = Fp2::add(&Fp2::add(&B, &B), &B);
 
 impl G2Affine {
+    /// Bytes to represent this point compressed
+    pub const COMPRESSED_BYTES: usize = 96;
+    /// Bytes to represent this point uncompressed
+    pub const UNCOMPRESSED_BYTES: usize = 192;
     /// Returns the identity of the group: the point at infinity.
     pub fn identity() -> G2Affine {
         G2Affine {
-            x: Fp2::zero(),
-            y: Fp2::one(),
+            x: Fp2::ZERO,
+            y: Fp2::ONE,
             infinity: Choice::from(1u8),
         }
     }
@@ -254,12 +284,12 @@ impl G2Affine {
     pub fn to_compressed(&self) -> [u8; 96] {
         // Strictly speaking, self.x is zero already when self.infinity is true, but
         // to guard against implementation mistakes we do not assume this.
-        let x = Fp2::conditional_select(&self.x, &Fp2::zero(), self.infinity);
+        let x = Fp2::conditional_select(&self.x, &Fp2::ZERO, self.infinity);
 
         let mut res = [0; 96];
 
-        (&mut res[0..48]).copy_from_slice(&x.c1.to_bytes()[..]);
-        (&mut res[48..96]).copy_from_slice(&x.c0.to_bytes()[..]);
+        res[0..48].copy_from_slice(&x.c1.to_bytes()[..]);
+        res[48..96].copy_from_slice(&x.c0.to_bytes()[..]);
 
         // This point is in compressed form, so we set the most significant bit.
         res[0] |= 1u8 << 7;
@@ -284,8 +314,8 @@ impl G2Affine {
     pub fn to_uncompressed(&self) -> [u8; 192] {
         let mut res = [0; 192];
 
-        let x = Fp2::conditional_select(&self.x, &Fp2::zero(), self.infinity);
-        let y = Fp2::conditional_select(&self.y, &Fp2::zero(), self.infinity);
+        let x = Fp2::conditional_select(&self.x, &Fp2::ZERO, self.infinity);
+        let y = Fp2::conditional_select(&self.y, &Fp2::ZERO, self.infinity);
 
         res[0..48].copy_from_slice(&x.c1.to_bytes()[..]);
         res[48..96].copy_from_slice(&x.c0.to_bytes()[..]);
@@ -463,6 +493,22 @@ impl G2Affine {
         })
     }
 
+    /// Attempts to deserialize a compressed element hex string. See [`notes::serialization`](crate::notes::serialization)
+    /// for details about how group elements are serialized.
+    pub fn from_compressed_hex(hex: &str) -> CtOption<Self> {
+        let mut buf = [0u8; Self::COMPRESSED_BYTES];
+        decode_hex_into_slice(&mut buf, hex.as_bytes());
+        Self::from_compressed(&buf)
+    }
+
+    /// Attempts to deserialize a uncompressed element hex string. See [`notes::serialization`](crate::notes::serialization)
+    /// for details about how group elements are serialized.
+    pub fn from_uncompressed_hex(hex: &str) -> CtOption<Self> {
+        let mut buf = [0u8; Self::UNCOMPRESSED_BYTES];
+        decode_hex_into_slice(&mut buf, hex.as_bytes());
+        Self::from_uncompressed(&buf)
+    }
+
     /// Returns true if this element is the identity (the point at infinity).
     #[inline]
     pub fn is_identity(&self) -> Choice {
@@ -500,7 +546,7 @@ pub struct G2Projective {
 
 impl Default for G2Projective {
     fn default() -> G2Projective {
-        G2Projective::identity()
+        G2Projective::IDENTITY
     }
 }
 
@@ -518,7 +564,7 @@ impl<'a> From<&'a G2Affine> for G2Projective {
         G2Projective {
             x: p.x,
             y: p.y,
-            z: Fp2::conditional_select(&Fp2::one(), &Fp2::zero(), p.infinity),
+            z: Fp2::conditional_select(&Fp2::ONE, &Fp2::ZERO, p.infinity),
         }
     }
 }
@@ -610,7 +656,7 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a G2Projective {
     type Output = G2Projective;
 
     fn mul(self, other: &'b Scalar) -> Self::Output {
-        self.multiply(&other.to_bytes())
+        self.multiply(&other.to_le_bytes())
     }
 }
 
@@ -627,7 +673,7 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a G2Affine {
     type Output = G2Projective;
 
     fn mul(self, other: &'b Scalar) -> Self::Output {
-        G2Projective::from(self).multiply(&other.to_bytes())
+        G2Projective::from(self).multiply(&other.to_le_bytes())
     }
 }
 
@@ -652,57 +698,69 @@ fn mul_by_3b(x: Fp2) -> Fp2 {
 }
 
 impl G2Projective {
+    /// Bytes to represent this point compressed
+    pub const COMPRESSED_BYTES: usize = 96;
+    /// Bytes to represent this point uncompressed
+    pub const UNCOMPRESSED_BYTES: usize = 192;
+    /// The identity of the group: the point at infinity.
+    pub const IDENTITY: Self = Self {
+        x: Fp2::ZERO,
+        y: Fp2::ONE,
+        z: Fp2::ZERO,
+    };
+
     /// Returns the identity of the group: the point at infinity.
     pub fn identity() -> G2Projective {
-        G2Projective {
-            x: Fp2::zero(),
-            y: Fp2::one(),
-            z: Fp2::zero(),
-        }
+        Self::IDENTITY
     }
+
+    /// The fixed generator of the group. See [`notes::design`](notes/design/index.html#fixed-generators)
+    /// for how this generator is chosen.
+    pub const GENERATOR: Self = Self {
+        x: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xf5f2_8fa2_0294_0a10,
+                0xb3f5_fb26_87b4_961a,
+                0xa1a8_93b5_3e2a_e580,
+                0x9894_999d_1a3c_aee9,
+                0x6f67_b763_1863_366b,
+                0x0581_9192_4350_bcd7,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0xa5a9_c075_9e23_f606,
+                0xaaa0_c59d_bccd_60c3,
+                0x3bb1_7e18_e286_7806,
+                0x1b1a_b6cc_8541_b367,
+                0xc2b6_ed0e_f215_8547,
+                0x1192_2a09_7360_edf3,
+            ]),
+        },
+        y: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0x4c73_0af8_6049_4c4a,
+                0x597c_fa1f_5e36_9c5a,
+                0xe7e6_856c_aa0a_635a,
+                0xbbef_b5e9_6e0d_495f,
+                0x07d3_a975_f0ef_25a2,
+                0x0083_fd8e_7e80_dae5,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0xadc0_fc92_df64_b05d,
+                0x18aa_270a_2b14_61dc,
+                0x86ad_ac6a_3be4_eba0,
+                0x7949_5c4e_c93d_a33a,
+                0xe717_5850_a43c_caed,
+                0x0b2b_c2a1_63de_1bf2,
+            ]),
+        },
+        z: Fp2::ONE,
+    };
 
     /// Returns a fixed generator of the group. See [`notes::design`](notes/design/index.html#fixed-generators)
     /// for how this generator is chosen.
+    #[deprecated(since = "0.5.5", note = "Use GENERATOR instead.")]
     pub fn generator() -> G2Projective {
-        G2Projective {
-            x: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0xf5f2_8fa2_0294_0a10,
-                    0xb3f5_fb26_87b4_961a,
-                    0xa1a8_93b5_3e2a_e580,
-                    0x9894_999d_1a3c_aee9,
-                    0x6f67_b763_1863_366b,
-                    0x0581_9192_4350_bcd7,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0xa5a9_c075_9e23_f606,
-                    0xaaa0_c59d_bccd_60c3,
-                    0x3bb1_7e18_e286_7806,
-                    0x1b1a_b6cc_8541_b367,
-                    0xc2b6_ed0e_f215_8547,
-                    0x1192_2a09_7360_edf3,
-                ]),
-            },
-            y: Fp2 {
-                c0: Fp::from_raw_unchecked([
-                    0x4c73_0af8_6049_4c4a,
-                    0x597c_fa1f_5e36_9c5a,
-                    0xe7e6_856c_aa0a_635a,
-                    0xbbef_b5e9_6e0d_495f,
-                    0x07d3_a975_f0ef_25a2,
-                    0x0083_fd8e_7e80_dae5,
-                ]),
-                c1: Fp::from_raw_unchecked([
-                    0xadc0_fc92_df64_b05d,
-                    0x18aa_270a_2b14_61dc,
-                    0x86ad_ac6a_3be4_eba0,
-                    0x7949_5c4e_c93d_a33a,
-                    0xe717_5850_a43c_caed,
-                    0x0b2b_c2a1_63de_1bf2,
-                ]),
-            },
-            z: Fp2::one(),
-        }
+        Self::GENERATOR
     }
 
     /// Computes the doubling of this point.
@@ -734,7 +792,7 @@ impl G2Projective {
             z: z3,
         };
 
-        G2Projective::conditional_select(&tmp, &G2Projective::identity(), self.is_identity())
+        G2Projective::conditional_select(&tmp, &G2Projective::IDENTITY, self.is_identity())
     }
 
     /// Adds this point to another point.
@@ -823,7 +881,7 @@ impl G2Projective {
     }
 
     fn multiply(&self, by: &[u8]) -> G2Projective {
-        let mut acc = G2Projective::identity();
+        let mut acc = G2Projective::IDENTITY;
 
         // This is a simple double-and-add implementation of point
         // multiplication, moving from most significant to least
@@ -847,7 +905,7 @@ impl G2Projective {
     fn psi(&self) -> G2Projective {
         // 1 / ((u+1) ^ ((q-1)/3))
         let psi_coeff_x = Fp2 {
-            c0: Fp::zero(),
+            c0: Fp::ZERO,
             c1: Fp::from_raw_unchecked([
                 0x890dc9e4867545c3,
                 0x2af322533285a5d5,
@@ -898,7 +956,7 @@ impl G2Projective {
                 0x03f97d6e83d050d2,
                 0x18f0206554638741,
             ]),
-            c1: Fp::zero(),
+            c1: Fp::ZERO,
         };
 
         G2Projective {
@@ -913,7 +971,7 @@ impl G2Projective {
 
     /// Multiply `self` by `crate::BLS_X`, using double and add.
     fn mul_by_x(&self) -> G2Projective {
-        let mut xself = G2Projective::identity();
+        let mut xself = G2Projective::IDENTITY;
         // NOTE: in BLS12-381 we can just skip the first bit.
         let mut x = crate::BLS_X >> 1;
         let mut acc = *self;
@@ -931,27 +989,12 @@ impl G2Projective {
         xself
     }
 
-    /// Clears the cofactor, using [Budroni-Pintore](https://ia.cr/2017/419).
-    /// This is equivalent to multiplying by $h\_\textrm{eff} = 3(z^2 - 1) \cdot
-    /// h_2$, where $h_2$ is the cofactor of $\mathbb{G}\_2$ and $z$ is the
-    /// parameter of BLS12-381.
-    pub fn clear_cofactor(&self) -> G2Projective {
-        let t1 = self.mul_by_x(); // [x] P
-        let t2 = self.psi(); // psi(P)
-
-        self.double().psi2() // psi^2(2P)
-            + (t1 + t2).mul_by_x() // psi^2(2P) + [x^2] P + [x] psi(P)
-            - t1 // psi^2(2P) + [x^2 - x] P + [x] psi(P)
-            - t2 // psi^2(2P) + [x^2 - x] P + [x - 1] psi(P)
-            - self // psi^2(2P) + [x^2 - x - 1] P + [x - 1] psi(P)
-    }
-
     /// Converts a batch of `G2Projective` elements into `G2Affine` elements. This
     /// function will panic if `p.len() != q.len()`.
     pub fn batch_normalize(p: &[Self], q: &mut [G2Affine]) {
         assert_eq!(p.len(), q.len());
 
-        let mut acc = Fp2::one();
+        let mut acc = Fp2::ONE;
         for (p, q) in p.iter().zip(q.iter_mut()) {
             // We use the `x` field of `G2Affine` to store the product
             // of previous z-coordinates seen.
@@ -997,8 +1040,170 @@ impl G2Projective {
         (self.y.square() * self.z).ct_eq(&(self.x.square() * self.x + self.z.square() * self.z * B))
             | self.z.is_zero()
     }
+
+    #[cfg(feature = "hashing")]
+    /// Use a random oracle to map a value to a curve point
+    pub fn hash<X>(msg: &[u8], dst: &[u8]) -> Self
+    where
+        X: for<'a> ExpandMsg<'a>,
+    {
+        {
+            let u = Fp2::hash::<X>(msg, dst);
+            let q0 = Self::sswu_map(&u[0]).isogeny_map();
+            let q1 = Self::sswu_map(&u[1]).isogeny_map();
+            q0 + q1
+        }
+        .clear_cofactor()
+    }
+
+    #[cfg(feature = "hashing")]
+    /// Use injective encoding to map a value to a curve point
+    pub fn encode<X>(msg: &[u8], dst: &[u8]) -> Self
+    where
+        X: for<'a> ExpandMsg<'a>,
+    {
+        let u = Fp2::encode::<X>(msg, dst);
+        Self::sswu_map(&u).isogeny_map().clear_cofactor()
+    }
+
+    #[cfg(feature = "hashing")]
+    /// simplified swu map for q = 9 mod 16 where AB == 0
+    fn sswu_map(u: &Fp2) -> Self {
+        const A: Fp2 = Fp2 {
+            c0: Fp::ZERO,
+            c1: Fp([
+                0xe53a000003135242u64,
+                0x01080c0fdef80285u64,
+                0xe7889edbe340f6bdu64,
+                0x0b51375126310601u64,
+                0x02d6985717c744abu64,
+                0x1220b4e979ea5467u64,
+            ]),
+        };
+        const B: Fp2 = Fp2 {
+            c0: Fp([
+                0x22ea00000cf89db2u64,
+                0x6ec832df71380aa4u64,
+                0x6e1b94403db5a66eu64,
+                0x75bf3c53a79473bau64,
+                0x3dd3a569412c0a34u64,
+                0x125cdb5e74dc4fd1u64,
+            ]),
+            c1: Fp([
+                0x22ea00000cf89db2u64,
+                0x6ec832df71380aa4u64,
+                0x6e1b94403db5a66eu64,
+                0x75bf3c53a79473bau64,
+                0x3dd3a569412c0a34u64,
+                0x125cdb5e74dc4fd1u64,
+            ]),
+        };
+        const Z: Fp2 = Fp2 {
+            c0: Fp([
+                0x87ebfffffff9555cu64,
+                0x656fffe5da8ffffau64,
+                0x0fd0749345d33ad2u64,
+                0xd951e663066576f4u64,
+                0xde291a3d41e980d3u64,
+                0x0815664c7dfe040du64,
+            ]),
+            c1: Fp([
+                0x43f5fffffffcaaaeu64,
+                0x32b7fff2ed47fffdu64,
+                0x07e83a49a2e99d69u64,
+                0xeca8f3318332bb7au64,
+                0xef148d1ea0f4c069u64,
+                0x040ab3263eff0206u64,
+            ]),
+        };
+        const Z_INV: Fp2 = Fp2 {
+            c0: Fp([
+                0xacd0000000011110u64,
+                0x9dd9999dc88ccccdu64,
+                0xb5ca2ac9b76352bfu64,
+                0xf1b574bcf4bc90ceu64,
+                0x42dab41f28a77081u64,
+                0x132fc6ac14cd1e12u64,
+            ]),
+            c1: Fp([
+                0xe396ffffffff2223u64,
+                0x4fbf332fcd0d9998u64,
+                0x0c4bbd3c1aff4cc4u64,
+                0x6b9c91267926ca58u64,
+                0x29ae4da6aef7f496u64,
+                0x10692e942f195791u64,
+            ]),
+        };
+        const M_B_OVER_A: Fp2 = Fp2 {
+            c0: Fp([
+                0x903c555555474fb3u64,
+                0x5f98cc95ce451105u64,
+                0x9f8e582eefe0fadeu64,
+                0xc68946b6aebbd062u64,
+                0x467a4ad10ee6de53u64,
+                0x0e7146f483e23a05u64,
+            ]),
+            c1: Fp([
+                0x29c2aaaaaab85af8u64,
+                0xbf133368e30eeefau64,
+                0xc7a27a7206cffb45u64,
+                0x9dee04ce44c9425cu64,
+                0x04a15ce53464ce83u64,
+                0x0b8fcaf5b59dac95u64,
+            ]),
+        };
+
+        let tv1 = Z * u.square();
+        let mut tv2 = tv1.square();
+        let mut x1 = (tv1 + tv2).invert().unwrap();
+        x1 += Fp2::ONE;
+        x1.conditional_assign(&Z_INV, x1.is_zero());
+        x1 *= M_B_OVER_A;
+        let gx1 = ((x1.square() + A) * x1) + B;
+        let x2 = tv1 * x1;
+        tv2 *= tv1;
+        let gx2 = gx1 * tv2;
+        let e2 = gx1.sqrt();
+        let x = Fp2::conditional_select(&x2, &x1, e2.is_some());
+        let y2 = Fp2::conditional_select(&gx2, &gx1, e2.is_some());
+        let mut y = y2.sqrt().unwrap();
+        let e9 = u.sgn0() ^ y.sgn0();
+        y.conditional_negate(e9);
+        Self { x, y, z: Fp2::ONE }
+    }
+
+    #[cfg(feature = "hashing")]
+    /// Computes the isogeny map for this point
+    fn isogeny_map(&self) -> Self {
+        use crate::isogeny::g2::*;
+
+        fn compute(xxs: &[Fp2], k: &[Fp2]) -> Fp2 {
+            let mut xx = Fp2::ZERO;
+            for i in 0..k.len() {
+                xx += xxs[i] * k[i];
+            }
+            xx
+        }
+
+        let mut xs = [Fp2::ONE; 4];
+        xs[1] = self.x;
+        xs[2] = self.x.square();
+        xs[3] = xs[2] * self.x;
+
+        let x_num = compute(&xs, &XNUM);
+        let x_den = compute(&xs, &XDEN);
+        let y_num = compute(&xs, &YNUM);
+        let y_den = compute(&xs, &YDEN);
+
+        let x = x_num * x_den.invert().unwrap();
+        let y = self.y * y_num * y_den.invert().unwrap();
+        Self { x, y, z: Fp2::ONE }
+    }
+
+    impl_pippenger_sum_of_products!();
 }
 
+/// The compressed form of a G2 point
 #[derive(Clone, Copy)]
 pub struct G2Compressed([u8; 96]);
 
@@ -1113,11 +1318,11 @@ impl Group for G2Projective {
     }
 
     fn identity() -> Self {
-        Self::identity()
+        Self::IDENTITY
     }
 
     fn generator() -> Self {
-        Self::generator()
+        Self::GENERATOR
     }
 
     fn is_identity(&self) -> Choice {
@@ -1235,12 +1440,52 @@ impl UncompressedEncoding for G2Affine {
     }
 }
 
+impl fmt::LowerHex for G2Projective {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{:x}", self.to_affine())
+    }
+}
+
+impl fmt::UpperHex for G2Projective {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{:X}", self.to_affine())
+    }
+}
+
+#[cfg(feature = "hashing")]
+impl CofactorGroup for G2Projective {
+    type Subgroup = G2Projective;
+
+    /// Clears the cofactor, using [Budroni-Pintore](https://ia.cr/2017/419).
+    /// This is equivalent to multiplying by $h\_\textrm{eff} = 3(z^2 - 1) \cdot
+    /// h_2$, where $h_2$ is the cofactor of $\mathbb{G}\_2$ and $z$ is the
+    /// parameter of BLS12-381.
+    fn clear_cofactor(&self) -> Self::Subgroup {
+        let t1 = self.mul_by_x(); // [x] P
+        let t2 = self.psi(); // psi(P)
+
+        self.double().psi2() // psi^2(2P)
+            + (t1 + t2).mul_by_x() // psi^2(2P) + [x^2] P + [x] psi(P)
+            - t1 // psi^2(2P) + [x^2 - x] P + [x] psi(P)
+            - t2 // psi^2(2P) + [x^2 - x] P + [x - 1] psi(P)
+            - self // psi^2(2P) + [x^2 - x - 1] P + [x - 1] psi(P)
+    }
+
+    fn into_subgroup(self) -> CtOption<Self::Subgroup> {
+        CtOption::new(self, 1.into())
+    }
+
+    fn is_torsion_free(&self) -> Choice {
+        self.is_on_curve()
+    }
+}
+
 #[test]
 fn test_is_on_curve() {
     assert!(bool::from(G2Affine::identity().is_on_curve()));
     assert!(bool::from(G2Affine::generator().is_on_curve()));
-    assert!(bool::from(G2Projective::identity().is_on_curve()));
-    assert!(bool::from(G2Projective::generator().is_on_curve()));
+    assert!(bool::from(G2Projective::IDENTITY.is_on_curve()));
+    assert!(bool::from(G2Projective::GENERATOR.is_on_curve()));
 
     let z = Fp2 {
         c0: Fp::from_raw_unchecked([
@@ -1289,8 +1534,8 @@ fn test_affine_point_equality() {
 #[test]
 #[allow(clippy::eq_op)]
 fn test_projective_point_equality() {
-    let a = G2Projective::generator();
-    let b = G2Projective::identity();
+    let a = G2Projective::GENERATOR;
+    let b = G2Projective::IDENTITY;
 
     assert!(a == a);
     assert!(b == b);
@@ -1355,8 +1600,8 @@ fn test_conditionally_select_affine() {
 
 #[test]
 fn test_conditionally_select_projective() {
-    let a = G2Projective::generator();
-    let b = G2Projective::identity();
+    let a = G2Projective::GENERATOR;
+    let b = G2Projective::IDENTITY;
 
     assert_eq!(
         G2Projective::conditional_select(&a, &b, Choice::from(0u8)),
@@ -1370,8 +1615,8 @@ fn test_conditionally_select_projective() {
 
 #[test]
 fn test_projective_to_affine() {
-    let a = G2Projective::generator();
-    let b = G2Projective::identity();
+    let a = G2Projective::GENERATOR;
+    let b = G2Projective::IDENTITY;
 
     assert!(bool::from(G2Affine::from(a).is_on_curve()));
     assert!(!bool::from(G2Affine::from(a).is_identity()));
@@ -1420,12 +1665,12 @@ fn test_affine_to_projective() {
 #[test]
 fn test_doubling() {
     {
-        let tmp = G2Projective::identity().double();
+        let tmp = G2Projective::IDENTITY.double();
         assert!(bool::from(tmp.is_identity()));
         assert!(bool::from(tmp.is_on_curve()));
     }
     {
-        let tmp = G2Projective::generator().double();
+        let tmp = G2Projective::GENERATOR.double();
         assert!(!bool::from(tmp.is_identity()));
         assert!(bool::from(tmp.is_on_curve()));
 
@@ -1477,15 +1722,15 @@ fn test_doubling() {
 #[test]
 fn test_projective_addition() {
     {
-        let a = G2Projective::identity();
-        let b = G2Projective::identity();
+        let a = G2Projective::IDENTITY;
+        let b = G2Projective::IDENTITY;
         let c = a + b;
         assert!(bool::from(c.is_identity()));
         assert!(bool::from(c.is_on_curve()));
     }
     {
-        let a = G2Projective::identity();
-        let mut b = G2Projective::generator();
+        let a = G2Projective::IDENTITY;
+        let mut b = G2Projective::GENERATOR;
         {
             let z = Fp2 {
                 c0: Fp::from_raw_unchecked([
@@ -1515,11 +1760,11 @@ fn test_projective_addition() {
         let c = a + b;
         assert!(!bool::from(c.is_identity()));
         assert!(bool::from(c.is_on_curve()));
-        assert!(c == G2Projective::generator());
+        assert!(c == G2Projective::GENERATOR);
     }
     {
-        let a = G2Projective::identity();
-        let mut b = G2Projective::generator();
+        let a = G2Projective::IDENTITY;
+        let mut b = G2Projective::GENERATOR;
         {
             let z = Fp2 {
                 c0: Fp::from_raw_unchecked([
@@ -1549,16 +1794,16 @@ fn test_projective_addition() {
         let c = b + a;
         assert!(!bool::from(c.is_identity()));
         assert!(bool::from(c.is_on_curve()));
-        assert!(c == G2Projective::generator());
+        assert!(c == G2Projective::GENERATOR);
     }
     {
-        let a = G2Projective::generator().double().double(); // 4P
-        let b = G2Projective::generator().double(); // 2P
+        let a = G2Projective::GENERATOR.double().double(); // 4P
+        let b = G2Projective::GENERATOR.double(); // 2P
         let c = a + b;
 
-        let mut d = G2Projective::generator();
+        let mut d = G2Projective::GENERATOR;
         for _ in 0..5 {
-            d += G2Projective::generator();
+            d += G2Projective::GENERATOR;
         }
         assert!(!bool::from(c.is_identity()));
         assert!(bool::from(c.is_on_curve()));
@@ -1578,10 +1823,10 @@ fn test_projective_addition() {
                 0x03f9_7d6e_83d0_50d2,
                 0x18f0_2065_5463_8741,
             ]),
-            c1: Fp::zero(),
+            c1: Fp::ZERO,
         };
         let beta = beta.square();
-        let a = G2Projective::generator().double().double();
+        let a = G2Projective::GENERATOR.double().double();
         let b = G2Projective {
             x: a.x * beta,
             y: -a.y,
@@ -1630,7 +1875,7 @@ fn test_projective_addition() {
                         0x11f9_5c16_d14c_3bbe,
                     ])
                 },
-                z: Fp2::one()
+                z: Fp2::ONE
             })
         );
         assert!(!bool::from(c.is_identity()));
@@ -1642,14 +1887,14 @@ fn test_projective_addition() {
 fn test_mixed_addition() {
     {
         let a = G2Affine::identity();
-        let b = G2Projective::identity();
+        let b = G2Projective::IDENTITY;
         let c = a + b;
         assert!(bool::from(c.is_identity()));
         assert!(bool::from(c.is_on_curve()));
     }
     {
         let a = G2Affine::identity();
-        let mut b = G2Projective::generator();
+        let mut b = G2Projective::GENERATOR;
         {
             let z = Fp2 {
                 c0: Fp::from_raw_unchecked([
@@ -1679,11 +1924,11 @@ fn test_mixed_addition() {
         let c = a + b;
         assert!(!bool::from(c.is_identity()));
         assert!(bool::from(c.is_on_curve()));
-        assert!(c == G2Projective::generator());
+        assert!(c == G2Projective::GENERATOR);
     }
     {
         let a = G2Affine::identity();
-        let mut b = G2Projective::generator();
+        let mut b = G2Projective::GENERATOR;
         {
             let z = Fp2 {
                 c0: Fp::from_raw_unchecked([
@@ -1713,14 +1958,14 @@ fn test_mixed_addition() {
         let c = b + a;
         assert!(!bool::from(c.is_identity()));
         assert!(bool::from(c.is_on_curve()));
-        assert!(c == G2Projective::generator());
+        assert!(c == G2Projective::GENERATOR);
     }
     {
-        let a = G2Projective::generator().double().double(); // 4P
-        let b = G2Projective::generator().double(); // 2P
+        let a = G2Projective::GENERATOR.double().double(); // 4P
+        let b = G2Projective::GENERATOR.double(); // 2P
         let c = a + b;
 
-        let mut d = G2Projective::generator();
+        let mut d = G2Projective::GENERATOR;
         for _ in 0..5 {
             d += G2Affine::generator();
         }
@@ -1742,10 +1987,10 @@ fn test_mixed_addition() {
                 0x03f9_7d6e_83d0_50d2,
                 0x18f0_2065_5463_8741,
             ]),
-            c1: Fp::zero(),
+            c1: Fp::ZERO,
         };
         let beta = beta.square();
-        let a = G2Projective::generator().double().double();
+        let a = G2Projective::GENERATOR.double().double();
         let b = G2Projective {
             x: a.x * beta,
             y: -a.y,
@@ -1795,7 +2040,7 @@ fn test_mixed_addition() {
                         0x11f9_5c16_d14c_3bbe,
                     ])
                 },
-                z: Fp2::one()
+                z: Fp2::ONE
             })
         );
         assert!(!bool::from(c.is_identity()));
@@ -1806,21 +2051,21 @@ fn test_mixed_addition() {
 #[test]
 #[allow(clippy::eq_op)]
 fn test_projective_negation_and_subtraction() {
-    let a = G2Projective::generator().double();
-    assert_eq!(a + (-a), G2Projective::identity());
+    let a = G2Projective::GENERATOR.double();
+    assert_eq!(a + (-a), G2Projective::IDENTITY);
     assert_eq!(a + (-a), a - a);
 }
 
 #[test]
 fn test_affine_negation_and_subtraction() {
     let a = G2Affine::generator();
-    assert_eq!(G2Projective::from(a) + (-a), G2Projective::identity());
+    assert_eq!(G2Projective::from(a) + (-a), G2Projective::IDENTITY);
     assert_eq!(G2Projective::from(a) + (-a), G2Projective::from(a) - a);
 }
 
 #[test]
 fn test_projective_scalar_multiplication() {
-    let g = G2Projective::generator();
+    let g = G2Projective::GENERATOR;
     let a = Scalar::from_raw([
         0x2b56_8297_a56d_a71c,
         0xd8c3_9ecb_0ef3_75d1,
@@ -1909,7 +2154,7 @@ fn test_is_torsion_free() {
 fn test_mul_by_x() {
     // multiplying by `x` a point in G2 is the same as multiplying by
     // the equivalent scalar.
-    let generator = G2Projective::generator();
+    let generator = G2Projective::GENERATOR;
     let x = if crate::BLS_X_IS_NEGATIVE {
         -Scalar::from(crate::BLS_X)
     } else {
@@ -1917,13 +2162,13 @@ fn test_mul_by_x() {
     };
     assert_eq!(generator.mul_by_x(), generator * x);
 
-    let point = G2Projective::generator() * Scalar::from(42);
+    let point = G2Projective::GENERATOR * Scalar::from(42);
     assert_eq!(point.mul_by_x(), point * x);
 }
 
 #[test]
 fn test_psi() {
-    let generator = G2Projective::generator();
+    let generator = G2Projective::GENERATOR;
 
     let z = Fp2 {
         c0: Fp::from_raw_unchecked([
@@ -2071,9 +2316,9 @@ fn test_clear_cofactor() {
 
     // the generator (and the identity) are always on the curve,
     // even after clearing the cofactor
-    let generator = G2Projective::generator();
+    let generator = G2Projective::GENERATOR;
     assert!(bool::from(generator.clear_cofactor().is_on_curve()));
-    let id = G2Projective::identity();
+    let id = G2Projective::IDENTITY;
     assert!(bool::from(id.clear_cofactor().is_on_curve()));
 
     // test the effect on q-torsion points multiplying by h_eff modulo |Scalar|
@@ -2092,7 +2337,7 @@ fn test_clear_cofactor() {
 
 #[test]
 fn test_batch_normalize() {
-    let a = G2Projective::generator().double();
+    let a = G2Projective::GENERATOR.double();
     let b = a.double();
     let c = b.double();
 
@@ -2101,13 +2346,13 @@ fn test_batch_normalize() {
             for c_identity in (0..=1).map(|n| n == 1) {
                 let mut v = [a, b, c];
                 if a_identity {
-                    v[0] = G2Projective::identity()
+                    v[0] = G2Projective::IDENTITY
                 }
                 if b_identity {
-                    v[1] = G2Projective::identity()
+                    v[1] = G2Projective::IDENTITY
                 }
                 if c_identity {
-                    v[2] = G2Projective::identity()
+                    v[2] = G2Projective::IDENTITY
                 }
 
                 let mut t = [
@@ -2138,7 +2383,7 @@ fn test_zeroize() {
     a.zeroize();
     assert!(bool::from(a.is_identity()));
 
-    let mut a = G2Projective::generator();
+    let mut a = G2Projective::GENERATOR;
     a.zeroize();
     assert!(bool::from(a.is_identity()));
 
@@ -2161,7 +2406,7 @@ fn test_commutative_scalar_subgroup_multiplication() {
     ]);
 
     let g2_a = G2Affine::generator();
-    let g2_p = G2Projective::generator();
+    let g2_p = G2Projective::GENERATOR;
 
     // By reference.
     assert_eq!(&g2_a * &a, &a * &g2_a);
@@ -2176,4 +2421,108 @@ fn test_commutative_scalar_subgroup_multiplication() {
     // By value.
     assert_eq!(g2_p * a, a * g2_p);
     assert_eq!(g2_a * a, a * g2_a);
+}
+
+#[cfg(feature = "hashing")]
+#[test]
+fn test_hash() {
+    use elliptic_curve::hash2curve::ExpandMsgXmd;
+    use std::convert::TryFrom;
+    const DST: &'static [u8] = b"QUUX-V01-CS02-with-BLS12381G2_XMD:SHA-256_SSWU_RO_";
+
+    let tests: [(&[u8], &str); 5] = [
+        (b"", "05cb8437535e20ecffaef7752baddf98034139c38452458baeefab379ba13dff5bf5dd71b72418717047f5b0f37da03d0141ebfbdca40eb85b87142e130ab689c673cf60f1a3e98d69335266f30d9b8d4ac44c1038e9dcdd5393faf5c41fb78a12424ac32561493f3fe3c260708a12b7c620e7be00099a974e259ddc7d1f6395c3c811cdd19f1e8dbf3e9ecfdcbab8d60503921d7f6a12805e72940b963c0cf3471c7b2a524950ca195d11062ee75ec076daf2d4bc358c4b190c0c98064fdd92"),
+        (b"abc", "139cddbccdc5e91b9623efd38c49f81a6f83f175e80b06fc374de9eb4b41dfe4ca3a230ed250fbe3a2acf73a41177fd802c2d18e033b960562aae3cab37a27ce00d80ccd5ba4b7fe0e7a210245129dbec7780ccc7954725f4168aff2787776e600aa65dae3c8d732d10ecd2c50f8a1baf3001578f71c694e03866e9f3d49ac1e1ce70dd94a733534f106d4cec0eddd161787327b68159716a37440985269cf584bcb1e621d3a7202be6ea05c4cfe244aeb197642555a0645fb87bf7466b2ba48"),
+        (b"abcdef0123456789", "190d119345b94fbd15497bcba94ecf7db2cbfd1e1fe7da034d26cbba169fb3968288b3fafb265f9ebd380512a71c3f2c121982811d2491fde9ba7ed31ef9ca474f0e1501297f68c298e9f4c0028add35aea8bb83d53c08cfc007c1e005723cd00bb5e7572275c567462d91807de765611490205a941a5a6af3b1691bfe596c31225d3aabdf15faff860cb4ef17c7c3be05571a0f8d3c08d094576981f4a3b8eda0a8e771fcdcc8ecceaf1356a6acf17574518acb506e435b639353c2e14827c8"),
+        (b"q128_qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq", "0934aba516a52d8ae479939a91998299c76d39cc0c035cd18813bec433f587e2d7a4fef038260eef0cef4d02aae3eb9119a84dd7248a1066f737cc34502ee5555bd3c19f2ecdb3c7d9e24dc65d4e25e50d83f0f77105e955d78f4762d33c17da09bcccfa036b4847c9950780733633f13619994394c23ff0b32fa6b795844f4a0673e20282d07bc69641cee04f5e566214f81cd421617428bc3b9fe25afbb751d934a00493524bc4e065635b0555084dd54679df1536101b2c979c0152d09192"),
+        (b"a512_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "11fca2ff525572795a801eed17eb12785887c7b63fb77a42be46ce4a34131d71f7a73e95fee3f812aea3de78b4d0156901a6ba2f9a11fa5598b2d8ace0fbe0a0eacb65deceb476fbbcb64fd24557c2f4b18ecfc5663e54ae16a84f5ab7f6253403a47f8e6d1763ba0cad63d6114c0accbef65707825a511b251a660a9b3994249ae4e63fac38b23da0c398689ee2ab520b6798718c8aed24bc19cb27f866f1c9effcdbf92397ad6448b5c9db90d2b9da6cbabf48adc1adf59a1a28344e79d57e")
+    ];
+
+    for (msg, exp) in &tests {
+        let a = G2Projective::hash::<ExpandMsgXmd<sha2::Sha256>>(msg, DST);
+        let d = <[u8; 192]>::try_from(hex::decode(exp).unwrap().as_slice()).unwrap();
+        let e = G2Affine::from_uncompressed(&d).unwrap();
+        assert_eq!(a.to_affine(), e);
+    }
+}
+
+#[test]
+fn test_sum_of_products() {
+    use ff::Field;
+    use rand_core::SeedableRng;
+    use rand_xorshift::XorShiftRng;
+
+    let seed = [1u8; 16];
+    let mut rng = XorShiftRng::from_seed(seed);
+
+    let h0 = G2Projective::random(&mut rng);
+
+    let s = Scalar::random(&mut rng);
+    let s_tilde = Scalar::random(&mut rng);
+    let c = Scalar::random(&mut rng);
+
+    assert_eq!(
+        h0 * s,
+        G2Projective::sum_of_products_in_place(&[h0], &mut [s])
+    );
+    assert_eq!(
+        h0 * s_tilde,
+        G2Projective::sum_of_products_in_place(&[h0], &mut [s_tilde])
+    );
+
+    // test schnorr proof
+    let u = h0 * s;
+    let u_tilde = h0 * s_tilde;
+    let s_hat = s_tilde - c * s;
+    assert_eq!(u_tilde, u * c + h0 * s_hat);
+    assert_eq!(
+        u_tilde,
+        G2Projective::sum_of_products_in_place(&[u, h0], &mut [c, s_hat])
+    );
+}
+
+#[cfg(feature = "alloc")]
+#[test]
+fn test_sum_of_products_alloc() {
+    use ff::Field;
+    use rand_core::SeedableRng;
+    use rand_xorshift::XorShiftRng;
+
+    let seed = [1u8; 16];
+    let mut rng = XorShiftRng::from_seed(seed);
+
+    let h0 = G2Projective::random(&mut rng);
+
+    let s = Scalar::random(&mut rng);
+    let s_tilde = Scalar::random(&mut rng);
+    let c = Scalar::random(&mut rng);
+
+    assert_eq!(h0 * s, G2Projective::sum_of_products(&[h0], &mut [s]));
+    assert_eq!(
+        h0 * s_tilde,
+        G2Projective::sum_of_products(&[h0], &mut [s_tilde])
+    );
+
+    // test schnorr proof
+    let u = h0 * s;
+    let u_tilde = h0 * s_tilde;
+    let s_hat = s_tilde - c * s;
+    assert_eq!(u_tilde, u * c + h0 * s_hat);
+    assert_eq!(
+        u_tilde,
+        G2Projective::sum_of_products(&[u, h0], &mut [c, s_hat])
+    );
+}
+
+#[test]
+fn test_hex() {
+    let g1 = G2Projective::GENERATOR;
+    let hex = format!("{:x}", g1);
+    let g2 = G2Affine::from_compressed_hex(&hex).map(G2Projective::from);
+    assert_eq!(g2.is_some().unwrap_u8(), 1u8);
+    assert_eq!(g1, g2.unwrap());
+    let hex = hex::encode(g1.to_affine().to_uncompressed().as_ref());
+    let g2 = G2Affine::from_uncompressed_hex(&hex).map(G2Projective::from);
+    assert_eq!(g2.is_some().unwrap_u8(), 1u8);
+    assert_eq!(g1, g2.unwrap());
 }
