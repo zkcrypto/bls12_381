@@ -140,7 +140,7 @@ impl Fp2 {
     #[inline(always)]
     pub fn frobenius_map(&self) -> Self {
         // This is always just a conjugation. If you're curious why, here's
-        // an article about it: https://alicebob.cryptoland.net/the-frobenius-endomorphism-with-finite-fields/
+        // an article about it: https://alicebob.modp.net/the-frobenius-endomorphism-with-finite-fields/
         self.conjugate()
     }
 
