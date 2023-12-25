@@ -6,7 +6,10 @@ use super::chain::chain_pm3div4;
 use super::{HashToField, MapToCurve, Sgn0};
 use crate::fp::Fp;
 use crate::g1::G1Projective;
-use crate::generic_array::{typenum::U64, GenericArray};
+use crate::generic_array::{
+    typenum::{U32, U64},
+    GenericArray,
+};
 
 /// Coefficients of the 11-isogeny x map's numerator
 const ISO11_XNUM: [Fp; 12] = [
@@ -504,6 +507,9 @@ impl HashToField for Fp {
     // ceil(log2(p)) = 381, m = 1, k = 128.
     type InputLength = U64;
 
+    // k = 128
+    type XofOutputLength = U32;
+
     fn from_okm(okm: &GenericArray<u8, U64>) -> Fp {
         const F_2_256: Fp = Fp::from_raw_unchecked([
             0x075b_3cd7_c5ce_820f,
@@ -538,9 +544,9 @@ impl Sgn0 for Fp {
 
 /// Maps an element of [`Fp`] to a point on iso-G1.
 ///
-/// Implements [section 6.6.2 of `draft-irtf-cfrg-hash-to-curve-12`][sswu].
+/// Implements [section 6.6.2 of `draft-irtf-cfrg-hash-to-curve-16`][sswu].
 ///
-/// [sswu]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-12#section-6.6.2
+/// [sswu]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-16#section-6.6.2
 fn map_to_curve_simple_swu(u: &Fp) -> G1Projective {
     let usq = u.square();
     let xi_usq = SSWU_XI * usq;
@@ -766,167 +772,6 @@ fn test_osswu_semirandom() {
 
         let p_iso = iso_map(&p);
         assert!(bool::from(p_iso.is_on_curve()));
-    }
-}
-
-// test vectors from the draft 10 RFC
-#[test]
-fn test_encode_to_curve_10() {
-    use crate::{
-        g1::G1Affine,
-        hash_to_curve::{ExpandMsgXmd, HashToCurve},
-    };
-    use std::string::{String, ToString};
-
-    struct TestCase {
-        msg: &'static [u8],
-        expected: [&'static str; 2],
-    }
-    impl TestCase {
-        fn expected(&self) -> String {
-            self.expected[0].to_string() + self.expected[1]
-        }
-    }
-
-    const DOMAIN: &[u8] = b"QUUX-V01-CS02-with-BLS12381G1_XMD:SHA-256_SSWU_NU_";
-
-    let cases = vec![
-        TestCase {
-            msg: b"",
-            expected: [
-                "184bb665c37ff561a89ec2122dd343f20e0f4cbcaec84e3c3052ea81d1834e192c426074b02ed3dca4e7676ce4ce48ba",
-                "04407b8d35af4dacc809927071fc0405218f1401a6d15af775810e4e460064bcc9468beeba82fdc751be70476c888bf3",
-            ],
-        },
-        TestCase {
-            msg: b"abc",
-            expected: [
-                "009769f3ab59bfd551d53a5f846b9984c59b97d6842b20a2c565baa167945e3d026a3755b6345df8ec7e6acb6868ae6d",
-                "1532c00cf61aa3d0ce3e5aa20c3b531a2abd2c770a790a2613818303c6b830ffc0ecf6c357af3317b9575c567f11cd2c",
-            ],
-        },
-        TestCase {
-            msg: b"abcdef0123456789",
-            expected: [
-                "1974dbb8e6b5d20b84df7e625e2fbfecb2cdb5f77d5eae5fb2955e5ce7313cae8364bc2fff520a6c25619739c6bdcb6a",
-                "15f9897e11c6441eaa676de141c8d83c37aab8667173cbe1dfd6de74d11861b961dccebcd9d289ac633455dfcc7013a3",
-            ]
-        },
-        TestCase {
-            msg: b"q128_qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq\
-                   qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq\
-                   qqqqqqqqqqqqqqqqqqqqqqqqq",
-            expected: [
-        "0a7a047c4a8397b3446450642c2ac64d7239b61872c9ae7a59707a8f4f950f101e766afe58223b3bff3a19a7f754027c",
-        "1383aebba1e4327ccff7cf9912bda0dbc77de048b71ef8c8a81111d71dc33c5e3aa6edee9cf6f5fe525d50cc50b77cc9",
-            ]
-        },
-        TestCase {
-            msg: b"a512_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-                   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-                   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-                   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-                   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-                   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-                   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-                   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-                   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-                   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            expected: [
-                "0e7a16a975904f131682edbb03d9560d3e48214c9986bd50417a77108d13dc957500edf96462a3d01e62dc6cd468ef11",
-                "0ae89e677711d05c30a48d6d75e76ca9fb70fe06c6dd6ff988683d89ccde29ac7d46c53bb97a59b1901abf1db66052db",
-            ]
-        }
-    ];
-
-    for case in cases {
-        let g = <G1Projective as HashToCurve<ExpandMsgXmd<sha2::Sha256>>>::encode_to_curve(
-            &case.msg, DOMAIN,
-        );
-        let aff = G1Affine::from(g);
-        let g_uncompressed = aff.to_uncompressed();
-
-        assert_eq!(case.expected(), hex::encode(&g_uncompressed[..]));
-    }
-}
-
-// test vectors from the draft 10 RFC
-#[test]
-fn test_hash_to_curve_10() {
-    use crate::{
-        g1::G1Affine,
-        hash_to_curve::{ExpandMsgXmd, HashToCurve},
-    };
-    use std::string::{String, ToString};
-
-    struct TestCase {
-        msg: &'static [u8],
-        expected: [&'static str; 2],
-    }
-    impl TestCase {
-        fn expected(&self) -> String {
-            self.expected[0].to_string() + self.expected[1]
-        }
-    }
-
-    const DOMAIN: &[u8] = b"QUUX-V01-CS02-with-BLS12381G1_XMD:SHA-256_SSWU_RO_";
-
-    let cases = vec![
-        TestCase {
-            msg: b"",
-            expected: [
-                "052926add2207b76ca4fa57a8734416c8dc95e24501772c814278700eed6d1e4e8cf62d9c09db0fac349612b759e79a1",
-                "08ba738453bfed09cb546dbb0783dbb3a5f1f566ed67bb6be0e8c67e2e81a4cc68ee29813bb7994998f3eae0c9c6a265",
-            ],
-        },
-        TestCase {
-            msg: b"abc",
-            expected: [
-                "03567bc5ef9c690c2ab2ecdf6a96ef1c139cc0b2f284dca0a9a7943388a49a3aee664ba5379a7655d3c68900be2f6903",
-                "0b9c15f3fe6e5cf4211f346271d7b01c8f3b28be689c8429c85b67af215533311f0b8dfaaa154fa6b88176c229f2885d"
-            ],
-        },
-        TestCase {
-            msg: b"abcdef0123456789",
-            expected: [
-                "11e0b079dea29a68f0383ee94fed1b940995272407e3bb916bbf268c263ddd57a6a27200a784cbc248e84f357ce82d98",
-                "03a87ae2caf14e8ee52e51fa2ed8eefe80f02457004ba4d486d6aa1f517c0889501dc7413753f9599b099ebcbbd2d709"
-            ]
-        },
-        TestCase {
-            msg: b"q128_qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq\
-                   qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq\
-                   qqqqqqqqqqqqqqqqqqqqqqqqq",
-            expected: [
-                "15f68eaa693b95ccb85215dc65fa81038d69629f70aeee0d0f677cf22285e7bf58d7cb86eefe8f2e9bc3f8cb84fac488",
-                "1807a1d50c29f430b8cafc4f8638dfeeadf51211e1602a5f184443076715f91bb90a48ba1e370edce6ae1062f5e6dd38"
-            ]
-        },
-        TestCase {
-            msg: b"a512_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-                   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-                   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-                   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-                   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-                   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-                   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-                   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-                   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-                   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            expected: [
-                "082aabae8b7dedb0e78aeb619ad3bfd9277a2f77ba7fad20ef6aabdc6c31d19ba5a6d12283553294c1825c4b3ca2dcfe",
-                "05b84ae5a942248eea39e1d91030458c40153f3b654ab7872d779ad1e942856a20c438e8d99bc8abfbf74729ce1f7ac8"
-            ]
-        }
-    ];
-
-    for case in cases {
-        let g = <G1Projective as HashToCurve<ExpandMsgXmd<sha2::Sha256>>>::hash_to_curve(
-            &case.msg, DOMAIN,
-        );
-        let g_uncompressed = G1Affine::from(g).to_uncompressed();
-
-        assert_eq!(case.expected(), hex::encode(&g_uncompressed[..]));
     }
 }
 

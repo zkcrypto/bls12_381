@@ -8,21 +8,22 @@ use subtle::Choice;
 pub(crate) mod chain;
 
 mod expand_msg;
-pub use self::expand_msg::{
-    ExpandMessage, ExpandMessageState, ExpandMsgXmd, ExpandMsgXof, InitExpandMessage,
-};
+pub use self::expand_msg::{ExpandMessage, ExpandMsgXmd, ExpandMsgXof, Message};
 
 mod map_g1;
 mod map_g2;
 mod map_scalar;
 
-use crate::generic_array::{typenum::Unsigned, ArrayLength, GenericArray};
+use crate::generic_array::{
+    typenum::{IsLess, Unsigned, U256},
+    ArrayLength, GenericArray,
+};
 
 /// Enables a byte string to be hashed into one or more field elements for a given curve.
 ///
-/// Implements [section 5 of `draft-irtf-cfrg-hash-to-curve-12`][hash_to_field].
+/// Implements [section 5 of `draft-irtf-cfrg-hash-to-curve-16`][hash_to_field].
 ///
-/// [hash_to_field]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-12#section-5
+/// [hash_to_field]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-16#section-5
 pub trait HashToField: Sized {
     /// The length of the data used to produce an individual field element.
     ///
@@ -31,6 +32,12 @@ pub trait HashToField: Sized {
     /// security parameter.
     type InputLength: ArrayLength<u8>;
 
+    /// The number of bytes to read from the extensible output hash function.
+    ///
+    /// This must be set to `ceil(2 * k / 8)`, where `k` is the security parameter. This
+    /// is used when handling DST values longer than 255 bytes.
+    type XofOutputLength: ArrayLength<u8> + IsLess<U256>;
+
     /// Interprets the given output keying material as a big endian integer, and reduces
     /// it into a field element.
     fn from_okm(okm: &GenericArray<u8, Self::InputLength>) -> Self;
@@ -38,13 +45,17 @@ pub trait HashToField: Sized {
     /// Hashes a byte string of arbitrary length into one or more elements of `Self`,
     /// using [`ExpandMessage`] variant `X`.
     ///
-    /// Implements [section 5.3 of `draft-irtf-cfrg-hash-to-curve-12`][hash_to_field].
+    /// Implements [section 5.2 of `draft-irtf-cfrg-hash-to-curve-16`][hash_to_field].
     ///
-    /// [hash_to_field]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-12#section-5.3
-    fn hash_to_field<X: ExpandMessage>(message: &[u8], dst: &[u8], output: &mut [Self]) {
+    /// [hash_to_field]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-16#section-5.2
+    fn hash_to_field<X, M>(message: M, dst: &[u8], output: &mut [Self])
+    where
+        X: ExpandMessage,
+        M: Message,
+    {
         let len_per_elm = Self::InputLength::to_usize();
         let len_in_bytes = output.len() * len_per_elm;
-        let mut expander = X::init_expand(message, dst, len_in_bytes);
+        let mut expander = X::init_expand::<M, Self::XofOutputLength>(message, dst, len_in_bytes);
 
         let mut buf = GenericArray::<u8, Self::InputLength>::default();
         output.iter_mut().for_each(|item| {
@@ -72,9 +83,9 @@ pub trait HashToCurve<X: ExpandMessage>: MapToCurve + for<'a> Add<&'a Self, Outp
     ///
     /// This function is suitable for most applications requiring a random
     /// oracle returning points in `Self`.
-    fn hash_to_curve(message: impl AsRef<[u8]>, dst: &[u8]) -> Self {
+    fn hash_to_curve<M: Message>(message: M, dst: &[u8]) -> Self {
         let mut u = [Self::Field::default(); 2];
-        Self::Field::hash_to_field::<X>(message.as_ref(), dst, &mut u);
+        Self::Field::hash_to_field::<X, M>(message, dst, &mut u);
         let p1 = Self::map_to_curve(&u[0]);
         let p2 = Self::map_to_curve(&u[1]);
         (p1 + &p2).clear_h()
@@ -85,13 +96,13 @@ pub trait HashToCurve<X: ExpandMessage>: MapToCurve + for<'a> Add<&'a Self, Outp
     /// The distribution of its output is not uniformly random in `Self`: the set of
     /// possible outputs of this function is only a fraction of the points in `Self`, and
     /// some elements of this set are more likely to be output than others. See
-    /// [section 10.1 of `draft-irtf-cfrg-hash-to-curve-12`][encode_to_curve-distribution]
+    /// [section 10.4 of `draft-irtf-cfrg-hash-to-curve-16`][encode_to_curve-distribution]
     /// for a more precise definition of `encode_to_curve`'s output distribution.
     ///
-    /// [encode_to_curve-distribution]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-12#section-10.1
-    fn encode_to_curve(message: impl AsRef<[u8]>, dst: &[u8]) -> Self {
+    /// [encode_to_curve-distribution]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-16#section-10.4
+    fn encode_to_curve<M: Message>(message: M, dst: &[u8]) -> Self {
         let mut u = [Self::Field::default(); 1];
-        Self::Field::hash_to_field::<X>(message.as_ref(), dst, &mut u);
+        Self::Field::hash_to_field::<X, M>(message, dst, &mut u);
         let p = Self::map_to_curve(&u[0]);
         p.clear_h()
     }
@@ -107,7 +118,7 @@ where
 pub(crate) trait Sgn0 {
     /// Returns either 0 or 1 indicating the "sign" of x, where sgn0(x) == 1
     /// just when x is "negative". (In other words, this function always considers 0 to be positive.)
-    /// <https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-10#section-4.1>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-16#section-4.1>
     /// The equivalent for draft 6 would be `lexicographically_largest`.
     fn sgn0(&self) -> Choice;
 }
