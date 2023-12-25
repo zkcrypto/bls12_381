@@ -11,7 +11,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macOS-latest]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Run tests
         run: cargo test --verbose --release --features experimental,zeroize
 
@@ -26,7 +26,7 @@ jobs:
           - wasm32-wasi
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: rustup target add ${{ matrix.target }}
       - run: cargo fetch
       - name: Build
@@ -41,7 +41,7 @@ jobs:
     name: Bitrot check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       # Build benchmarks and all-features to prevent bitrot
       - name: Build benchmarks
         run: cargo build --benches --examples --all-features
@@ -50,7 +50,7 @@ jobs:
     name: Intra-doc links
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: cargo fetch
       # Requires #![deny(rustdoc::broken_intra_doc_links)] in crate.
       - name: Check intra-doc links
@@ -61,6 +61,6 @@ jobs:
     timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Check formatting
         run: cargo fmt --all -- --check
