@@ -1,5 +1,9 @@
 # Unreleased
 
+# 0.8.1
+## Changed
+- MSRV bumped to `1.64.0`
+
 # 0.8.0
 ## Changed
 - Bumped dependencies to `ff 0.13`, `group 0.13`, `pairing 0.23`.
