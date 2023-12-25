@@ -943,14 +943,14 @@ pub const P_M1_OVER2: Fp = Fp::from_raw_unchecked([
 
 #[test]
 fn test_sgn0() {
-    assert_eq!(bool::from(Fp::zero().sgn0()), false);
-    assert_eq!(bool::from(Fp::one().sgn0()), true);
-    assert_eq!(bool::from((-Fp::one()).sgn0()), false);
-    assert_eq!(bool::from((-Fp::zero()).sgn0()), false);
-    assert_eq!(bool::from(P_M1_OVER2.sgn0()), true);
+    assert!(!bool::from(Fp::zero().sgn0()));
+    assert!(bool::from(Fp::one().sgn0()));
+    assert!(!bool::from((-Fp::one()).sgn0()));
+    assert!(!bool::from((-Fp::zero()).sgn0()));
+    assert!(bool::from(P_M1_OVER2.sgn0()));
 
     let p_p1_over2 = P_M1_OVER2 + Fp::one();
-    assert_eq!(bool::from(p_p1_over2.sgn0()), false);
+    assert!(!bool::from(p_p1_over2.sgn0()));
 
     let neg_p_p1_over2 = {
         let mut tmp = p_p1_over2;

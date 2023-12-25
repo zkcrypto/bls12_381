@@ -2151,6 +2151,7 @@ fn test_zeroize() {
     assert_eq!(&a, &G2Uncompressed::default());
 }
 
+#[allow(clippy::op_ref)]
 #[test]
 fn test_commutative_scalar_subgroup_multiplication() {
     let a = Scalar::from_raw([
@@ -2168,10 +2169,10 @@ fn test_commutative_scalar_subgroup_multiplication() {
     assert_eq!(&g2_p * &a, &a * &g2_p);
 
     // Mixed
-    assert_eq!(&g2_a * a.clone(), a.clone() * &g2_a);
-    assert_eq!(&g2_p * a.clone(), a.clone() * &g2_p);
-    assert_eq!(g2_a.clone() * &a, &a * g2_a.clone());
-    assert_eq!(g2_p.clone() * &a, &a * g2_p.clone());
+    assert_eq!(&g2_a * a, a * &g2_a);
+    assert_eq!(&g2_p * a, a * &g2_p);
+    assert_eq!(g2_a * &a, &a * g2_a);
+    assert_eq!(g2_p * &a, &a * g2_p);
 
     // By value.
     assert_eq!(g2_p * a, a * g2_p);
