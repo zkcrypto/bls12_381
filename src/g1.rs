@@ -751,6 +751,28 @@ impl G1Projective {
         G1Projective::conditional_select(&tmp, self, rhs.is_identity())
     }
 
+    /// Multiply this point by a scalar, using variable-time multiplication.
+    pub fn multiply_vartime(&self, by: &[u8; 32]) -> G1Projective {
+        let mut acc = G1Projective::identity();
+
+        // This is a simple double-and-add implementation of point
+        // multiplication, moving from most significant to least
+        // significant bit of the scalar.
+        //
+        // We skip the leading bit as part of the vartime implementation.
+        for bit in by
+            .iter()
+            .rev()
+            .flat_map(|byte| (0..8).rev().map(move |i| Choice::from((byte >> i) & 1u8)))
+            .skip_while(|c| !bool::from(*c))
+        {
+            acc = acc.double();
+            acc = G1Projective::conditional_select(&acc, &(acc + self), bit);
+        }
+
+        acc
+    }
+
     fn multiply(&self, by: &[u8; 32]) -> G1Projective {
         let mut acc = G1Projective::identity();
 
@@ -764,7 +786,7 @@ impl G1Projective {
             .iter()
             .rev()
             .flat_map(|byte| (0..8).rev().map(move |i| Choice::from((byte >> i) & 1u8)))
-            .skip_while(|c| !bool::from(*c))
+            .skip(1)
         {
             acc = acc.double();
             acc = G1Projective::conditional_select(&acc, &(acc + self), bit);
