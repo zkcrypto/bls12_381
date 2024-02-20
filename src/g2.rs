@@ -823,7 +823,7 @@ impl G2Projective {
     }
 
     /// Multiply this point by a scalar, using variable-time multiplication.
-    pub fn multiply_vartime(&self, by: &[u8]) -> G2Projective {
+    pub fn multiply_vartime(&self, by: &Scalar) -> G2Projective {
         let mut acc = G2Projective::identity();
 
         // This is a simple double-and-add implementation of point
@@ -832,6 +832,7 @@ impl G2Projective {
         //
         // We skip the leading bit as part of the vartime implementation.
         for bit in by
+            .to_bytes()
             .iter()
             .rev()
             .flat_map(|byte| (0..8).rev().map(move |i| Choice::from((byte >> i) & 1u8)))
@@ -1858,6 +1859,10 @@ fn test_projective_scalar_multiplication() {
     let c = a * b;
 
     assert_eq!((g * a) * b, g * c);
+    assert_eq!(
+        g.multiply_vartime(&a).multiply_vartime(&b),
+        g.multiply_vartime(&c)
+    );
 }
 
 #[test]
