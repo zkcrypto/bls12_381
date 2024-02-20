@@ -311,7 +311,7 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a Gt {
             .iter()
             .rev()
             .flat_map(|byte| (0..8).rev().map(move |i| Choice::from((byte >> i) & 1u8)))
-            .skip(1)
+            .skip_while(|c| !bool::from(*c))
         {
             acc = acc.double();
             acc = Gt::conditional_select(&acc, &(acc + self), bit);
