@@ -111,17 +111,10 @@ impl Fp6 {
     }
 
     pub fn mul_by_1(&self, c1: &Fp2) -> Fp6 {
-        let b_b = self.c1 * c1;
-
-        let t1 = (self.c1 + self.c2) * c1 - b_b;
-        let t1 = t1.mul_by_nonresidue();
-
-        let t2 = (self.c0 + self.c1) * c1 - b_b;
-
         Fp6 {
-            c0: t1,
-            c1: t2,
-            c2: b_b,
+            c0: (self.c2 * c1).mul_by_nonresidue(),
+            c1: self.c0 * c1,
+            c2: self.c1 * c1,
         }
     }
 
@@ -129,12 +122,11 @@ impl Fp6 {
         let a_a = self.c0 * c0;
         let b_b = self.c1 * c1;
 
-        let t1 = (self.c1 + self.c2) * c1 - b_b;
-        let t1 = t1.mul_by_nonresidue() + a_a;
+        let t1 = (self.c2 * c1).mul_by_nonresidue() + a_a;
 
         let t2 = (c0 + c1) * (self.c0 + self.c1) - a_a - b_b;
 
-        let t3 = (self.c0 + self.c2) * c0 - a_a + b_b;
+        let t3 = self.c2 * c0 + b_b;
 
         Fp6 {
             c0: t1,

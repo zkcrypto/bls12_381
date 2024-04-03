@@ -561,6 +561,15 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a G1Projective {
     }
 }
 
+impl<'a, 'b> Mul<&'b G1Projective> for &'a Scalar {
+    type Output = G1Projective;
+
+    #[inline]
+    fn mul(self, rhs: &'b G1Projective) -> Self::Output {
+        rhs * self
+    }
+}
+
 impl<'a, 'b> Mul<&'b Scalar> for &'a G1Affine {
     type Output = G1Projective;
 
@@ -569,9 +578,20 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a G1Affine {
     }
 }
 
+impl<'a, 'b> Mul<&'b G1Affine> for &'a Scalar {
+    type Output = G1Projective;
+
+    #[inline]
+    fn mul(self, rhs: &'b G1Affine) -> Self::Output {
+        rhs * self
+    }
+}
+
 impl_binops_additive!(G1Projective, G1Projective);
 impl_binops_multiplicative!(G1Projective, Scalar);
 impl_binops_multiplicative_mixed!(G1Affine, Scalar, G1Projective);
+impl_binops_multiplicative_mixed!(Scalar, G1Affine, G1Projective);
+impl_binops_multiplicative_mixed!(Scalar, G1Projective, G1Projective);
 
 #[inline(always)]
 fn mul_by_3b(a: Fp) -> Fp {
@@ -1673,9 +1693,9 @@ fn test_batch_normalize() {
     let b = a.double();
     let c = b.double();
 
-    for a_identity in (0..1).map(|n| n == 1) {
-        for b_identity in (0..1).map(|n| n == 1) {
-            for c_identity in (0..1).map(|n| n == 1) {
+    for a_identity in (0..=1).map(|n| n == 1) {
+        for b_identity in (0..=1).map(|n| n == 1) {
+            for c_identity in (0..=1).map(|n| n == 1) {
                 let mut v = [a, b, c];
                 if a_identity {
                     v[0] = G1Projective::identity()
@@ -1726,4 +1746,31 @@ fn test_zeroize() {
     let mut a = UncompressedEncoding::to_uncompressed(&G1Affine::generator());
     a.zeroize();
     assert_eq!(&a, &G1Uncompressed::default());
+}
+
+#[test]
+fn test_commutative_scalar_subgroup_multiplication() {
+    let a = Scalar::from_raw([
+        0x1fff_3231_233f_fffd,
+        0x4884_b7fa_0003_4802,
+        0x998c_4fef_ecbc_4ff3,
+        0x1824_b159_acc5_0562,
+    ]);
+
+    let g1_a = G1Affine::generator();
+    let g1_p = G1Projective::generator();
+
+    // By reference.
+    assert_eq!(&g1_a * &a, &a * &g1_a);
+    assert_eq!(&g1_p * &a, &a * &g1_p);
+
+    // Mixed
+    assert_eq!(&g1_a * a.clone(), a.clone() * &g1_a);
+    assert_eq!(&g1_p * a.clone(), a.clone() * &g1_p);
+    assert_eq!(g1_a.clone() * &a, &a * g1_a.clone());
+    assert_eq!(g1_p.clone() * &a, &a * g1_p.clone());
+
+    // By value.
+    assert_eq!(g1_p * a, a * g1_p);
+    assert_eq!(g1_a * a, a * g1_a);
 }

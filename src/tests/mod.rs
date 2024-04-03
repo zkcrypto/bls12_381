@@ -76,6 +76,7 @@ fn g2_compressed_valid_test_vectors() {
 }
 
 #[test]
+#[cfg(all(feature = "alloc", feature = "pairing"))]
 fn test_pairing_result_against_relic() {
     /*
     Sent to me from Diego Aranha (author of RELIC library):

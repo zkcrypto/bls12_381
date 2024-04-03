@@ -10,7 +10,7 @@ impl HashToField for Scalar {
 
     fn from_okm(okm: &GenericArray<u8, U48>) -> Scalar {
         let mut bs = [0u8; 64];
-        bs[16..].copy_from_slice(&okm);
+        bs[16..].copy_from_slice(okm);
         bs.reverse(); // into little endian
         Scalar::from_bytes_wide(&bs)
     }
