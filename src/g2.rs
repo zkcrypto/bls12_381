@@ -29,7 +29,7 @@ use crate::Scalar;
 pub struct G2Affine {
     pub(crate) x: Fp2,
     pub(crate) y: Fp2,
-    infinity: Choice,
+    pub(crate) infinity: Choice,
 }
 
 impl Default for G2Affine {

@@ -91,3 +91,5 @@ pub mod hash_to_curve;
 
 #[cfg(feature = "serde")]
 mod serde;
+
+mod hash;

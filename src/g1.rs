@@ -28,7 +28,7 @@ use crate::Scalar;
 pub struct G1Affine {
     pub(crate) x: Fp,
     pub(crate) y: Fp,
-    infinity: Choice,
+    pub(crate) infinity: Choice,
 }
 
 impl Default for G1Affine {
