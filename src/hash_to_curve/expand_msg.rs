@@ -6,7 +6,7 @@ use core::{
     marker::PhantomData,
 };
 
-use digest::{BlockInput, Digest, ExtendableOutputDirty, Update, XofReader};
+use digest::{core_api::BlockSizeUser, Digest, ExtendableOutput, Update, XofReader};
 
 use crate::generic_array::{
     typenum::{Unsigned, U32},
@@ -35,14 +35,14 @@ impl<'x, L: ArrayLength<u8>> ExpandMsgDst<'x, L> {
     /// Produces a DST for use with `expand_message_xof`.
     pub fn process_xof<H>(dst: &'x [u8]) -> Self
     where
-        H: Default + Update + ExtendableOutputDirty,
+        H: Default + Update + ExtendableOutput,
     {
         if dst.len() > 255 {
             let mut data = GenericArray::<u8, L>::default();
             H::default()
                 .chain(OVERSIZE_DST_SALT)
                 .chain(&dst)
-                .finalize_xof_dirty()
+                .finalize_xof()
                 .read(&mut data);
             Self::Hashed(data)
         } else {
@@ -53,7 +53,7 @@ impl<'x, L: ArrayLength<u8>> ExpandMsgDst<'x, L> {
     /// Produces a DST for use with `expand_message_xmd`.
     pub fn process_xmd<H>(dst: &'x [u8]) -> Self
     where
-        H: Digest<OutputSize = L>,
+        H: Digest<OutputSize = L> + Update,
     {
         if dst.len() > 255 {
             Self::Hashed(H::new().chain(OVERSIZE_DST_SALT).chain(&dst).finalize())
@@ -124,12 +124,12 @@ pub trait ExpandMessageState<'x> {
 /// with `k = 128`.
 ///
 /// [expand_message_xof]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-12#section-5.4.2
-pub struct ExpandMsgXof<H: ExtendableOutputDirty> {
-    hash: <H as ExtendableOutputDirty>::Reader,
+pub struct ExpandMsgXof<H: ExtendableOutput> {
+    hash: <H as ExtendableOutput>::Reader,
     remain: usize,
 }
 
-impl<H: ExtendableOutputDirty> Debug for ExpandMsgXof<H> {
+impl<H: ExtendableOutput> Debug for ExpandMsgXof<H> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("ExpandMsgXof")
             .field("remain", &self.remain)
@@ -139,7 +139,7 @@ impl<H: ExtendableOutputDirty> Debug for ExpandMsgXof<H> {
 
 impl<'x, H> ExpandMessageState<'x> for ExpandMsgXof<H>
 where
-    H: ExtendableOutputDirty,
+    H: ExtendableOutput,
 {
     fn read_into(&mut self, output: &mut [u8]) -> usize {
         let len = self.remain.min(output.len());
@@ -155,7 +155,7 @@ where
 
 impl<'x, H> InitExpandMessage<'x> for ExpandMsgXof<H>
 where
-    H: Default + Update + ExtendableOutputDirty,
+    H: Default + Update + ExtendableOutput,
 {
     type Expander = Self;
 
@@ -167,7 +167,7 @@ where
             .chain((len_in_bytes as u16).to_be_bytes())
             .chain(dst.data())
             .chain([dst.len() as u8])
-            .finalize_xof_dirty();
+            .finalize_xof();
         Self {
             hash,
             remain: len_in_bytes,
@@ -209,19 +209,19 @@ impl<H: Digest> Debug for ExpandMsgXmdState<'_, H> {
 
 impl<'x, H> InitExpandMessage<'x> for ExpandMsgXmd<H>
 where
-    H: Digest + BlockInput,
+    H: Digest + Update + BlockSizeUser,
 {
     type Expander = ExpandMsgXmdState<'x, H>;
 
     fn init_expand(message: &[u8], dst: &'x [u8], len_in_bytes: usize) -> Self::Expander {
-        let hash_size = <H as Digest>::OutputSize::to_usize();
+        let hash_size = <H as Digest>::output_size();
         let ell = (len_in_bytes + hash_size - 1) / hash_size;
         if ell > 255 {
             panic!("Invalid ExpandMsgXmd usage: ell > 255");
         }
         let dst = ExpandMsgDst::process_xmd::<H>(dst);
         let b_0 = H::new()
-            .chain(GenericArray::<u8, <H as BlockInput>::BlockSize>::default())
+            .chain(GenericArray::<u8, <H as BlockSizeUser>::BlockSize>::default())
             .chain(message)
             .chain((len_in_bytes as u16).to_be_bytes())
             .chain([0u8])
@@ -248,7 +248,7 @@ where
 
 impl<'x, H> ExpandMessageState<'x> for ExpandMsgXmdState<'x, H>
 where
-    H: Digest + BlockInput,
+    H: Digest + Update,
 {
     fn read_into(&mut self, output: &mut [u8]) -> usize {
         let read_len = self.remain.min(output.len());
