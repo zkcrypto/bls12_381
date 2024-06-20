@@ -196,6 +196,10 @@ const B: Fp2 = Fp2 {
 const B3: Fp2 = Fp2::add(&Fp2::add(&B, &B), &B);
 
 impl G2Affine {
+    /// Builds a new element of $\mathbb{G}_2$ from raw coordinates.
+    pub fn new_unsafe(x: Fp2, y: Fp2, infinity: Choice) -> Self {
+        G2Affine { x, y, infinity }
+    }
     /// Returns the identity of the group: the point at infinity.
     pub fn identity() -> G2Affine {
         G2Affine {

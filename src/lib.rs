@@ -49,9 +49,9 @@ mod scalar;
 pub use scalar::Scalar;
 
 #[cfg(feature = "groups")]
-mod fp;
+pub mod fp;
 #[cfg(feature = "groups")]
-mod fp2;
+pub mod fp2;
 #[cfg(feature = "groups")]
 mod g1;
 #[cfg(feature = "groups")]

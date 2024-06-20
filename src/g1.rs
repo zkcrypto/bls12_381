@@ -183,6 +183,11 @@ const B: Fp = Fp::from_raw_unchecked([
 ]);
 
 impl G1Affine {
+    /// Builds a new element of $\mathbb{G}_1$ from raw coordinates.
+    pub fn new_unsafe(x: Fp, y: Fp, infinity: Choice) -> Self {
+        G1Affine { x, y, infinity }
+    }
+
     /// Returns the identity of the group: the point at infinity.
     pub fn identity() -> G1Affine {
         G1Affine {

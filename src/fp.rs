@@ -1,6 +1,5 @@
 //! This module provides an implementation of the BLS12-381 base field `GF(p)`
 //! where `p = 0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab`
-
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand_core::RngCore;
@@ -11,6 +10,8 @@ use crate::util::{adc, mac, sbb};
 // The internal representation of this type is six 64-bit unsigned
 // integers in little-endian order. `Fp` values are always in
 // Montgomery form; i.e., Scalar(a) = aR mod p, with R = 2^384.
+
+#[allow(missing_docs)]
 #[derive(Copy, Clone)]
 pub struct Fp(pub(crate) [u64; 6]);
 
@@ -157,7 +158,13 @@ impl<'a, 'b> Mul<&'b Fp> for &'a Fp {
 impl_binops_additive!(Fp, Fp);
 impl_binops_multiplicative!(Fp, Fp);
 
+#[allow(missing_docs)]
 impl Fp {
+    /// Builds an element of `Fp` from a little-endian byte representation.
+    pub fn new_unsafe(bytes: [u64; 6]) -> Self {
+        Fp(bytes)
+    }
+
     /// Returns zero, the additive identity.
     #[inline]
     pub const fn zero() -> Fp {
