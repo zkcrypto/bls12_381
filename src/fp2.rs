@@ -1,5 +1,4 @@
 //! This module implements arithmetic over the quadratic extension field Fp2.
-#![allow(missing_docs)]
 
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
@@ -9,8 +8,11 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 use crate::fp::Fp;
 
 #[derive(Copy, Clone)]
+/// Represents an element in the field Fp2.
 pub struct Fp2 {
+    /// The first component of the Fp2 element.
     pub c0: Fp,
+    /// The second component of the Fp2 element.
     pub c1: Fp,
 }
 
@@ -110,6 +112,7 @@ impl_binops_additive!(Fp2, Fp2);
 impl_binops_multiplicative!(Fp2, Fp2);
 
 impl Fp2 {
+    /// Returns the zero element of Fp2.
     #[inline]
     pub const fn zero() -> Fp2 {
         Fp2 {
@@ -118,6 +121,7 @@ impl Fp2 {
         }
     }
 
+    /// Returns the one element of Fp2.
     #[inline]
     pub const fn one() -> Fp2 {
         Fp2 {
@@ -126,10 +130,12 @@ impl Fp2 {
         }
     }
 
+    /// Checks if this element is zero.
     pub fn is_zero(&self) -> Choice {
         self.c0.is_zero() & self.c1.is_zero()
     }
 
+    /// Generates a random element in Fp2.
     pub(crate) fn random(mut rng: impl RngCore) -> Fp2 {
         Fp2 {
             c0: Fp::random(&mut rng),
@@ -145,6 +151,7 @@ impl Fp2 {
         self.conjugate()
     }
 
+    /// Computes the conjugate of this element.
     #[inline(always)]
     pub fn conjugate(&self) -> Self {
         Fp2 {
@@ -153,6 +160,7 @@ impl Fp2 {
         }
     }
 
+    /// Multiplies this element by the non-residue.
     #[inline(always)]
     pub fn mul_by_nonresidue(&self) -> Fp2 {
         // Multiply a + bu by u + 1, getting
@@ -180,6 +188,7 @@ impl Fp2 {
             | (self.c1.is_zero() & self.c0.lexicographically_largest())
     }
 
+    /// Computes the square of this element.
     pub const fn square(&self) -> Fp2 {
         // Complex squaring:
         //
@@ -203,6 +212,7 @@ impl Fp2 {
         }
     }
 
+    /// Multiplies this element by another element.
     pub fn mul(&self, rhs: &Fp2) -> Fp2 {
         // F_{p^2} x F_{p^2} multiplication implemented with operand scanning (schoolbook)
         // computes the result as:
@@ -222,6 +232,7 @@ impl Fp2 {
         }
     }
 
+    /// Adds another element to this element.
     pub const fn add(&self, rhs: &Fp2) -> Fp2 {
         Fp2 {
             c0: (&self.c0).add(&rhs.c0),
@@ -229,6 +240,7 @@ impl Fp2 {
         }
     }
 
+    /// Subtracts another element from this element.
     pub const fn sub(&self, rhs: &Fp2) -> Fp2 {
         Fp2 {
             c0: (&self.c0).sub(&rhs.c0),
@@ -236,6 +248,7 @@ impl Fp2 {
         }
     }
 
+    /// Negates this element.
     pub const fn neg(&self) -> Fp2 {
         Fp2 {
             c0: (&self.c0).neg(),
@@ -243,6 +256,7 @@ impl Fp2 {
         }
     }
 
+    /// Computes the square root of this element.
     pub fn sqrt(&self) -> CtOption<Self> {
         // Algorithm 9, https://eprint.iacr.org/2012/685.pdf
         // with constant time modifications.

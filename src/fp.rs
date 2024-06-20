@@ -11,8 +11,8 @@ use crate::util::{adc, mac, sbb};
 // integers in little-endian order. `Fp` values are always in
 // Montgomery form; i.e., Scalar(a) = aR mod p, with R = 2^384.
 
-#[allow(missing_docs)]
 #[derive(Copy, Clone)]
+/// Represents an element in the finite field Fp.
 pub struct Fp(pub(crate) [u64; 6]);
 
 impl fmt::Debug for Fp {
@@ -158,11 +158,10 @@ impl<'a, 'b> Mul<&'b Fp> for &'a Fp {
 impl_binops_additive!(Fp, Fp);
 impl_binops_multiplicative!(Fp, Fp);
 
-#[allow(missing_docs)]
 impl Fp {
-    /// Builds an element of `Fp` from a little-endian byte representation.
-    pub fn new_unsafe(bytes: [u64; 6]) -> Self {
-        Fp(bytes)
+    /// Builds an element of `Fp` from little-endian limbs.
+    pub fn new_unsafe(limbs: [u64; 6]) -> Self {
+        Fp(limbs)
     }
 
     /// Returns zero, the additive identity.
@@ -177,6 +176,7 @@ impl Fp {
         R
     }
 
+    /// Checks if this element is zero.
     pub fn is_zero(&self) -> Choice {
         self.ct_eq(&Fp::zero())
     }
@@ -328,6 +328,7 @@ impl Fp {
     }
 
     #[inline]
+    /// Computes the square root of this field element.
     pub fn sqrt(&self) -> CtOption<Self> {
         // We use Shank's method, as p = 3 (mod 4). This means
         // we only need to exponentiate by (p+1)/4. This only
@@ -386,6 +387,7 @@ impl Fp {
     }
 
     #[inline]
+    /// Add two field elements together.
     pub const fn add(&self, rhs: &Fp) -> Fp {
         let (d0, carry) = adc(self.0[0], rhs.0[0], 0);
         let (d1, carry) = adc(self.0[1], rhs.0[1], carry);
@@ -400,6 +402,7 @@ impl Fp {
     }
 
     #[inline]
+    /// Returns the negation of this field element.
     pub const fn neg(&self) -> Fp {
         let (d0, borrow) = sbb(MODULUS[0], self.0[0], 0);
         let (d1, borrow) = sbb(MODULUS[1], self.0[1], borrow);
@@ -425,6 +428,7 @@ impl Fp {
     }
 
     #[inline]
+    /// Squares this element.
     pub const fn sub(&self, rhs: &Fp) -> Fp {
         (&rhs.neg()).add(self)
     }
@@ -569,6 +573,7 @@ impl Fp {
     }
 
     #[inline]
+    /// Multiplies two field elements, returning the result in the Montgomery domain.
     pub const fn mul(&self, rhs: &Fp) -> Fp {
         let (t0, carry) = mac(0, self.0[0], rhs.0[0], 0);
         let (t1, carry) = mac(0, self.0[0], rhs.0[1], carry);
