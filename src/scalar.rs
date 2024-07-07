@@ -502,8 +502,13 @@ impl Scalar {
         CtOption::new(t0, !self.ct_eq(&Self::zero()))
     }
 
+    /// Computes the Montgomery reduction.
+    ///
+    /// The Montgomery reduction here is based on Algorithm 14.32 in
+    /// Handbook of Applied Cryptography
+    /// <http://cacr.uwaterloo.ca/hac/about/chap14.pdf>.
     #[inline(always)]
-    const fn montgomery_reduce(
+    pub const fn montgomery_reduce(
         r0: u64,
         r1: u64,
         r2: u64,
@@ -513,10 +518,6 @@ impl Scalar {
         r6: u64,
         r7: u64,
     ) -> Self {
-        // The Montgomery reduction here is based on Algorithm 14.32 in
-        // Handbook of Applied Cryptography
-        // <http://cacr.uwaterloo.ca/hac/about/chap14.pdf>.
-
         let k = r0.wrapping_mul(INV);
         let (_, carry) = mac(r0, k, MODULUS.0[0], 0);
         let (r1, carry) = mac(r1, k, MODULUS.0[1], carry);
@@ -624,6 +625,36 @@ impl Scalar {
         let mask = (((self.0[0] | self.0[1] | self.0[2] | self.0[3]) == 0) as u64).wrapping_sub(1);
 
         Scalar([d0 & mask, d1 & mask, d2 & mask, d3 & mask])
+    }
+
+    /// Divide `self` by n.
+    #[inline]
+    pub fn divn(&self, mut n: u32) -> Scalar {
+        if n >= 256 {
+            return Scalar::from(0);
+        }
+
+        let mut out = self.clone();
+
+        while n >= 64 {
+            let mut t = 0;
+            for i in out.0.iter_mut().rev() {
+                core::mem::swap(&mut t, i);
+            }
+            n -= 64;
+        }
+
+        if n > 0 {
+            let mut t = 0;
+            for i in out.0.iter_mut().rev() {
+                let t2 = *i << (64 - n);
+                *i >>= n;
+                *i |= t;
+                t = t2;
+            }
+        }
+
+        out
     }
 }
 
