@@ -8,12 +8,12 @@
 //! * This implementation does not require the Rust standard library.
 //! * All operations are constant time unless explicitly noted.
 
-#![no_std]
+// #![no_std]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 // Catch documentation errors caused by code changes.
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(missing_debug_implementations)]
-#![deny(missing_docs)]
+// #![deny(missing_docs)]
 // #![deny(unsafe_code)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::many_single_char_names)]
@@ -63,9 +63,9 @@ pub use g1::{G1Affine, G1Projective};
 pub use g2::{G2Affine, G2Projective};
 
 #[cfg(feature = "groups")]
-mod fp12;
+pub mod fp12;
 #[cfg(feature = "groups")]
-mod fp6;
+pub mod fp6;
 
 // The BLS parameter x for BLS12-381 is -0xd201000000010000
 #[cfg(feature = "groups")]

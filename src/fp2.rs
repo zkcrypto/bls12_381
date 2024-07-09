@@ -136,7 +136,7 @@ impl Fp2 {
     }
 
     /// Generates a random element in Fp2.
-    pub(crate) fn random(mut rng: impl RngCore) -> Fp2 {
+    pub fn random(mut rng: impl RngCore) -> Fp2 {
         Fp2 {
             c0: Fp::random(&mut rng),
             c1: Fp::random(&mut rng),
@@ -189,7 +189,7 @@ impl Fp2 {
     }
 
     /// Computes the square of this element.
-    pub const fn square(&self) -> Fp2 {
+    pub fn square(&self) -> Fp2 {
         // Complex squaring:
         //
         // v0  = c0 * c1
@@ -213,6 +213,7 @@ impl Fp2 {
     }
 
     /// Multiplies this element by another element.
+    #[cfg(not(target_os = "zkvm"))]
     pub fn mul(&self, rhs: &Fp2) -> Fp2 {
         // F_{p^2} x F_{p^2} multiplication implemented with operand scanning (schoolbook)
         // computes the result as:
@@ -229,6 +230,26 @@ impl Fp2 {
         Fp2 {
             c0: Fp::sum_of_products([self.c0, -self.c1], [rhs.c0, rhs.c1]),
             c1: Fp::sum_of_products([self.c0, self.c1], [rhs.c1, rhs.c0]),
+        }
+    }
+    #[cfg(target_os = "zkvm")]
+    /// Multiplies this element by another element.
+    pub fn mul(&self, rhs: &Fp2) -> Fp2 {
+        // F_{p^2} x F_{p^2} multiplication implemented with operand scanning (schoolbook)
+        // computes the result as:
+        //
+        //   a·b = (a_0 b_0 + a_1 b_1 β) + (a_0 b_1 + a_1 b_0)i
+        //
+        // In BLS12-381's F_{p^2}, our β is -1, so the resulting F_{p^2} element is:
+        //
+        //   c_0 = a_0 b_0 - a_1 b_1
+        //   c_1 = a_0 b_1 + a_1 b_0
+        //
+        // Each of these is a "sum of products", which we can compute efficiently.
+
+        Fp2 {
+            c0: self.c0 * rhs.c0 - self.c1 * rhs.c1,
+            c1: self.c0 * rhs.c1 + self.c1 * rhs.c0,
         }
     }
 

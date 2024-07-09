@@ -1,8 +1,10 @@
 //! This module provides an implementation of the BLS12-381 base field `GF(p)`
 //! where `p = 0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab`
 use core::fmt;
+use core::mem::transmute;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand_core::RngCore;
+use sp1_precompiles::{sys_fp_bigint, syscall_fp384_mulmod};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::util::{adc, mac, sbb};
@@ -109,6 +111,17 @@ const R3: Fp = Fp([
     0x2512_d435_6572_4728,
     0x0aa6_3460_9175_5d4d,
 ]);
+
+// 0x14fec701e8fb0ce9ed5e64273c4f538b1797ab1458a88de9343ea97914956dc87fe11274d898fafbf4d38259380b4820
+// R^{-1} mod p
+const R_INV: [u64; 6] = [
+    0xf4d38259380b4820,
+    0x7fe11274d898fafb,
+    0x343ea97914956dc8,
+    0x1797ab1458a88de9,
+    0xed5e64273c4f538b,
+    0x14fec701e8fb0ce9,
+];
 
 impl<'a> Neg for &'a Fp {
     type Output = Fp;
@@ -438,6 +451,7 @@ impl Fp {
     /// Implements Algorithm 2 from Patrick Longa's
     /// [ePrint 2022-367](https://eprint.iacr.org/2022/367) §3.
     #[inline]
+    #[cfg(not(target_os = "zkvm"))] // This is slow in zkvm
     pub(crate) fn sum_of_products<const T: usize>(a: [Fp; T], b: [Fp; T]) -> Fp {
         // For a single `a x b` multiplication, operand scanning (schoolbook) takes each
         // limb of `a` in turn, and multiplies it by all of the limbs of `b` to compute
@@ -574,7 +588,8 @@ impl Fp {
 
     #[inline]
     /// Multiplies two field elements, returning the result in the Montgomery domain.
-    pub const fn mul(&self, rhs: &Fp) -> Fp {
+    #[cfg(not(target_os = "zkvm"))]
+    pub fn mul(&self, rhs: &Fp) -> Fp {
         let (t0, carry) = mac(0, self.0[0], rhs.0[0], 0);
         let (t1, carry) = mac(0, self.0[0], rhs.0[1], carry);
         let (t2, carry) = mac(0, self.0[0], rhs.0[2], carry);
@@ -620,9 +635,26 @@ impl Fp {
         Self::montgomery_reduce(t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11)
     }
 
+    /// Multiplies two field elements, returning the result in the Montgomery domain.
+    #[cfg(target_os = "zkvm")]
+    pub fn mul(&self, rhs: &Fp) -> Fp {
+        let mut result: [u32; 12] = [0; 12];
+        unsafe {
+            let modulus = transmute::<&[u64; 6], &[u32; 12]>(&MODULUS);
+            let r_inv = transmute::<&[u64; 6], &[u32; 12]>(&R_INV);
+
+            let lhs = transmute::<&[u64; 6], &[u32; 12]>(&self.0);
+            let rhs = transmute::<&[u64; 6], &[u32; 12]>(&rhs.0);
+            sys_fp_bigint(&mut result, 0, lhs, rhs, modulus);
+            sys_fp_bigint(&mut result, 0, &result, r_inv, modulus);
+            Fp::new_unsafe(*transmute::<&mut [u32; 12], &mut [u64; 6]>(&mut result))
+        }
+    }
+
     /// Squares this element.
     #[inline]
-    pub const fn square(&self) -> Self {
+    #[cfg(not(target_os = "zkvm"))]
+    pub fn square(&self) -> Self {
         let (t1, carry) = mac(0, self.0[0], self.0[1], 0);
         let (t2, carry) = mac(0, self.0[0], self.0[2], carry);
         let (t3, carry) = mac(0, self.0[0], self.0[3], carry);
@@ -669,6 +701,12 @@ impl Fp {
         let (t11, _) = adc(t11, 0, carry);
 
         Self::montgomery_reduce(t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11)
+    }
+
+    /// Squares this element.
+    #[cfg(target_os = "zkvm")]
+    pub fn square(&self) -> Self {
+        self * self
     }
 }
 

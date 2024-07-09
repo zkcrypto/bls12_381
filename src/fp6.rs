@@ -197,7 +197,7 @@ impl Fp6 {
     /// Implements the full-tower interleaving strategy from
     /// [ePrint 2022-376](https://eprint.iacr.org/2022/367).
     #[inline]
-    fn mul_interleaved(&self, b: &Self) -> Self {
+    pub fn mul_interleaved(&self, b: &Self) -> Self {
         // The intuition for this algorithm is that we can look at F_p^6 as a direct
         // extension of F_p^2, and express the overall operations down to the base field
         // F_p instead of only over F_p^2. This enables us to interleave multiplications
@@ -233,7 +233,6 @@ impl Fp6 {
         //
         // Each of these is a "sum of products", which we can compute efficiently.
 
-        let a = self;
         let b10_p_b11 = b.c1.c0 + b.c1.c1;
         let b10_m_b11 = b.c1.c0 - b.c1.c1;
         let b20_p_b21 = b.c2.c0 + b.c2.c1;
@@ -241,34 +240,41 @@ impl Fp6 {
 
         Fp6 {
             c0: Fp2 {
-                c0: Fp::sum_of_products(
-                    [a.c0.c0, -a.c0.c1, a.c1.c0, -a.c1.c1, a.c2.c0, -a.c2.c1],
-                    [b.c0.c0, b.c0.c1, b20_m_b21, b20_p_b21, b10_m_b11, b10_p_b11],
-                ),
-                c1: Fp::sum_of_products(
-                    [a.c0.c0, a.c0.c1, a.c1.c0, a.c1.c1, a.c2.c0, a.c2.c1],
-                    [b.c0.c1, b.c0.c0, b20_p_b21, b20_m_b21, b10_p_b11, b10_m_b11],
-                ),
+                c0: self.c0.c0 * b.c0.c0 - self.c0.c1 * b.c0.c1 + self.c1.c0 * b20_m_b21
+                    - self.c1.c1 * b20_p_b21
+                    + self.c2.c0 * b10_m_b11
+                    - self.c2.c1 * b10_p_b11,
+
+                c1: self.c0.c0 * b.c0.c1
+                    + self.c0.c1 * b.c0.c0
+                    + self.c1.c0 * b20_p_b21
+                    + self.c1.c1 * b20_m_b21
+                    + self.c2.c0 * b10_p_b11
+                    + self.c2.c1 * b10_m_b11,
             },
             c1: Fp2 {
-                c0: Fp::sum_of_products(
-                    [a.c0.c0, -a.c0.c1, a.c1.c0, -a.c1.c1, a.c2.c0, -a.c2.c1],
-                    [b.c1.c0, b.c1.c1, b.c0.c0, b.c0.c1, b20_m_b21, b20_p_b21],
-                ),
-                c1: Fp::sum_of_products(
-                    [a.c0.c0, a.c0.c1, a.c1.c0, a.c1.c1, a.c2.c0, a.c2.c1],
-                    [b.c1.c1, b.c1.c0, b.c0.c1, b.c0.c0, b20_p_b21, b20_m_b21],
-                ),
+                c0: self.c0.c0 * b.c1.c0 - self.c0.c1 * b.c1.c1 + self.c1.c0 * b.c0.c0
+                    - self.c1.c1 * b.c0.c1
+                    + self.c2.c0 * b20_m_b21
+                    - self.c2.c1 * b20_p_b21,
+                c1: self.c0.c0 * b.c1.c1
+                    + self.c0.c1 * b.c1.c0
+                    + self.c1.c0 * b.c0.c1
+                    + self.c1.c1 * b.c0.c0
+                    + self.c2.c0 * b20_p_b21
+                    + self.c2.c1 * b20_m_b21,
             },
             c2: Fp2 {
-                c0: Fp::sum_of_products(
-                    [a.c0.c0, -a.c0.c1, a.c1.c0, -a.c1.c1, a.c2.c0, -a.c2.c1],
-                    [b.c2.c0, b.c2.c1, b.c1.c0, b.c1.c1, b.c0.c0, b.c0.c1],
-                ),
-                c1: Fp::sum_of_products(
-                    [a.c0.c0, a.c0.c1, a.c1.c0, a.c1.c1, a.c2.c0, a.c2.c1],
-                    [b.c2.c1, b.c2.c0, b.c1.c1, b.c1.c0, b.c0.c1, b.c0.c0],
-                ),
+                c0: self.c0.c0 * b.c2.c0 - self.c0.c1 * b.c2.c1 + self.c1.c0 * b.c1.c0
+                    - self.c1.c1 * b.c1.c1
+                    + self.c2.c0 * b.c0.c0
+                    - self.c2.c1 * b.c0.c1,
+                c1: self.c0.c0 * b.c2.c1
+                    + self.c0.c1 * b.c2.c0
+                    + self.c1.c0 * b.c1.c1
+                    + self.c1.c1 * b.c1.c0
+                    + self.c2.c0 * b.c0.c1
+                    + self.c2.c1 * b.c0.c0,
             },
         }
     }
