@@ -172,3 +172,10 @@ macro_rules! impl_binops_multiplicative {
         }
     };
 }
+
+/// Generate arbitrary [`subtle::Choice`]
+#[cfg(feature = "arbitrary")]
+pub fn arbitrary_choice(u: &mut arbitrary::Unstructured) -> arbitrary::Result<subtle::Choice> {
+    let raw = u.int_in_range(0..=1)?;
+    Ok(subtle::Choice::from(raw))
+}

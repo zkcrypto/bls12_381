@@ -23,11 +23,13 @@ use crate::Scalar;
 ///
 /// Values of `G1Affine` are guaranteed to be in the $q$-order subgroup unless an
 /// "unchecked" API was misused.
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(docsrs, doc(cfg(feature = "groups")))]
 #[derive(Copy, Clone, Debug)]
 pub struct G1Affine {
     pub(crate) x: Fp,
     pub(crate) y: Fp,
+    #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::util::arbitrary_choice))]
     infinity: Choice,
 }
 
@@ -437,6 +439,7 @@ fn endomorphism(p: &G1Affine) -> G1Affine {
 }
 
 /// This is an element of $\mathbb{G}_1$ represented in the projective coordinate space.
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(docsrs, doc(cfg(feature = "groups")))]
 #[derive(Copy, Clone, Debug)]
 pub struct G1Projective {
