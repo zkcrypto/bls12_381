@@ -851,7 +851,10 @@ fn test_debug() {
 fn test_equality() {
     assert_eq!(Scalar::zero(), Scalar::zero());
     assert_eq!(Scalar::one(), Scalar::one());
-    assert_eq!(R2, R2);
+    #[allow(clippy::eq_op)]
+    {
+        assert_eq!(R2, R2);
+    }
 
     assert!(Scalar::zero() != Scalar::one());
     assert!(Scalar::one() != R2);

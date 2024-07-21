@@ -2163,15 +2163,24 @@ fn test_commutative_scalar_subgroup_multiplication() {
     let g2_a = G2Affine::generator();
     let g2_p = G2Projective::generator();
 
-    // By reference.
-    assert_eq!(&g2_a * &a, &a * &g2_a);
-    assert_eq!(&g2_p * &a, &a * &g2_p);
+    // By reference. In subfunction to avoid "needlessly taken reference" lint.
+    fn by_ref(g2_a: &G2Affine, g2_p: &G2Projective, a: &Scalar) {
+        assert_eq!(g2_a * a, a * g2_a);
+        assert_eq!(g2_p * a, a * g2_p);
+    }
+    by_ref(&g2_a, &g2_p, &a);
 
     // Mixed
-    assert_eq!(&g2_a * a.clone(), a.clone() * &g2_a);
-    assert_eq!(&g2_p * a.clone(), a.clone() * &g2_p);
-    assert_eq!(g2_a.clone() * &a, &a * g2_a.clone());
-    assert_eq!(g2_p.clone() * &a, &a * g2_p.clone());
+    fn group_ref(g2_a: &G2Affine, g2_p: &G2Projective, a: Scalar) {
+        assert_eq!(g2_a * a, a * g2_a);
+        assert_eq!(g2_p * a, a * g2_p);
+    }
+    fn scalar_ref(g2_a: G2Affine, g2_p: G2Projective, a: &Scalar) {
+        assert_eq!(g2_a * a, a * g2_a);
+        assert_eq!(g2_p * a, a * g2_p);
+    }
+    group_ref(&g2_a, &g2_p, a);
+    scalar_ref(g2_a, g2_p, &a);
 
     // By value.
     assert_eq!(g2_p * a, a * g2_p);

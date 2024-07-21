@@ -534,190 +534,136 @@ fn test_osswu_semirandom() {
 fn test_sgn0() {
     use super::map_g1::P_M1_OVER2;
 
-    assert_eq!(bool::from(Fp2::zero().sgn0()), false);
-    assert_eq!(bool::from(Fp2::one().sgn0()), true);
-    assert_eq!(
-        bool::from(
-            Fp2 {
-                c0: P_M1_OVER2,
-                c1: Fp::zero()
-            }
-            .sgn0()
-        ),
-        true
-    );
-    assert_eq!(
-        bool::from(
-            Fp2 {
-                c0: P_M1_OVER2,
-                c1: Fp::one()
-            }
-            .sgn0()
-        ),
-        true
-    );
-    assert_eq!(
-        bool::from(
-            Fp2 {
-                c0: Fp::zero(),
-                c1: P_M1_OVER2,
-            }
-            .sgn0()
-        ),
-        true
-    );
-    assert_eq!(
-        bool::from(
-            Fp2 {
-                c0: Fp::one(),
-                c1: P_M1_OVER2,
-            }
-            .sgn0()
-        ),
-        true
-    );
+    assert!(!bool::from(Fp2::zero().sgn0()));
+    assert!(bool::from(Fp2::one().sgn0()));
+    assert!(bool::from(
+        Fp2 {
+            c0: P_M1_OVER2,
+            c1: Fp::zero()
+        }
+        .sgn0()
+    ));
+    assert!(bool::from(
+        Fp2 {
+            c0: P_M1_OVER2,
+            c1: Fp::one()
+        }
+        .sgn0()
+    ));
+    assert!(bool::from(
+        Fp2 {
+            c0: Fp::zero(),
+            c1: P_M1_OVER2,
+        }
+        .sgn0()
+    ));
+    assert!(bool::from(
+        Fp2 {
+            c0: Fp::one(),
+            c1: P_M1_OVER2,
+        }
+        .sgn0()
+    ));
 
     let p_p1_over2 = P_M1_OVER2 + Fp::one();
-    assert_eq!(
-        bool::from(
-            Fp2 {
-                c0: p_p1_over2,
-                c1: Fp::zero()
-            }
-            .sgn0()
-        ),
-        false
-    );
-    assert_eq!(
-        bool::from(
-            Fp2 {
-                c0: p_p1_over2,
-                c1: Fp::one()
-            }
-            .sgn0()
-        ),
-        false
-    );
-    assert_eq!(
-        bool::from(
-            Fp2 {
-                c0: Fp::zero(),
-                c1: p_p1_over2,
-            }
-            .sgn0()
-        ),
-        false
-    );
-    assert_eq!(
-        bool::from(
-            Fp2 {
-                c0: Fp::one(),
-                c1: p_p1_over2,
-            }
-            .sgn0()
-        ),
-        true
-    );
+    assert!(!bool::from(
+        Fp2 {
+            c0: p_p1_over2,
+            c1: Fp::zero()
+        }
+        .sgn0()
+    ));
+    assert!(!bool::from(
+        Fp2 {
+            c0: p_p1_over2,
+            c1: Fp::one()
+        }
+        .sgn0()
+    ));
+    assert!(!bool::from(
+        Fp2 {
+            c0: Fp::zero(),
+            c1: p_p1_over2,
+        }
+        .sgn0()
+    ));
+    assert!(bool::from(
+        Fp2 {
+            c0: Fp::one(),
+            c1: p_p1_over2,
+        }
+        .sgn0()
+    ));
 
-    assert_eq!(
-        bool::from(
-            Fp2 {
-                c0: P_M1_OVER2,
-                c1: -Fp::one()
-            }
-            .sgn0()
-        ),
-        true
-    );
-    assert_eq!(
-        bool::from(
-            Fp2 {
-                c0: p_p1_over2,
-                c1: -Fp::one()
-            }
-            .sgn0()
-        ),
-        false
-    );
-    assert_eq!(
-        bool::from(
-            Fp2 {
-                c0: Fp::zero(),
-                c1: -Fp::one()
-            }
-            .sgn0()
-        ),
-        false
-    );
-    assert_eq!(
-        bool::from(
-            Fp2 {
-                c0: P_M1_OVER2,
-                c1: p_p1_over2
-            }
-            .sgn0()
-        ),
-        true
-    );
-    assert_eq!(
-        bool::from(
-            Fp2 {
-                c0: p_p1_over2,
-                c1: P_M1_OVER2
-            }
-            .sgn0()
-        ),
-        false
-    );
+    assert!(bool::from(
+        Fp2 {
+            c0: P_M1_OVER2,
+            c1: -Fp::one()
+        }
+        .sgn0()
+    ));
+    assert!(!bool::from(
+        Fp2 {
+            c0: p_p1_over2,
+            c1: -Fp::one()
+        }
+        .sgn0()
+    ));
+    assert!(!bool::from(
+        Fp2 {
+            c0: Fp::zero(),
+            c1: -Fp::one()
+        }
+        .sgn0()
+    ));
+    assert!(bool::from(
+        Fp2 {
+            c0: P_M1_OVER2,
+            c1: p_p1_over2
+        }
+        .sgn0()
+    ));
+    assert!(!bool::from(
+        Fp2 {
+            c0: p_p1_over2,
+            c1: P_M1_OVER2
+        }
+        .sgn0()
+    ));
 
-    assert_eq!(
-        bool::from(
-            Fp2 {
-                c0: -Fp::one(),
-                c1: P_M1_OVER2,
-            }
-            .sgn0()
-        ),
-        false
-    );
-    assert_eq!(
-        bool::from(
-            Fp2 {
-                c0: -Fp::one(),
-                c1: p_p1_over2,
-            }
-            .sgn0()
-        ),
-        false
-    );
-    assert_eq!(
-        bool::from(
-            Fp2 {
-                c0: -Fp::one(),
-                c1: Fp::zero(),
-            }
-            .sgn0()
-        ),
-        false
-    );
-    assert_eq!(
-        bool::from(
-            Fp2 {
-                c0: p_p1_over2,
-                c1: P_M1_OVER2,
-            }
-            .sgn0()
-        ),
-        false
-    );
-    assert_eq!(
-        bool::from(
-            Fp2 {
-                c0: P_M1_OVER2,
-                c1: p_p1_over2,
-            }
-            .sgn0()
-        ),
-        true
-    );
+    assert!(!bool::from(
+        Fp2 {
+            c0: -Fp::one(),
+            c1: P_M1_OVER2,
+        }
+        .sgn0()
+    ));
+    assert!(!bool::from(
+        Fp2 {
+            c0: -Fp::one(),
+            c1: p_p1_over2,
+        }
+        .sgn0()
+    ));
+    assert!(!bool::from(
+        Fp2 {
+            c0: -Fp::one(),
+            c1: Fp::zero(),
+        }
+        .sgn0()
+    ));
+    assert!(!bool::from(
+        Fp2 {
+            c0: p_p1_over2,
+            c1: P_M1_OVER2,
+        }
+        .sgn0()
+    ));
+    assert!(bool::from(
+        Fp2 {
+            c0: P_M1_OVER2,
+            c1: p_p1_over2,
+        }
+        .sgn0()
+    ));
 }
