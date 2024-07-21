@@ -45,7 +45,7 @@ impl ExpandMsgDst {
     ///
     /// `L` **MUST** be set to `ceil(2 * k / 8)`, where `k` is the security parameter. It
     /// is used when handling DST values longer than 255 bytes.
-    pub fn for_xof<H, L>(dst: &[u8]) -> Self
+    fn for_xof<H, L>(dst: &[u8]) -> Self
     where
         H: Default + Update + ExtendableOutput,
         L: ArrayLength<u8> + IsLess<U256>,
@@ -67,7 +67,7 @@ impl ExpandMsgDst {
     }
 
     /// Produces a DST for use with `expand_message_xmd`.
-    pub fn for_xmd<H>(dst: &[u8]) -> Self
+    fn for_xmd<H>(dst: &[u8]) -> Self
     where
         H: Default + FixedOutput + Update,
     {
@@ -89,12 +89,12 @@ impl ExpandMsgDst {
     }
 
     /// Returns the raw bytes of the DST.
-    pub fn data(&self) -> &[u8] {
+    fn data(&self) -> &[u8] {
         &self.dst[..self.len]
     }
 
     /// Returns the length of the DST.
-    pub fn len(&self) -> usize {
+    fn len(&self) -> usize {
         self.len
     }
 }
