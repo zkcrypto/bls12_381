@@ -67,9 +67,13 @@ impl ExpandMsgDst {
     }
 
     /// Produces a DST for use with `expand_message_xmd`.
+    ///
+    /// The output size of `H` is required to be less than 256 bytes, so it can be used to
+    /// reduce domain separation tags that are longer than 255 bytes.
     fn for_xmd<H>(dst: &[u8]) -> Self
     where
         H: Default + FixedOutput + Update,
+        H::OutputSize: IsLess<U256>,
     {
         let input_len = dst.len();
         ExpandMsgDst::new(|buf| {
@@ -78,7 +82,7 @@ impl ExpandMsgDst {
                     .chain(OVERSIZE_DST_SALT)
                     .chain(&dst)
                     .finalize_fixed();
-                let len = hashed.len().min(MAX_DST_LENGTH);
+                let len = hashed.len();
                 buf[..len].copy_from_slice(&hashed);
                 len
             } else {
@@ -216,7 +220,12 @@ where
 ///
 /// Implements [section 5.3.1 of `draft-irtf-cfrg-hash-to-curve-16`][expand_message_xmd].
 ///
+/// The output size of `H` is required to be less than 256 bytes, so it can be used to
+/// reduce domain separation tags that are longer than 255 bytes (as specified in
+/// [section 5.3.3 of `draft-irtf-cfrg-hash-to-curve-16`][dst]).
+///
 /// [expand_message_xmd]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-16#section-5.3.1
+/// [dst]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-16#section-5.3.3
 pub struct ExpandMsgXmd<H: FixedOutput> {
     dst: ExpandMsgDst,
     b_0: GenericArray<u8, H::OutputSize>,
@@ -237,6 +246,7 @@ impl<H: FixedOutput> Debug for ExpandMsgXmd<H> {
 impl<H> ExpandMessage for ExpandMsgXmd<H>
 where
     H: Default + BlockInput + FixedOutput + Update,
+    H::OutputSize: IsLess<U256>,
 {
     fn init_expand<M, L>(message: M, dst: &[u8], len_in_bytes: usize) -> Self
     where
