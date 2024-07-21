@@ -1,67 +1,37 @@
 [package]
+name = "bls12_381"
+version = "0.8.0"
 authors = [
     "Sean Bowe <ewillbefull@gmail.com>",
     "Jack Grigg <thestr4d@gmail.com>",
 ]
+edition = "2021"
+rust-version = "1.56"
 description = "Implementation of the BLS12-381 pairing-friendly elliptic curve construction"
 documentation = "https://docs.rs/bls12_381/"
 homepage = "https://github.com/zkcrypto/bls12_381"
-license = "MIT/Apache-2.0"
-name = "bls12_381"
 repository = "https://github.com/zkcrypto/bls12_381"
-version = "0.8.0"
-edition = "2021"
+license = "MIT/Apache-2.0"
 
 [package.metadata.docs.rs]
-rustdoc-args = [ "--html-in-header", "katex-header.html" ]
+rustdoc-args = ["--html-in-header", "katex-header.html"]
+
+[dependencies]
+digest = { version = "0.10", optional = true }
+ff = { version = "0.13", default-features = false }
+group = { version = "0.13", optional = true, default-features = false }
+pairing = { version = "0.23", optional = true }
+rand_core = { version = "0.6", default-features = false }
+subtle = { version = "2.2.1", default-features = false }
+zeroize = { version = "1.4", optional = true, default-features = false }
 
 [dev-dependencies]
 csv = ">= 1.0, < 1.2" # csv 1.2 has MSRV 1.60
 criterion = "0.3"
 hex-literal = "0.3"
 rand_xorshift = "0.3"
-sha2 = "0.9"
-sha3 = "0.9"
-
-[[bench]]
-name = "groups"
-harness = false
-required-features = ["groups"]
-
-[[bench]]
-name = "hash_to_curve"
-harness = false
-required-features = ["experimental"]
-
-[dependencies.digest]
-version = "0.9"
-optional = true
-
-[dependencies.ff]
-version = "0.13"
-default-features = false
-
-[dependencies.group]
-version = "0.13"
-default-features = false
-optional = true
-
-[dependencies.pairing]
-version = "0.23"
-optional = true
-
-[dependencies.rand_core]
-version = "0.6"
-default-features = false
-
-[dependencies.subtle]
-version = "2.2.1"
-default-features = false
-
-[dependencies.zeroize]
-version = "1.4"
-default-features = false
-optional = true
+sha2 = "0.10"
+sha3 = "0.10"
 
 [features]
 default = ["groups", "pairings", "alloc", "bits"]
@@ -82,4 +52,14 @@ required-features = ["experimental"]
 
 [[test]]
 name = "hash_to_curve_g2"
+required-features = ["experimental"]
+
+[[bench]]
+name = "groups"
+harness = false
+required-features = ["groups"]
+
+[[bench]]
+name = "hash_to_curve"
+harness = false
 required-features = ["experimental"]

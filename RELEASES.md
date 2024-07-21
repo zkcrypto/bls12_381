@@ -1,4 +1,6 @@
 # Unreleased
+## Changed
+- Bumped dependencies to `digest 0.10`.
 
 # 0.8.0
 ## Changed

@@ -4,7 +4,8 @@
 use core::fmt::{self, Debug, Formatter};
 
 use digest::{
-    generic_array::typenum::IsLess, BlockInput, ExtendableOutput, FixedOutput, Update, XofReader,
+    core_api::BlockSizeUser, generic_array::typenum::IsLess, ExtendableOutput, FixedOutput,
+    XofReader,
 };
 
 use crate::generic_array::{
@@ -47,7 +48,7 @@ impl ExpandMsgDst {
     /// is used when handling DST values longer than 255 bytes.
     fn for_xof<H, L>(dst: &[u8]) -> Self
     where
-        H: Default + Update + ExtendableOutput,
+        H: Default + ExtendableOutput,
         L: ArrayLength<u8> + IsLess<U256>,
     {
         let input_len = dst.len();
@@ -72,7 +73,7 @@ impl ExpandMsgDst {
     /// reduce domain separation tags that are longer than 255 bytes.
     fn for_xmd<H>(dst: &[u8]) -> Self
     where
-        H: Default + FixedOutput + Update,
+        H: Default + FixedOutput,
         H::OutputSize: IsLess<U256>,
     {
         let input_len = dst.len();
@@ -178,7 +179,7 @@ impl<H: ExtendableOutput> Debug for ExpandMsgXof<H> {
 
 impl<H> ExpandMessage for ExpandMsgXof<H>
 where
-    H: Default + ExtendableOutput + Update,
+    H: Default + ExtendableOutput,
 {
     fn init_expand<M, L>(message: M, dst: &[u8], len_in_bytes: usize) -> Self
     where
@@ -245,7 +246,7 @@ impl<H: FixedOutput> Debug for ExpandMsgXmd<H> {
 
 impl<H> ExpandMessage for ExpandMsgXmd<H>
 where
-    H: Default + BlockInput + FixedOutput + Update,
+    H: Default + BlockSizeUser + FixedOutput,
     H::OutputSize: IsLess<U256>,
 {
     fn init_expand<M, L>(message: M, dst: &[u8], len_in_bytes: usize) -> Self
@@ -253,7 +254,7 @@ where
         M: Message,
         L: ArrayLength<u8> + IsLess<U256>,
     {
-        let hash_size = <H as FixedOutput>::OutputSize::to_usize();
+        let hash_size = H::OutputSize::to_usize();
         let ell = (len_in_bytes + hash_size - 1) / hash_size;
         if ell > 255 {
             panic!("Invalid ExpandMsgXmd usage: ell > 255");
@@ -264,7 +265,7 @@ where
 
         let dst = ExpandMsgDst::for_xmd::<H>(dst);
         let mut hash_b_0 =
-            H::default().chain(GenericArray::<u8, <H as BlockInput>::BlockSize>::default());
+            H::default().chain(GenericArray::<u8, <H as BlockSizeUser>::BlockSize>::default());
         message.input_message(|m| hash_b_0.update(m));
         let b_0 = hash_b_0
             .chain((len_in_bytes as u16).to_be_bytes())
