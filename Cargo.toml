@@ -71,3 +71,15 @@ pairings = ["groups", "pairing"]
 alloc = ["group/alloc"]
 experimental = ["digest"]
 nightly = ["subtle/nightly"]
+
+[[test]]
+name = "expand_msg"
+required-features = ["alloc", "experimental"]
+
+[[test]]
+name = "hash_to_curve_g1"
+required-features = ["experimental"]
+
+[[test]]
+name = "hash_to_curve_g2"
+required-features = ["experimental"]
