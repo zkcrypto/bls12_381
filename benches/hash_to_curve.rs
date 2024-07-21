@@ -20,7 +20,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             move |b| {
                 b.iter(|| {
                     <G1Projective as HashToCurve<ExpandMsgXmd<sha2::Sha256>>>::encode_to_curve(
-                        black_box(message),
+                        [black_box(message)],
                         black_box(dst),
                     )
                 })
@@ -29,7 +29,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         c.bench_function(&format!("{} hash_to_curve SSWU SHA-256", name), move |b| {
             b.iter(|| {
                 <G1Projective as HashToCurve<ExpandMsgXmd<sha2::Sha256>>>::hash_to_curve(
-                    black_box(message),
+                    [black_box(message)],
                     black_box(dst),
                 )
             })
@@ -47,7 +47,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             move |b| {
                 b.iter(|| {
                     <G2Projective as HashToCurve<ExpandMsgXmd<sha2::Sha256>>>::encode_to_curve(
-                        black_box(message),
+                        [black_box(message)],
                         black_box(dst),
                     )
                 })
@@ -56,7 +56,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         c.bench_function(&format!("{} hash_to_curve SSWU SHA-256", name), move |b| {
             b.iter(|| {
                 <G2Projective as HashToCurve<ExpandMsgXmd<sha2::Sha256>>>::hash_to_curve(
-                    black_box(message),
+                    [black_box(message)],
                     black_box(dst),
                 )
             })

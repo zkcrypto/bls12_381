@@ -18,7 +18,7 @@ rustdoc-args = [ "--html-in-header", "katex-header.html" ]
 [dev-dependencies]
 csv = ">= 1.0, < 1.2" # csv 1.2 has MSRV 1.60
 criterion = "0.3"
-hex = "0.4"
+hex-literal = "0.3"
 rand_xorshift = "0.3"
 sha2 = "0.9"
 sha3 = "0.9"
@@ -69,7 +69,7 @@ bits = ["ff/bits"]
 groups = ["group"]
 pairings = ["groups", "pairing"]
 alloc = ["group/alloc"]
-experimental = ["digest"]
+experimental = ["digest", "groups"]
 nightly = ["subtle/nightly"]
 
 [[test]]
