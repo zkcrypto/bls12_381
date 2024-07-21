@@ -248,6 +248,10 @@ where
         if ell > 255 {
             panic!("Invalid ExpandMsgXmd usage: ell > 255");
         }
+        if len_in_bytes > u16::MAX as usize {
+            panic!("Invalid ExpandMsgXmd usage: len_in_bytes > u16::MAX");
+        }
+
         let dst = ExpandMsgDst::for_xmd::<H>(dst);
         let mut hash_b_0 =
             H::default().chain(GenericArray::<u8, <H as BlockInput>::BlockSize>::default());
