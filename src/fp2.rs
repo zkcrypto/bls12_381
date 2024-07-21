@@ -378,7 +378,7 @@ fn test_conditional_selection() {
 fn test_equality() {
     fn is_equal(a: &Fp2, b: &Fp2) -> bool {
         let eq = a == b;
-        let ct_eq = a.ct_eq(&b);
+        let ct_eq = a.ct_eq(b);
 
         assert_eq!(eq, bool::from(ct_eq));
 
