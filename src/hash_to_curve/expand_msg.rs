@@ -42,6 +42,9 @@ impl ExpandMsgDst {
     }
 
     /// Produces a DST for use with `expand_message_xof`.
+    ///
+    /// `L` **MUST** be set to `ceil(2 * k / 8)`, where `k` is the security parameter. It
+    /// is used when handling DST values longer than 255 bytes.
     pub fn for_xof<H, L>(dst: &[u8]) -> Self
     where
         H: Default + Update + ExtendableOutput,
@@ -120,6 +123,10 @@ where
 /// A trait for message expansion methods supported by hash-to-curve.
 pub trait ExpandMessage {
     /// Initializes a message expander.
+    ///
+    /// `L` **MUST** be set to `ceil(2 * k / 8)`, where `k` is the security parameter.
+    /// It is used by certain trait implementations (for example, [`ExpandMsgXof`]) when
+    /// handling DST values longer than 255 bytes.
     fn init_expand<M, L>(message: M, dst: &[u8], len_in_bytes: usize) -> Self
     where
         M: Message,
