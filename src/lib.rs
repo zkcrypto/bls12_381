@@ -8,7 +8,7 @@
 //! * This implementation does not require the Rust standard library.
 //! * All operations are constant time unless explicitly noted.
 
-#![no_std]
+#![cfg_attr(not(feature = "arbitrary"), no_std)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 // Catch documentation errors caused by code changes.
 #![deny(rustdoc::broken_intra_doc_links)]
