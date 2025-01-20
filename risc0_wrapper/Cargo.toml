@@ -1,0 +1,9 @@
+[package]
+name = "risc0-wrapper"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+risc0-wrapper-methods = { path = "methods" }
+risc0-zkvm = "1.2.1"
+# tracing-subscriber = { version = "0.3", features = ["env-filter"] }

@@ -251,6 +251,13 @@ impl Scalar {
         self.add(self)
     }
 
+    // TODO -- do we want this?
+    #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+    /// Allow direct initialization of the internal data
+    pub const fn set_raw(data: [u64; 4]) -> Self {
+        Scalar(data)
+    }
+
     /// Attempts to convert a little-endian byte representation of
     /// a scalar into a `Scalar`, failing if the input is not canonical.
     pub fn from_bytes(bytes: &[u8; 32]) -> CtOption<Scalar> {
