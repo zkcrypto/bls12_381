@@ -13,7 +13,12 @@ version = "0.8.0"
 edition = "2021"
 
 [package.metadata.docs.rs]
-rustdoc-args = [ "--html-in-header", "katex-header.html" ]
+rustdoc-args = ["--html-in-header", "katex-header.html"]
+
+[dependencies]
+risc0-bigint2 = { version = "1.2.1", default-features = false, features = [ "unstable", ] }
+bytemuck = "1.21.0"
+#risc0-bigint2 = { path = "../risc0/risc0/bigint2", default-features = false, features = [ "unstable", ] }
 
 [dev-dependencies]
 csv = ">= 1.0, < 1.2" # csv 1.2 has MSRV 1.60

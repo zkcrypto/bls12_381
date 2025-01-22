@@ -15,7 +15,7 @@
 #![doc = include_str!("../README.md")]
 
 use risc0_wrapper_methods::WRAPPER_ELF;
-use risc0_zkvm::{default_prover, ExecutorEnv, Receipt};
+use risc0_zkvm::{default_prover, ExecutorEnv};
 
 // Compute the product a*b inside the zkVM
 pub fn run_test() -> () {
@@ -26,15 +26,7 @@ pub fn run_test() -> () {
     let prover = default_prover();
 
     // Produce a receipt by proving the specified ELF binary.
-    let receipt = prover.prove(env, WRAPPER_ELF).unwrap().receipt;
-
-    // Extract journal of receipt (i.e. output c, where c = a * b)
-    let c: () = receipt.journal.decode().expect(
-        "Journal output should deserialize into the same types (& order) that it was written",
-    );
-
-    // Report the product
-    println!("YAY");
+    let _receipt = prover.prove(env, WRAPPER_ELF).unwrap().receipt;
 }
 
 #[cfg(test)]

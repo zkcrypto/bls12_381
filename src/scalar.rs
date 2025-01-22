@@ -13,6 +13,9 @@ use ff::{FieldBits, PrimeFieldBits};
 
 use crate::util::{adc, mac, sbb};
 
+#[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+use risc0_bigint2::field;
+
 /// Represents an element of the scalar field $\mathbb{F}_q$ of the BLS12-381 elliptic
 /// curve construction.
 // The internal representation of this type is four 64-bit unsigned
@@ -179,6 +182,14 @@ const R3: Scalar = Scalar([
     0x6e2a_5bb9_c8db_33e9,
 ]);
 
+/// R^-1
+const R_INV: Scalar = Scalar([
+    0x13f7_5b69_fe75_c040,
+    0xab6f_ca8f_09dc_705f,
+    0x7204_078a_4f77_266a,
+    0x1bbe_8693_3000_9d57,
+]);
+
 /// 2^-1
 const TWO_INV: Scalar = Scalar([
     0x0000_0000_ffff_ffff,
@@ -245,9 +256,17 @@ impl Scalar {
     }
 
     /// Doubles this field element.
+    #[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
     #[inline]
     pub const fn double(&self) -> Scalar {
         // TODO: This can be achieved more efficiently with a bitshift.
+        self.add(self)
+    }
+
+    /// RISCZero patch (just non-const fn)
+    #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+    #[inline]
+    pub fn double(&self) -> Scalar {
         self.add(self)
     }
 
@@ -603,6 +622,7 @@ impl Scalar {
     }
 
     /// Adds `rhs` to `self`, returning the result.
+    #[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
     #[inline]
     pub const fn add(&self, rhs: &Self) -> Self {
         let (d0, carry) = adc(self.0[0], rhs.0[0], 0);
@@ -613,6 +633,19 @@ impl Scalar {
         // Attempt to subtract the modulus, to ensure the value
         // is smaller than the modulus.
         (&Scalar([d0, d1, d2, d3])).sub(&MODULUS)
+    }
+
+    /// RISCZero patch
+    #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+    #[inline]
+    pub fn add(&self, rhs: &Self) -> Self {
+        let mut result = [0u32; 8];
+        let lhs: [u32; 8] = bytemuck::cast(self.0);
+        let rhs: [u32; 8] = bytemuck::cast(rhs.0);
+        let prime: [u32; 8] = bytemuck::cast(MODULUS.0);
+        field::modadd_256(&lhs, &rhs, &prime, &mut result);
+        let ret: [u64; 4] = bytemuck::cast(result);
+        Scalar(ret)
     }
 
     /// Negates `self`.
