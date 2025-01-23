@@ -182,14 +182,6 @@ const R3: Scalar = Scalar([
     0x6e2a_5bb9_c8db_33e9,
 ]);
 
-/// R^-1
-const R_INV: Scalar = Scalar([
-    0x13f7_5b69_fe75_c040,
-    0xab6f_ca8f_09dc_705f,
-    0x7204_078a_4f77_266a,
-    0x1bbe_8693_3000_9d57,
-]);
-
 /// 2^-1
 const TWO_INV: Scalar = Scalar([
     0x0000_0000_ffff_ffff,
@@ -268,13 +260,6 @@ impl Scalar {
     #[inline]
     pub fn double(&self) -> Scalar {
         self.add(self)
-    }
-
-    // TODO -- do we want this?
-    #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
-    /// Allow direct initialization of the internal data
-    pub const fn set_raw(data: [u64; 4]) -> Self {
-        Scalar(data)
     }
 
     /// Attempts to convert a little-endian byte representation of
@@ -358,8 +343,15 @@ impl Scalar {
 
     /// Converts from an integer represented in little endian
     /// into its (congruent) `Scalar` representation.
+    #[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
     pub const fn from_raw(val: [u64; 4]) -> Self {
         (&Scalar(val)).mul(&R2)
+    }
+
+    /// RISCZero patch: non-Montgomery
+    #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+    pub const fn from_raw(val: [u64; 4]) -> Self {
+        Scalar(val)
     }
 
     /// Squares this element.
@@ -576,6 +568,7 @@ impl Scalar {
     }
 
     /// Multiplies `rhs` by `self`, returning the result.
+    #[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
     #[inline]
     pub const fn mul(&self, rhs: &Self) -> Self {
         // Schoolbook multiplication
@@ -601,6 +594,19 @@ impl Scalar {
         let (r6, r7) = mac(r6, self.0[3], rhs.0[3], carry);
 
         Scalar::montgomery_reduce(r0, r1, r2, r3, r4, r5, r6, r7)
+    }
+
+    /// RISCZero patch: non-Montgomery mult
+    #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+    #[inline]
+    pub fn mul(&self, rhs: &Self) -> Self {
+        let mut result = [0u32; 8];
+        let lhs: [u32; 8] = bytemuck::cast(self.0);
+        let rhs: [u32; 8] = bytemuck::cast(rhs.0);
+        let prime: [u32; 8] = bytemuck::cast(MODULUS.0);
+        field::modmul_256(&lhs, &rhs, &prime, &mut result);
+        let ret: [u64; 4] = bytemuck::cast(result);
+        Scalar(ret)
     }
 
     /// Subtracts `rhs` from `self`, returning the result.
