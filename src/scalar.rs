@@ -423,6 +423,7 @@ impl Scalar {
 
     /// Computes the multiplicative inverse of this element,
     /// failing if the element is zero.
+    #[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
     pub fn invert(&self) -> CtOption<Self> {
         #[inline(always)]
         fn square_assign_multi(n: &mut Scalar, num_times: usize) {
@@ -518,6 +519,18 @@ impl Scalar {
         t0 *= &t1;
 
         CtOption::new(t0, !self.ct_eq(&Self::zero()))
+    }
+
+    /// RISCZero patch: non-Montgomery mult
+    #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+    #[inline]
+    pub fn invert(&self) -> CtOption<Self> {
+        let mut result = [0u32; 8];
+        let lhs: [u32; 8] = bytemuck::cast(self.0);
+        let prime: [u32; 8] = bytemuck::cast(MODULUS.0);
+        field::modinv_256(&lhs, &prime, &mut result);
+        let ret: [u64; 4] = bytemuck::cast(result);
+        CtOption::new(Scalar(ret), !self.ct_eq(&Self::zero()))
     }
 
     #[inline(always)]

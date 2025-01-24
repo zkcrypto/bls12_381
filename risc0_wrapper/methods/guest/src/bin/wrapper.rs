@@ -18,7 +18,7 @@ use bls12_381::Scalar;
 
 risc0_zkvm::guest::entry!(main);
 
-fn main() {
+fn t_modadd() {
     const LARGEST: Scalar = Scalar::from_raw([
         0xffff_ffff_0000_0000,
         0x53bd_a402_fffe_5bfe,
@@ -28,7 +28,6 @@ fn main() {
 
     let mut tmp = LARGEST;
     tmp += &LARGEST;
-
     assert_eq!(
         tmp,
         Scalar::from_raw([
@@ -40,14 +39,37 @@ fn main() {
     );
 
     let mut tmp = LARGEST;
-    // tmp += &Scalar([1, 0, 0, 0]);
     tmp += &Scalar::from_raw([1, 0, 0, 0]);
-
     assert_eq!(tmp, Scalar::zero());
+}
 
-    for j in 0..9 {
-      let mut tmp1 = Scalar::from_raw([j, 0, 0, 0]);
-      tmp1 *= &Scalar::from_raw([j+1, 0, 0, 0]);
-      assert_eq!(tmp1, Scalar::from_raw([j*(j+1),0,0,0]));
+fn t_modmul() {
+    const THREE: Scalar = Scalar::from_raw([3, 0, 0, 0]);
+    let mut val = Scalar::from_raw([1, 0, 0, 0]);
+    let mut prod = 1;
+    for j in 0..40 {
+      val *= &THREE;
+      prod *= 3;
+      assert_eq!(val, Scalar::from_raw([prod,0,0,0]));
     }
+}
+
+fn t_modinv() {
+    const TWO: Scalar = Scalar::from_raw([2, 0, 0, 0]);
+    let result = Scalar::invert(&TWO).unwrap();
+    assert_eq!(
+        result,
+        Scalar::from_raw([
+            0x7fff_ffff_8000_0001,
+            0xa9de_d201_7fff_2dff,
+            0x199c_ec04_04d0_ec02,
+            0x39f6_d3a9_94ce_bea4,
+        ])
+    );
+}
+
+fn main() {
+    t_modadd();
+    t_modmul();
+    t_modinv();
 }
