@@ -173,6 +173,7 @@ where
 impl_binops_additive!(G1Projective, G1Affine);
 impl_binops_additive_specify_output!(G1Affine, G1Projective, G1Projective);
 
+#[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
 const B: Fp = Fp::from_raw_unchecked([
     0xaa27_0000_000c_fff3,
     0x53cc_0032_fc34_000a,
@@ -180,6 +181,16 @@ const B: Fp = Fp::from_raw_unchecked([
     0xb1d3_7ebe_e6ba_24d7,
     0x8ec9_733b_bf78_ab2f,
     0x09d6_4551_3d83_de7e,
+]);
+
+#[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+const B: Fp = Fp::from_raw_unchecked([ //TODO: untested
+    0x0000_0000_0000_0004,
+    0x0000_0000_0000_0000,
+    0x0000_0000_0000_0000,
+    0x0000_0000_0000_0000,
+    0x0000_0000_0000_0000,
+    0x0000_0000_0000_0000,
 ]);
 
 impl G1Affine {
@@ -194,6 +205,7 @@ impl G1Affine {
 
     /// Returns a fixed generator of the group. See [`notes::design`](notes/design/index.html#fixed-generators)
     /// for how this generator is chosen.
+    #[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
     pub fn generator() -> G1Affine {
         G1Affine {
             x: Fp::from_raw_unchecked([
@@ -211,6 +223,30 @@ impl G1Affine {
                 0x51ac_5829_5040_5194,
                 0x0e1c_8c3f_ad00_59c0,
                 0x0bbc_3efc_5008_a26a,
+            ]),
+            infinity: Choice::from(0u8),
+        }
+    }
+
+    /// RISCZero patch
+    #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+    pub fn generator() -> G1Affine {
+        G1Affine {
+            x: Fp::from_raw_unchecked([
+                0xfb3a_f00a_db22_c6bb,
+                0x6c55_e83f_f97a_1aef,
+                0xa14e_3a3f_171b_ac58,
+                0xc368_8c4f_9774_b905,
+                0x2695_638c_4fa9_ac0f,
+                0x17f1_d3a7_3197_d794,
+            ]),
+            y: Fp::from_raw_unchecked([
+                0x0caa_2329_46c5_e7e1,
+                0xd03c_c744_a288_8ae4,
+                0x00db_18cb_2c04_b3ed,
+                0xfcf5_e095_d5d0_0af6,
+                0xa09e_30ed_741d_8ae4,
+                0x08b3_f481_e3aa_a0f1,
             ]),
             infinity: Choice::from(0u8),
         }
@@ -418,6 +454,7 @@ impl G1Affine {
 }
 
 /// A nontrivial third root of unity in Fp
+#[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
 pub const BETA: Fp = Fp::from_raw_unchecked([
     0x30f1_361b_798a_64e8,
     0xf3b8_ddab_7ece_5a2a,
@@ -425,6 +462,16 @@ pub const BETA: Fp = Fp::from_raw_unchecked([
     0xc26a_2ff8_74fd_029b,
     0x3636_b766_6070_1c6e,
     0x051b_a4ab_241b_6160,
+]);
+
+#[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+pub const BETA: Fp = Fp::from_raw_unchecked([ //TODO: untested
+    0x0000_0000_0000_0000,
+    0x2e01_ffff_fffe_fffe,
+    0xde17_d813_620a_0002,
+    0xddb3_a93b_e6f8_9688,
+    0xba69_c607_6a0f_77ea,
+    0x5f19_672f_df76_ce51,
 ]);
 
 fn endomorphism(p: &G1Affine) -> G1Affine {
@@ -612,6 +659,7 @@ impl G1Projective {
 
     /// Returns a fixed generator of the group. See [`notes::design`](notes/design/index.html#fixed-generators)
     /// for how this generator is chosen.
+    #[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
     pub fn generator() -> G1Projective {
         G1Projective {
             x: Fp::from_raw_unchecked([
@@ -629,6 +677,30 @@ impl G1Projective {
                 0x51ac_5829_5040_5194,
                 0x0e1c_8c3f_ad00_59c0,
                 0x0bbc_3efc_5008_a26a,
+            ]),
+            z: Fp::one(),
+        }
+    }
+
+    /// RISCZero patch
+    #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+    pub fn generator() -> G1Projective { //TODO: untested
+        G1Projective {
+            x: Fp::from_raw_unchecked([
+                0xfb3a_f00a_db22_c6bb,
+                0x6c55_e83f_f97a_1aef,
+                0xa14e_3a3f_171b_ac58,
+                0xc368_8c4f_9774_b905,
+                0x2695_638c_4fa9_ac0f,
+                0x17f1_d3a7_3197_d794,
+            ]),
+            y: Fp::from_raw_unchecked([
+                0x0caa_2329_46c5_e7e1,
+                0xd03c_c744_a288_8ae4,
+                0x00db_18cb_2c04_b3ed,
+                0xfcf5_e095_d5d0_0af6,
+                0xa09e_30ed_741d_8ae4,
+                0x08b3_f481_e3aa_a0f1,
             ]),
             z: Fp::one(),
         }

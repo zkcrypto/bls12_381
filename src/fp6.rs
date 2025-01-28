@@ -150,6 +150,7 @@ impl Fp6 {
     }
 
     /// Raises this element to p.
+    #[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
     #[inline(always)]
     pub fn frobenius_map(&self) -> Self {
         let c0 = self.c0.frobenius_map();
@@ -180,6 +181,43 @@ impl Fp6 {
                     0xa20d_1b8c_7e88_1024,
                     0x14e4_f04f_e2db_9068,
                     0x14e5_6d3f_1564_853a,
+                ]),
+                c1: Fp::zero(),
+            };
+
+        Fp6 { c0, c1, c2 }
+    }
+
+    #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+    pub fn frobenius_map(&self) -> Self {
+        let c0 = self.c0.frobenius_map();
+        let c1 = self.c1.frobenius_map();
+        let c2 = self.c2.frobenius_map();
+
+        // c1 = c1 * (u + 1)^((p - 1) / 3)
+        let c1 = c1
+            * Fp2 {
+                c0: Fp::zero(),
+                c1: Fp::from_raw_unchecked([
+                    0x8bfd_0000_0000_aaac,
+                    0x4094_27eb_4f49_fffd,
+                    0x897d_2965_0fb8_5f9b,
+                    0xaa0d_857d_8975_9ad4,
+                    0xec02_4086_63d4_de85,
+                    0x1a01_11ea_397f_e699,
+                ]),
+            };
+
+        // c2 = c2 * (u + 1)^((2p - 2) / 3)
+        let c2 = c2
+            * Fp2 {
+                c0: Fp::from_raw_unchecked([
+                    0x8bfd_0000_0000_aaad,
+                    0x4094_27eb_4f49_fffd,
+                    0x897d_2965_0fb8_5f9b,
+                    0xaa0d_857d_8975_9ad4,
+                    0xec02_4086_63d4_de85,
+                    0x1a01_11ea_397f_e699,
                 ]),
                 c1: Fp::zero(),
             };

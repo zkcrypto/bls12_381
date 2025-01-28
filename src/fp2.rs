@@ -179,6 +179,7 @@ impl Fp2 {
             | (self.c1.is_zero() & self.c0.lexicographically_largest())
     }
 
+    #[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
     pub const fn square(&self) -> Fp2 {
         // Complex squaring:
         //
@@ -193,6 +194,19 @@ impl Fp2 {
         // c1' = 2 * c0 * c1
 
         let a = (&self.c0).add(&self.c1);
+        let b = (&self.c0).sub(&self.c1);
+        let c = (&self.c0).add(&self.c0);
+
+        Fp2 {
+            c0: (&a).mul(&b),
+            c1: (&c).mul(&self.c1),
+        }
+    }
+
+    #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+    pub fn square(&self) -> Fp2 {
+        let a = (&self.c0).add(&self.c1);
+        //let b = (&self.c1).neg().add(&self.c0);
         let b = (&self.c0).sub(&self.c1);
         let c = (&self.c0).add(&self.c0);
 
@@ -221,6 +235,7 @@ impl Fp2 {
         }
     }
 
+    #[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
     pub const fn add(&self, rhs: &Fp2) -> Fp2 {
         Fp2 {
             c0: (&self.c0).add(&rhs.c0),
@@ -228,7 +243,24 @@ impl Fp2 {
         }
     }
 
+    #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+    pub fn add(&self, rhs: &Fp2) -> Fp2 {
+        Fp2 {
+            c0: (&self.c0).add_zkvm(&rhs.c0),
+            c1: (&self.c1).add_zkvm(&rhs.c1),
+        }
+    }
+
+    #[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
     pub const fn sub(&self, rhs: &Fp2) -> Fp2 {
+        Fp2 {
+            c0: (&self.c0).sub(&rhs.c0),
+            c1: (&self.c1).sub(&rhs.c1),
+        }
+    }
+
+    #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+    pub fn sub(&self, rhs: &Fp2) -> Fp2 {
         Fp2 {
             c0: (&self.c0).sub(&rhs.c0),
             c1: (&self.c1).sub(&rhs.c1),

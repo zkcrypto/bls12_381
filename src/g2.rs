@@ -174,6 +174,7 @@ where
 impl_binops_additive!(G2Projective, G2Affine);
 impl_binops_additive_specify_output!(G2Affine, G2Projective, G2Projective);
 
+#[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
 const B: Fp2 = Fp2 {
     c0: Fp::from_raw_unchecked([
         0xaa27_0000_000c_fff3,
@@ -193,7 +194,48 @@ const B: Fp2 = Fp2 {
     ]),
 };
 
+#[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+const B: Fp2 = Fp2 { //TODO: untested
+    c0: Fp::from_raw_unchecked([
+        0x0000_0000_0000_0004,
+        0x0000_0000_0000_0000,
+        0x0000_0000_0000_0000,
+        0x0000_0000_0000_0000,
+        0x0000_0000_0000_0000,
+        0x0000_0000_0000_0000,
+    ]),
+    c1: Fp::from_raw_unchecked([
+        0x0000_0000_0000_0004,
+        0x0000_0000_0000_0000,
+        0x0000_0000_0000_0000,
+        0x0000_0000_0000_0000,
+        0x0000_0000_0000_0000,
+        0x0000_0000_0000_0000,
+    ]),
+};
+
+#[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
 const B3: Fp2 = Fp2::add(&Fp2::add(&B, &B), &B);
+
+#[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+const B3: Fp2 = Fp2 { //TODO: untested
+    c0: Fp::from_raw_unchecked([
+        0x0000_0000_0000_000C,
+        0x0000_0000_0000_0000,
+        0x0000_0000_0000_0000,
+        0x0000_0000_0000_0000,
+        0x0000_0000_0000_0000,
+        0x0000_0000_0000_0000,
+    ]),
+    c1: Fp::from_raw_unchecked([
+        0x0000_0000_0000_000C,
+        0x0000_0000_0000_0000,
+        0x0000_0000_0000_0000,
+        0x0000_0000_0000_0000,
+        0x0000_0000_0000_0000,
+        0x0000_0000_0000_0000,
+    ]),
+};
 
 impl G2Affine {
     /// Returns the identity of the group: the point at infinity.
@@ -207,6 +249,7 @@ impl G2Affine {
 
     /// Returns a fixed generator of the group. See [`notes::design`](notes/design/index.html#fixed-generators)
     /// for how this generator is chosen.
+    #[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
     pub fn generator() -> G2Affine {
         G2Affine {
             x: Fp2 {
@@ -243,6 +286,50 @@ impl G2Affine {
                     0x7949_5c4e_c93d_a33a,
                     0xe717_5850_a43c_caed,
                     0x0b2b_c2a1_63de_1bf2,
+                ]),
+            },
+            infinity: Choice::from(0u8),
+        }
+    }
+
+    /// RISCZero patch
+    #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+    pub fn generator() -> G2Affine {
+        G2Affine {
+            x: Fp2 {
+                c0: Fp::from_raw_unchecked([
+                    0xd480_56c8_c121_bdb8,
+                    0x0bac_0326_a805_bbef,
+                    0xb451_0b64_7ae3_d177,
+                    0xc6e4_7ad4_fa40_3b02,
+                    0x2608_0527_2dc5_1051,
+                    0x024a_a2b2_f08f_0a91,
+                ]),
+                c1: Fp::from_raw_unchecked([
+                    0xe5ac_7d05_5d04_2b7e,
+                    0x334c_f112_1394_5d57,
+                    0xb5da_61bb_dc7f_5049,
+                    0x596b_d0d0_9920_b61a,
+                    0x7dac_d3a0_8827_4f65,
+                    0x13e0_2b60_5271_9f60,
+                ]),
+            },
+            y: Fp2 {
+                c0: Fp::from_raw_unchecked([
+                    0xe193_5486_08b8_2801,
+                    0x923a_c9cc_3bac_a289,
+                    0x6d42_9a69_5160_d12c,
+                    0xadfd_9baa_8cbd_d3a7,
+                    0x8cc9_cdc6_da2e_351a,
+                    0x0ce5_d527_727d_6e11,
+                ]),
+                c1: Fp::from_raw_unchecked([
+                    0xaaa9_075f_f05f_79be,
+                    0x3f37_0d27_5cec_1da1,
+                    0x2674_92ab_572e_99ab,
+                    0xcb3e_287e_85a7_63af,
+                    0x32ac_d2b0_2bc2_8b99,
+                    0x0606_c4a0_2ea7_34cc,
                 ]),
             },
             infinity: Choice::from(0u8),
@@ -663,6 +750,7 @@ impl G2Projective {
 
     /// Returns a fixed generator of the group. See [`notes::design`](notes/design/index.html#fixed-generators)
     /// for how this generator is chosen.
+    #[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
     pub fn generator() -> G2Projective {
         G2Projective {
             x: Fp2 {
@@ -699,6 +787,50 @@ impl G2Projective {
                     0x7949_5c4e_c93d_a33a,
                     0xe717_5850_a43c_caed,
                     0x0b2b_c2a1_63de_1bf2,
+                ]),
+            },
+            z: Fp2::one(),
+        }
+    }
+
+    /// RISCZero patch
+    #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+    pub fn generator() -> G2Projective { //TODO: untested
+        G2Projective {
+            x: Fp2 {
+                c0: Fp::from_raw_unchecked([
+                    0xd480_56c8_c121_bdb8,
+                    0x0bac_0326_a805_bbef,
+                    0xb451_0b64_7ae3_d177,
+                    0xc6e4_7ad4_fa40_3b02,
+                    0x2608_0527_2dc5_1051,
+                    0x024a_a2b2_f08f_0a91,
+                ]),
+                c1: Fp::from_raw_unchecked([
+                    0xe5ac_7d05_5d04_2b7e,
+                    0x334c_f112_1394_5d57,
+                    0xb5da_61bb_dc7f_5049,
+                    0x596b_d0d0_9920_b61a,
+                    0x7dac_d3a0_8827_4f65,
+                    0x13e0_2b60_5271_9f60,
+                ]),
+            },
+            y: Fp2 {
+                c0: Fp::from_raw_unchecked([
+                    0xe193_5486_08b8_2801,
+                    0x923a_c9cc_3bac_a289,
+                    0x6d42_9a69_5160_d12c,
+                    0xadfd_9baa_8cbd_d3a7,
+                    0x8cc9_cdc6_da2e_351a,
+                    0x0ce5_d527_727d_6e11,
+                ]),
+                c1: Fp::from_raw_unchecked([
+                    0xaaa9_075f_f05f_79be,
+                    0x3f37_0d27_5cec_1da1,
+                    0x2674_92ab_572e_99ab,
+                    0xcb3e_287e_85a7_63af,
+                    0x32ac_d2b0_2bc2_8b99,
+                    0x0606_c4a0_2ea7_34cc,
                 ]),
             },
             z: Fp2::one(),
@@ -844,6 +976,7 @@ impl G2Projective {
         acc
     }
 
+    #[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
     fn psi(&self) -> G2Projective {
         // 1 / ((u+1) ^ ((q-1)/3))
         let psi_coeff_x = Fp2 {
@@ -887,8 +1020,53 @@ impl G2Projective {
         }
     }
 
+    #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+    fn psi(&self) -> G2Projective { //TODO: untested
+        // 1 / ((u+1) ^ ((q-1)/3))
+        let psi_coeff_x = Fp2 {
+            c0: Fp::zero(),
+            c1: Fp::from_raw_unchecked([
+                0x8bfd_0000_0000_aaad,
+                0x4094_27eb_4f49_fffd,
+                0x897d_2965_0fb8_5f9b,
+                0xaa0d_857d_8975_9ad4,
+                0xec02_4086_63d4_de85,
+                0x1a01_11ea_397f_e699,
+            ]),
+        };
+        // 1 / ((u+1) ^ (p-1)/2)
+        let psi_coeff_y = Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0xf1ee_7b04_121b_dea2,
+                0x3044_66cf_3e67_fa0a,
+                0xef39_6489_f61e_b45e,
+                0x1c3d_edd9_30b1_cf60,
+                0xe2e9_c448_d77a_2cd9,
+                0x1352_03e6_0180_a68e,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x8108_4fbe_de3c_c09,
+                0xe679_92f7_2ec0_5f4c,
+                0x7f76_e170_0924_1c5e,
+                0x8395_dabc_2d34_35e7,
+                0x831e_36d6_bd17_ffe4,
+                0x6af0_e043_7ff4_00b6,
+            ]),
+        };
+
+        G2Projective {
+            // x = frobenius(x)/((u+1)^((p-1)/3))
+            x: self.x.frobenius_map() * psi_coeff_x,
+            // y = frobenius(y)/(u+1)^((p-1)/2)
+            y: self.y.frobenius_map() * psi_coeff_y,
+            // z = frobenius(z)
+            z: self.z.frobenius_map(),
+        }
+    }
+
     fn psi2(&self) -> G2Projective {
         // 1 / 2 ^ ((q-1)/3)
+        #[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
         let psi2_coeff_x = Fp2 {
             c0: Fp::from_raw_unchecked([
                 0xcd03c9e48671f071,
@@ -897,6 +1075,19 @@ impl G2Projective {
                 0x8eb60ebe01bacb9e,
                 0x03f97d6e83d050d2,
                 0x18f0206554638741,
+            ]),
+            c1: Fp::zero(),
+        };
+
+        #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+        let psi2_coeff_x = Fp2 { //TODO: untestd
+            c0: Fp::from_raw_unchecked([
+                0x8bfd_0000_0000_aaac,
+                0x4094_27eb_4f49_fffd,
+                0x897d_2965_0fb8_5f9b,
+                0xaa0d_857d_8975_9ad4,
+                0xec02_4086_63d4_de85,
+                0x1a01_11ea_397f_e699,
             ]),
             c1: Fp::zero(),
         };

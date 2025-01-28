@@ -147,6 +147,7 @@ impl Fp12 {
         let c1 = self.c1.frobenius_map();
 
         // c1 = c1 * (u + 1)^((p - 1) / 6)
+        #[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
         let c1 = c1
             * Fp6::from(Fp2 {
                 c0: Fp::from_raw_unchecked([
@@ -164,6 +165,27 @@ impl Fp12 {
                     0xc11b_9cba_40a8_e8d0,
                     0x2e38_13cb_e5a0_de89,
                     0x110e_efda_8884_7faf,
+                ]),
+            });
+
+        #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+        let c1 = c1
+            * Fp6::from(Fp2 { // each const * R_INV (mod p)
+                c0: Fp::from_raw_unchecked([
+                    0x8d07_75ed_9223_5fb8,
+                    0xf67e_a53d_63e7_813d,
+                    0x7b24_43d7_84ba_b9c4,
+                    0x0fd6_03fd_3cbd_5f4f,
+                    0xc231_beb4_202c_0d1f,
+                    0x1904_d3bf_02bb_0667,
+                ]),
+                c1: Fp::from_raw_unchecked([
+                    0x2cf7_8a12_6ddc_4af3,
+                    0x282d_5ac1_4d6c_7ec2,
+                    0xec0c_8ec9_71f6_3c5f,
+                    0x54a1_4787_b6c7_b36f,
+                    0x88e9_e902_231f_9fb8,
+                    0x00fc_3e2b_36c4_e032,
                 ]),
             });
 
