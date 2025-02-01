@@ -130,6 +130,7 @@ fn test_pairing_result_against_relic() {
         ]);
 }
 
+/*
 fn t_modadd() {
     const LARGEST: Scalar = Scalar::from_raw([
         0xffff_ffff_0000_0000,
@@ -179,6 +180,7 @@ fn t_modinv() {
         ])
     );
 }
+*/
 
 fn main() {
     //t_modadd();

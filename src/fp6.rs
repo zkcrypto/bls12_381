@@ -234,6 +234,7 @@ impl Fp6 {
     ///
     /// Implements the full-tower interleaving strategy from
     /// [ePrint 2022-376](https://eprint.iacr.org/2022/367).
+    #[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
     #[inline]
     fn mul_interleaved(&self, b: &Self) -> Self {
         // The intuition for this algorithm is that we can look at F_p^6 as a direct
@@ -306,6 +307,49 @@ impl Fp6 {
                 c1: Fp::sum_of_products(
                     [a.c0.c0, a.c0.c1, a.c1.c0, a.c1.c1, a.c2.c0, a.c2.c1],
                     [b.c2.c1, b.c2.c0, b.c1.c1, b.c1.c0, b.c0.c1, b.c0.c0],
+                ),
+            },
+        }
+    }
+
+    #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+    #[inline]
+    fn mul_interleaved(&self, b: &Self) -> Self {
+        let a = self;
+        let b10_p_b11 = b.c1.c0.add_zkvm(&(b.c1.c1));
+        let b10_m_b11 = b.c1.c0 - b.c1.c1;
+        let b20_p_b21 = b.c2.c0.add_zkvm(&(b.c2.c1));
+        let b20_m_b21 = b.c2.c0 - b.c2.c1;
+
+        Fp6 {
+            c0: Fp2 {
+                c0: Fp::sum_of_six_products(
+                   &a.c0.c0, &(-a.c0.c1), &a.c1.c0, &(-a.c1.c1), &a.c2.c0, &(-a.c2.c1),
+                   &b.c0.c0, &b.c0.c1, &b20_m_b21, &b20_p_b21, &b10_m_b11, &b10_p_b11,
+                ),
+                c1: Fp::sum_of_six_products(
+                   &a.c0.c0, &a.c0.c1, &a.c1.c0, &a.c1.c1, &a.c2.c0, &a.c2.c1,
+                   &b.c0.c1, &b.c0.c0, &b20_p_b21, &b20_m_b21, &b10_p_b11, &b10_m_b11,
+                ),
+            },
+            c1: Fp2 {
+                c0: Fp::sum_of_six_products(
+                   &a.c0.c0, &(-a.c0.c1), &a.c1.c0, &(-a.c1.c1), &a.c2.c0, &(-a.c2.c1),
+                   &b.c1.c0, &b.c1.c1, &b.c0.c0, &b.c0.c1, &b20_m_b21, &b20_p_b21,
+                ),
+                c1: Fp::sum_of_six_products(
+                   &a.c0.c0, &a.c0.c1, &a.c1.c0, &a.c1.c1, &a.c2.c0, &a.c2.c1,
+                   &b.c1.c1, &b.c1.c0, &b.c0.c1, &b.c0.c0, &b20_p_b21, &b20_m_b21,
+                ),
+            },
+            c2: Fp2 {
+                c0: Fp::sum_of_six_products(
+                   &a.c0.c0, &(-a.c0.c1), &a.c1.c0, &(-a.c1.c1), &a.c2.c0, &(-a.c2.c1),
+                   &b.c2.c0, &b.c2.c1, &b.c1.c0, &b.c1.c1, &b.c0.c0, &b.c0.c1,
+                ),
+                c1: Fp::sum_of_six_products(
+                   &a.c0.c0, &a.c0.c1, &a.c1.c0, &a.c1.c1, &a.c2.c0, &a.c2.c1,
+                   &b.c2.c1, &b.c2.c0, &b.c1.c1, &b.c1.c0, &b.c0.c1, &b.c0.c0,
                 ),
             },
         }

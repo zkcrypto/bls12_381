@@ -205,10 +205,10 @@ impl Fp2 {
 
     #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
     pub fn square(&self) -> Fp2 {
-        let a = (&self.c0).add(&self.c1);
+        let a = (&self.c0).add_zkvm(&self.c1);
         //let b = (&self.c1).neg().add(&self.c0);
         let b = (&self.c0).sub(&self.c1);
-        let c = (&self.c0).add(&self.c0);
+        let c = (&self.c0).add_zkvm(&self.c0);
 
         Fp2 {
             c0: (&a).mul(&b),
@@ -216,6 +216,7 @@ impl Fp2 {
         }
     }
 
+    #[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
     pub fn mul(&self, rhs: &Fp2) -> Fp2 {
         // F_{p^2} x F_{p^2} multiplication implemented with operand scanning (schoolbook)
         // computes the result as:
@@ -232,6 +233,14 @@ impl Fp2 {
         Fp2 {
             c0: Fp::sum_of_products([self.c0, -self.c1], [rhs.c0, rhs.c1]),
             c1: Fp::sum_of_products([self.c0, self.c1], [rhs.c1, rhs.c0]),
+        }
+    }
+
+    #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+    pub fn mul(&self, rhs: &Fp2) -> Fp2 {
+        Fp2 {
+            c0: Fp::sum_of_two_products(&self.c0, &(-self.c1), &rhs.c0, &rhs.c1),
+            c1: Fp::sum_of_two_products(&self.c0, &self.c1, &rhs.c1, &rhs.c0),
         }
     }
 

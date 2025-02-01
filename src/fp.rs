@@ -392,9 +392,9 @@ impl Fp {
     #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
     pub fn invert(&self) -> CtOption<Self> {
         let mut result = [0u32; 12];
-        let lhs: [u32; 12] = bytemuck::cast(self.0);
-        let prime: [u32; 12] = bytemuck::cast(MODULUS);
-        field::modinv_384(&lhs, &prime, &mut result);
+        let lhs: &[u32; 12] = &bytemuck::cast_ref(&self.0);
+        let prime: &[u32; 12] = &bytemuck::cast_ref(&MODULUS);
+        field::modinv_384(lhs, prime, &mut result);
         let ret: [u64; 6] = bytemuck::cast(result);
 
         CtOption::new(Fp(ret), !self.is_zero())
@@ -436,14 +436,14 @@ impl Fp {
         (&Fp([d0, d1, d2, d3, d4, d5])).subtract_p()
     }
 
-    //#[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+    #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
     #[inline]
     pub fn add_zkvm(&self, rhs: &Fp) -> Fp {
         let mut result = [0u32; 12];
-        let lhs: [u32; 12] = bytemuck::cast(self.0);
-        let rhs: [u32; 12] = bytemuck::cast(rhs.0);
-        let prime: [u32; 12] = bytemuck::cast(MODULUS);
-        field::modadd_384(&lhs, &rhs, &prime, &mut result);
+        let lhs: &[u32; 12] = bytemuck::cast_ref(&self.0);
+        let rhs: &[u32; 12] = bytemuck::cast_ref(&rhs.0);
+        let prime: &[u32; 12] = bytemuck::cast_ref(&MODULUS);
+        field::modadd_384(lhs, rhs, prime, &mut result);
         let ret: [u64; 6] = bytemuck::cast(result);
         Fp(ret)
     }
@@ -483,10 +483,10 @@ impl Fp {
     #[inline]
     pub fn sub(&self, rhs: &Fp) -> Fp {
         let mut result = [0u32; 12];
-        let lhs: [u32; 12] = bytemuck::cast(self.0);
-        let rhs: [u32; 12] = bytemuck::cast(rhs.0);
-        let prime: [u32; 12] = bytemuck::cast(MODULUS);
-        field::modsub_384(&lhs, &rhs, &prime, &mut result);
+        let lhs: &[u32; 12] = bytemuck::cast_ref(&self.0);
+        let rhs: &[u32; 12] = bytemuck::cast_ref(&rhs.0);
+        let prime: &[u32; 12] = bytemuck::cast_ref(&MODULUS);
+        field::modsub_384(lhs, rhs, prime, &mut result);
         let ret: [u64; 6] = bytemuck::cast(result);
         Fp(ret)
     }
@@ -552,7 +552,7 @@ impl Fp {
         (&Fp([u0, u1, u2, u3, u4, u5])).subtract_p()
     }
 
-    /// RISCZero patch
+/*
     #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
     #[inline]
     pub(crate) fn sum_of_products<const T: usize>(a: [Fp; T], b: [Fp; T]) -> Fp {
@@ -563,6 +563,26 @@ impl Fp {
         }
         //(&sum).subtract_p()
         sum
+    }
+*/
+
+    #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+    #[inline]
+    pub(crate) fn sum_of_two_products(a0: &Fp, a1: &Fp, b0: &Fp, b1: &Fp) -> Fp {
+        (a0*b0).add_zkvm(&(a1*b1))
+    }
+
+    #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+    #[inline]
+    pub(crate) fn sum_of_six_products(a0: &Fp, a1: &Fp, a2: &Fp,
+                                      a3: &Fp, a4: &Fp, a5: &Fp,
+                                      b0: &Fp, b1: &Fp, b2: &Fp,
+                                      b3: &Fp, b4: &Fp, b5: &Fp) -> Fp {
+        (a0*b0).add_zkvm(&(a1*b1))
+               .add_zkvm(&(a2*b2))
+               .add_zkvm(&(a3*b3))
+               .add_zkvm(&(a4*b4))
+               .add_zkvm(&(a5*b5))
     }
 
     #[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
@@ -697,10 +717,10 @@ impl Fp {
     #[inline]
     pub fn mul(&self, rhs: &Fp) -> Fp {
         let mut result = [0u32; 12];
-        let lhs: [u32; 12] = bytemuck::cast(self.0);
-        let rhs: [u32; 12] = bytemuck::cast(rhs.0);
-        let prime: [u32; 12] = bytemuck::cast(MODULUS);
-        field::modmul_384(&lhs, &rhs, &prime, &mut result);
+        let lhs: &[u32; 12] = bytemuck::cast_ref(&self.0);
+        let rhs: &[u32; 12] = bytemuck::cast_ref(&rhs.0);
+        let prime: &[u32; 12] = bytemuck::cast_ref(&MODULUS);
+        field::modmul_384(lhs, rhs, prime, &mut result);
         let ret: [u64; 6] = bytemuck::cast(result);
         Fp(ret)
     }
@@ -708,7 +728,7 @@ impl Fp {
     /// Squares this element.
     #[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
     #[inline]
-    pub fn square(&self) -> Self {
+    pub const fn square(&self) -> Self {
         let (t1, carry) = mac(0, self.0[0], self.0[1], 0);
         let (t2, carry) = mac(0, self.0[0], self.0[2], carry);
         let (t3, carry) = mac(0, self.0[0], self.0[3], carry);
@@ -763,9 +783,9 @@ impl Fp {
     pub fn square(&self) -> Self {
         // self * self
         let mut result = [0u32; 12];
-        let lhs: [u32; 12] = bytemuck::cast(self.0);
-        let prime: [u32; 12] = bytemuck::cast(MODULUS);
-        field::modmul_384(&lhs, &lhs, &prime, &mut result);
+        let lhs: &[u32; 12] = bytemuck::cast_ref(&self.0);
+        let prime: &[u32; 12] = bytemuck::cast_ref(&MODULUS);
+        field::modmul_384(lhs, lhs, prime, &mut result);
         let ret: [u64; 6] = bytemuck::cast(result);
         Fp(ret)
     }
