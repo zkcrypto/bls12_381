@@ -17,7 +17,14 @@ use risc0_bigint2::field;
 // The internal representation of this type is six 64-bit unsigned
 // integers in little-endian order. `Fp` values are always in
 // Montgomery form; i.e., Scalar(a) = aR mod p, with R = 2^384.
+#[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
 #[derive(Copy, Clone)]
+pub struct Fp(pub(crate) [u64; 6]);
+
+// RISCZero patch
+#[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[repr(C)]
 pub struct Fp(pub(crate) [u64; 6]);
 
 impl fmt::Debug for Fp {
@@ -73,7 +80,7 @@ impl ConditionallySelectable for Fp {
 }
 
 /// p = 4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787
-const MODULUS: [u64; 6] = [
+pub const MODULUS: [u64; 6] = [
     0xb9fe_ffff_ffff_aaab,
     0x1eab_fffe_b153_ffff,
     0x6730_d2a0_f6b0_f624,
@@ -81,6 +88,23 @@ const MODULUS: [u64; 6] = [
     0x4b1b_a7b6_434b_acd7,
     0x1a01_11ea_397f_e69a,
 ];
+
+
+pub const MODULUS_SQR: [u64; 12] = [
+    0x26aa_0000_1c71_8e39,
+    0x7ced_6b1d_7638_2eab,
+    0x162c_3383_6211_3cfd,
+    0x66bf_91ed_3e71_b743,
+    0x292e_85a8_7091_a049,
+    0x1d68_619c_8618_5c7b,
+    0xf531_4933_0978_ef01,
+    0x50a6_2cfd_16dd_ca6e,
+    0x66e5_9e49_349e_8bd0,
+    0xe2dc_90e5_0e70_46b4,
+    0x4bd2_78ea_a22f_25e9,
+    0x02a4_37a4_b8c3_5fc7,
+];
+
 
 /// INV = -(p^{-1} mod 2^64) mod 2^64
 #[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
@@ -564,13 +588,13 @@ impl Fp {
         //(&sum).subtract_p()
         sum
     }
-*/
 
     #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
     #[inline]
     pub(crate) fn sum_of_two_products(a0: &Fp, a1: &Fp, b0: &Fp, b1: &Fp) -> Fp {
         (a0*b0).add_zkvm(&(a1*b1))
     }
+*/
 
     #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
     #[inline]

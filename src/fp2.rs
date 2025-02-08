@@ -6,8 +6,22 @@ use rand_core::RngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::fp::Fp;
+use crate::fp::MODULUS;
+use crate::fp::MODULUS_SQR;
 
+#[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+use risc0_bigint2::field;
+
+#[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
 #[derive(Copy, Clone)]
+pub struct Fp2 {
+    pub c0: Fp,
+    pub c1: Fp,
+}
+
+#[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[repr(C)]
 pub struct Fp2 {
     pub c0: Fp,
     pub c1: Fp,
@@ -205,14 +219,17 @@ impl Fp2 {
 
     #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
     pub fn square(&self) -> Fp2 {
-        let a = (&self.c0).add_zkvm(&self.c1);
-        //let b = (&self.c1).neg().add(&self.c0);
-        let b = (&self.c0).sub(&self.c1);
-        let c = (&self.c0).add_zkvm(&self.c0);
-
+        let mut result = [[0u32; 12]; 2];
+        let lhs_arr: &[[u32; 12]; 2] = bytemuck::cast_ref(self);
+        let prime: &[u32; 12] = bytemuck::cast_ref(&MODULUS);
+        let prsqr: &[u32; 24] = bytemuck::cast_ref(&MODULUS_SQR);
+        field::extfield_xxone_mul_384(&lhs_arr, &lhs_arr,
+            prime, prsqr, &mut result);
+        let ret0: [u64; 6] = bytemuck::cast(result[0]);
+        let ret1: [u64; 6] = bytemuck::cast(result[1]);
         Fp2 {
-            c0: (&a).mul(&b),
-            c1: (&c).mul(&self.c1),
+            c0: Fp(ret0),
+            c1: Fp(ret1),
         }
     }
 
@@ -238,9 +255,19 @@ impl Fp2 {
 
     #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
     pub fn mul(&self, rhs: &Fp2) -> Fp2 {
+        let mut result = [[0u32; 12]; 2];
+        let lhs_arr: &[[u32; 12]; 2] = bytemuck::cast_ref(self);
+        let rhs_arr: &[[u32; 12]; 2] = bytemuck::cast_ref(rhs);
+        let prime: &[u32; 12] = bytemuck::cast_ref(&MODULUS);
+        let prsqr: &[u32; 24] = bytemuck::cast_ref(&MODULUS_SQR);
+        field::extfield_xxone_mul_384(&lhs_arr, &rhs_arr,
+            prime, prsqr, &mut result);
+        let ret0: [u64; 6] = bytemuck::cast(result[0]);
+        let ret1: [u64; 6] = bytemuck::cast(result[1]);
+
         Fp2 {
-            c0: Fp::sum_of_two_products(&self.c0, &(-self.c1), &rhs.c0, &rhs.c1),
-            c1: Fp::sum_of_two_products(&self.c0, &self.c1, &rhs.c1, &rhs.c0),
+            c0: Fp(ret0),
+            c1: Fp(ret1),
         }
     }
 
@@ -254,9 +281,17 @@ impl Fp2 {
 
     #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
     pub fn add(&self, rhs: &Fp2) -> Fp2 {
+        let mut result = [[0u32; 12]; 2];
+        let lhs_arr: &[[u32; 12]; 2] = bytemuck::cast_ref(self);
+        let rhs_arr: &[[u32; 12]; 2] = bytemuck::cast_ref(rhs);
+        let prime: &[u32; 12] = bytemuck::cast_ref(&MODULUS);
+        field::extfield_deg2_add_384(&lhs_arr, &rhs_arr, prime, &mut result);
+        let ret0: [u64; 6] = bytemuck::cast(result[0]);
+        let ret1: [u64; 6] = bytemuck::cast(result[1]);
+
         Fp2 {
-            c0: (&self.c0).add_zkvm(&rhs.c0),
-            c1: (&self.c1).add_zkvm(&rhs.c1),
+            c0: Fp(ret0),
+            c1: Fp(ret1),
         }
     }
 
@@ -270,9 +305,17 @@ impl Fp2 {
 
     #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
     pub fn sub(&self, rhs: &Fp2) -> Fp2 {
+        let mut result = [[0u32; 12]; 2];
+        let lhs_arr: &[[u32; 12]; 2] = bytemuck::cast_ref(self);
+        let rhs_arr: &[[u32; 12]; 2] = bytemuck::cast_ref(rhs);
+        let prime: &[u32; 12] = bytemuck::cast_ref(&MODULUS);
+        field::extfield_deg2_sub_384(&lhs_arr, &rhs_arr, prime, &mut result);
+        let ret0: [u64; 6] = bytemuck::cast(result[0]);
+        let ret1: [u64; 6] = bytemuck::cast(result[1]);
+
         Fp2 {
-            c0: (&self.c0).sub(&rhs.c0),
-            c1: (&self.c1).sub(&rhs.c1),
+            c0: Fp(ret0),
+            c1: Fp(ret1),
         }
     }
 

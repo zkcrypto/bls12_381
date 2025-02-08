@@ -17,7 +17,7 @@ rustdoc-args = ["--html-in-header", "katex-header.html"]
 
 [dependencies]
 #risc0-bigint2 = { version = "1.2.1", default-features = false, features = [ "unstable", ] }
-bytemuck = "1.21.0"
+bytemuck = { version ="1.21.0", features = ["derive", "min_const_generics"]}
 risc0-bigint2 = { path = "../risc0/risc0/bigint2", default-features = false, features = [ "unstable", ] }
 
 [dev-dependencies]
