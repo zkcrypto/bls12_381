@@ -14,16 +14,15 @@
 
 #![no_main]
 
-//use bls12_381::Scalar;
-use bls12_381::*; //TODO
+//use bls12_381::*;
 
 risc0_zkvm::guest::entry!(main);
 
 fn test_pairing_result_against_relic() {
-    let a = G1Affine::generator();
-    let b = G2Affine::generator();
+    let a = bls12_381::G1Affine::generator();
+    let b = bls12_381::G2Affine::generator();
 
-    let res = pairing(&a, &b);
+    let res = bls12_381::pairing(&a, &b);
 
 /*
     let prep = G2Prepared::from(b);
@@ -130,61 +129,6 @@ fn test_pairing_result_against_relic() {
         ]);
 }
 
-/*
-fn t_modadd() {
-    const LARGEST: Scalar = Scalar::from_raw([
-        0xffff_ffff_0000_0000,
-        0x53bd_a402_fffe_5bfe,
-        0x3339_d808_09a1_d805,
-        0x73ed_a753_299d_7d48,
-    ]);
-
-    let mut tmp = LARGEST;
-    tmp += &LARGEST;
-    assert_eq!(
-        tmp,
-        Scalar::from_raw([
-            0xffff_fffe_ffff_ffff,
-            0x53bd_a402_fffe_5bfe,
-            0x3339_d808_09a1_d805,
-            0x73ed_a753_299d_7d48,
-        ])
-    );
-
-    let mut tmp = LARGEST;
-    tmp += &Scalar::from_raw([1, 0, 0, 0]);
-    assert_eq!(tmp, Scalar::zero());
-}
-
-fn t_modmul() {
-    const THREE: Scalar = Scalar::from_raw([3, 0, 0, 0]);
-    let mut val = Scalar::from_raw([1, 0, 0, 0]);
-    let mut prod = 1;
-    for j in 0..40 {
-      val *= &THREE;
-      prod *= 3;
-      assert_eq!(val, Scalar::from_raw([prod,0,0,0]));
-    }
-}
-
-fn t_modinv() {
-    const TWO: Scalar = Scalar::from_raw([2, 0, 0, 0]);
-    let result = Scalar::invert(&TWO).unwrap();
-    assert_eq!(
-        result,
-        Scalar::from_raw([
-            0x7fff_ffff_8000_0001,
-            0xa9de_d201_7fff_2dff,
-            0x199c_ec04_04d0_ec02,
-            0x39f6_d3a9_94ce_bea4,
-        ])
-    );
-}
-*/
-
 fn main() {
-    //t_modadd();
-    //t_modmul();
-    //t_modinv();
     test_pairing_result_against_relic();
 }
