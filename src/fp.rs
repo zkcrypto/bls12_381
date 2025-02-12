@@ -415,13 +415,15 @@ impl Fp {
 
     #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
     pub fn invert(&self) -> CtOption<Self> {
+        if self.is_zero().into() {
+          return CtOption::new(Fp::zero(), Choice::from(0u8));
+        }
         let mut result = [0u32; 12];
         let lhs: &[u32; 12] = &bytemuck::cast_ref(&self.0);
         let prime: &[u32; 12] = &bytemuck::cast_ref(&MODULUS);
         field::modinv_384(lhs, prime, &mut result);
         let ret: [u64; 6] = bytemuck::cast(result);
-
-        CtOption::new(Fp(ret), !self.is_zero())
+        CtOption::new(Fp(ret), Choice::from(1u8))
     }
 
     #[inline]

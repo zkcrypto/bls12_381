@@ -525,12 +525,15 @@ impl Scalar {
     #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
     #[inline]
     pub fn invert(&self) -> CtOption<Self> {
+        if self.is_zero().into() {
+          return CtOption::new(Scalar::zero(), Choice::from(0u8));
+        }
         let mut result = [0u32; 8];
         let lhs: [u32; 8] = bytemuck::cast(self.0);
         let prime: [u32; 8] = bytemuck::cast(MODULUS.0);
         field::modinv_256(&lhs, &prime, &mut result);
         let ret: [u64; 4] = bytemuck::cast(result);
-        CtOption::new(Scalar(ret), !self.ct_eq(&Self::zero()))
+        CtOption::new(Scalar(ret), Choice::from(1u8))
     }
 
     #[inline(always)]

@@ -195,7 +195,7 @@ const B: Fp2 = Fp2 {
 };
 
 #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
-const B: Fp2 = Fp2 { //TODO: untested
+const B: Fp2 = Fp2 {
     c0: Fp::from_raw_unchecked([
         0x0000_0000_0000_0004,
         0x0000_0000_0000_0000,
@@ -218,7 +218,7 @@ const B: Fp2 = Fp2 { //TODO: untested
 const B3: Fp2 = Fp2::add(&Fp2::add(&B, &B), &B);
 
 #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
-const B3: Fp2 = Fp2 { //TODO: untested
+const B3: Fp2 = Fp2 {
     c0: Fp::from_raw_unchecked([
         0x0000_0000_0000_000C,
         0x0000_0000_0000_0000,
@@ -795,7 +795,7 @@ impl G2Projective {
 
     /// RISCZero patch
     #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
-    pub fn generator() -> G2Projective { //TODO: untested
+    pub fn generator() -> G2Projective {
         G2Projective {
             x: Fp2 {
                 c0: Fp::from_raw_unchecked([
@@ -1021,7 +1021,7 @@ impl G2Projective {
     }
 
     #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
-    fn psi(&self) -> G2Projective { //TODO: untested
+    fn psi(&self) -> G2Projective {
         // 1 / ((u+1) ^ ((q-1)/3))
         let psi_coeff_x = Fp2 {
             c0: Fp::zero(),
@@ -1045,12 +1045,12 @@ impl G2Projective {
                 0x1352_03e6_0180_a68e,
             ]),
             c1: Fp::from_raw_unchecked([
-                0x8108_4fbe_de3c_c09,
-                0xe679_92f7_2ec0_5f4c,
-                0x7f76_e170_0924_1c5e,
-                0x8395_dabc_2d34_35e7,
-                0x831e_36d6_bd17_ffe4,
-                0x6af0_e043_7ff4_00b6,
+                0xc810_84fb_ede3_cc09,
+                0xee67_992f_72ec_05f4,
+                0x77f7_6e17_0092_41c5,
+                0x4839_5dab_c2d3_435e,
+                0x6831_e36d_6bd1_7ffe,
+                0x06af_0e04_37ff_400b,
             ]),
         };
 
@@ -1080,7 +1080,7 @@ impl G2Projective {
         };
 
         #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
-        let psi2_coeff_x = Fp2 { //TODO: untestd
+        let psi2_coeff_x = Fp2 {
             c0: Fp::from_raw_unchecked([
                 0x8bfd_0000_0000_aaac,
                 0x4094_27eb_4f49_fffd,

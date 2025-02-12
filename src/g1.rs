@@ -466,12 +466,12 @@ pub const BETA: Fp = Fp::from_raw_unchecked([
 
 #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
 pub const BETA: Fp = Fp::from_raw_unchecked([ //TODO: untested
-    0x0000_0000_0000_0000,
     0x2e01_ffff_fffe_fffe,
     0xde17_d813_620a_0002,
     0xddb3_a93b_e6f8_9688,
     0xba69_c607_6a0f_77ea,
     0x5f19_672f_df76_ce51,
+    0x0000_0000_0000_0000,
 ]);
 
 fn endomorphism(p: &G1Affine) -> G1Affine {
@@ -684,7 +684,7 @@ impl G1Projective {
 
     /// RISCZero patch
     #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
-    pub fn generator() -> G1Projective { //TODO: untested
+    pub fn generator() -> G1Projective {
         G1Projective {
             x: Fp::from_raw_unchecked([
                 0xfb3a_f00a_db22_c6bb,

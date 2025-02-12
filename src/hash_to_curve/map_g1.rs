@@ -9,6 +9,7 @@ use crate::g1::G1Projective;
 use crate::generic_array::{typenum::U64, GenericArray};
 
 /// Coefficients of the 11-isogeny x map's numerator
+#[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
 const ISO11_XNUM: [Fp; 12] = [
     Fp::from_raw_unchecked([
         0x4d18_b6f3_af00_131c,
@@ -108,7 +109,108 @@ const ISO11_XNUM: [Fp; 12] = [
     ]),
 ];
 
+#[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+const ISO11_XNUM: [Fp; 12] = [
+    Fp::from_raw_unchecked([
+        0xaeac_1662_7346_49b7,
+        0x5610_c2d5_f2e6_2d6e,
+        0xf262_7b56_cdb4_e2c8,
+        0x6b30_3e88_a2d7_005f,
+        0xb809_101d_d998_1585,
+        0x11a0_5f2b_1e83_3340,
+    ]),
+    Fp::from_raw_unchecked([
+        0xe834_eef1_b3cb_83bb,
+        0x4838_f2a6_f318_c356,
+        0xf565_e33c_70d1_e86b,
+        0x7c17_e75b_2f6a_8417,
+        0x0588_bab2_2147_a81c,
+        0x1729_4ed3_e943_ab2f,
+    ]),
+    Fp::from_raw_unchecked([
+        0xe017_9f9d_ac9e_dcb0,
+        0x958c_3e3d_2a09_729f,
+        0x6878_e501_ec68_e25c,
+        0xce03_2473_2959_83e5,
+        0x1d10_48c5_d10a_9a1b,
+        0x0d54_005d_b976_78ec,
+    ]),
+    Fp::from_raw_unchecked([
+        0xc5b3_8864_1d9b_6861,
+        0x5336_e25c_e310_7193,
+        0xf1b3_3289_f1b3_3083,
+        0xd7f5_e465_6a8d_bf25,
+        0x4e06_09d3_07e5_5412,
+        0x1778_e716_6fcc_6db7,
+    ]),
+    Fp::from_raw_unchecked([
+        0x5115_4ce9_ac88_95d9,
+        0x985a_286f_301e_77c4,
+        0x086e_eb65_982f_ac18,
+        0x99db_995a_1257_fb3f,
+        0x6642_b4b3_e411_8e54,
+        0x0e99_726a_3199_f443,
+    ]),
+    Fp::from_raw_unchecked([
+        0xcd13_c1c6_6f65_2983,
+        0xa087_0d2d_cae7_3d19,
+        0x9ed3_ab90_97e6_8f90,
+        0xdb3c_b17d_d952_799b,
+        0x01d1_201b_f7a7_4ab5,
+        0x1630_c325_0d73_13ff,
+    ]),
+    Fp::from_raw_unchecked([
+        0xddd7_f225_a139_ed84,
+        0x8da2_5128_c105_2eca,
+        0x9008_e218_f9c8_6b2a,
+        0xb115_8626_4f0f_8ce1,
+        0x6a37_26c3_8ae6_52bf,
+        0x0d6e_d655_3fe4_4d29,
+    ]),
+    Fp::from_raw_unchecked([
+        0x9ccb_5618_e3f0_c88e,
+        0x39b7_c8f8_c8f4_75af,
+        0xa682_c62e_f0f2_7533,
+        0x356d_e5ab_275b_4db1,
+        0xe874_3884_d111_7e53,
+        0x17b8_1e77_01ab_dbe2,
+    ]),
+    Fp::from_raw_unchecked([
+        0x6d71_986a_8497_e317,
+        0x4fa2_95f2_96b7_4e95,
+        0xa2c5_96c9_28c5_d1de,
+        0xc43b_756c_e79f_5574,
+        0x7b90_b335_63be_990d,
+        0x080d_3cf1_f9a7_8fc4,
+    ]),
+    Fp::from_raw_unchecked([
+        0x7f24_1067_be39_0c9e,
+        0xa319_0b2e_dc03_2779,
+        0x6763_14ba_f4bb_1b7f,
+        0xdd2e_cb80_3a0c_5c99,
+        0x2e0c_3751_5d13_8f22,
+        0x169b_1f8e_1bcf_a7c4,
+    ]),
+    Fp::from_raw_unchecked([
+        0xca67_df3f_1605_fb7b,
+        0xf69b_771f_8c28_5dec,
+        0xd50a_f360_03b1_4866,
+        0xfa7d_ccdd_e678_7f96,
+        0x72d8_ec09_d256_5b0d,
+        0x1032_1da0_79ce_07e2,
+    ]),
+    Fp::from_raw_unchecked([
+        0xa9c8_ba2e_8ba2_d229,
+        0xc24b_1b80_b64d_391f,
+        0x23c0_bf1b_c24c_6b68,
+        0x31d7_9d7e_22c8_37bc,
+        0xbd1e_9623_81ed_ee3d,
+        0x06e0_8c24_8e26_0e70,
+    ]),
+];
+
 /// Coefficients of the 11-isogeny x map's denominator
+#[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
 const ISO11_XDEN: [Fp; 11] = [
     Fp::from_raw_unchecked([
         0xb962_a077_fdb0_f945,
@@ -200,7 +302,100 @@ const ISO11_XDEN: [Fp; 11] = [
     ]),
 ];
 
+#[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+const ISO11_XDEN: [Fp; 11] = [
+    Fp::from_raw_unchecked([
+        0x993c_f9fa_40d2_1b1c,
+        0xb558_d681_be34_3df8,
+        0x9c95_8861_7fc8_ac62,
+        0x01d5_ef4b_a35b_48ba,
+        0x18b2_e62f_4bd3_fa6f,
+        0x08ca_8d54_8cff_19ae,
+    ]),
+    Fp::from_raw_unchecked([
+        0xe5c8_276e_c82b_3bff,
+        0x13da_a884_6cb0_26e9,
+        0x0126_c258_8c48_bf57,
+        0x7041_e8ca_0cf0_800c,
+        0x48b4_7112_98e5_3636,
+        0x1256_1a5d_eb55_9c43,
+    ]),
+    Fp::from_raw_unchecked([
+        0xfcc2_39ba_5cb8_3e19,
+        0xd6a3_d096_7c94_fedc,
+        0xfca6_4e00_b11a_ceac,
+        0x6f89_416f_5a71_8cd1,
+        0x8137_e629_bff2_991f,
+        0x0b29_62fe_57a3_225e,
+    ]),
+    Fp::from_raw_unchecked([
+        0x130d_e893_8dc6_2cd8,
+        0x4976_d524_3eec_f5c4,
+        0x54cc_a8ab_c28d_6fd0,
+        0x5b08_243f_16b1_6551,
+        0xc83a_afef_7c40_eb54,
+        0x0342_5581_a58a_e2fe,
+    ]),
+    Fp::from_raw_unchecked([
+        0x539d_395b_3532_a21e,
+        0x9bd2_9ba8_1f35_781d,
+        0x8d6b_44e8_33b3_06da,
+        0xffdf_c759_a120_62bb,
+        0x0a6f_1d5f_43e7_a07d,
+        0x13a8_e162_0229_14a8,
+    ]),
+    Fp::from_raw_unchecked([
+        0xc02d_f9a2_9f63_04a5,
+        0x7400_d24b_c422_8f11,
+        0x0a43_bcef_24b8_982f,
+        0x3957_35e9_ce9c_ad4d,
+        0x5539_0f7f_0506_c6e9,
+        0x0e73_55f8_e4e6_67b9,
+    ]),
+    Fp::from_raw_unchecked([
+        0xec25_7449_6ee8_4a3a,
+        0xea73_b353_8f0d_e06c,
+        0x4e2e_0730_62ae_de9c,
+        0x570f_5799_af53_a189,
+        0x0f3e_0c63_e059_6721,
+        0x0772_caac_f169_3619,
+    ]),
+    Fp::from_raw_unchecked([
+        0x11f7_d99b_bdcc_5a5e,
+        0x0fa5_b948_9d11_e2d3,
+        0x1996_e1cd_f982_2c58,
+        0x6e7f_63c2_1bca_68a8,
+        0x30b3_f5b0_74cf_0199,
+        0x14a7_ac2a_9d64_a8b2,
+    ]),
+    Fp::from_raw_unchecked([
+        0x4776_ec3a_79a1_d641,
+        0x0382_6692_abba_4370,
+        0x7410_0da6_7f39_8835,
+        0xe07f_8d1d_7161_366b,
+        0x5e92_0b3d_afc7_a3cc,
+        0x0a10_ecf6_ada5_4f82,
+    ]),
+    Fp::from_raw_unchecked([
+        0x2d63_84d1_68ec_dd0a,
+        0x9317_4e4b_4b78_6500,
+        0x76df_5339_78f3_1c15,
+        0xf682_b4ee_96f7_d037,
+        0x476d_6e3e_b3a5_6680,
+        0x095f_c13a_b9e9_2ad4,
+    ]),
+    Fp::from_raw_unchecked([
+        0x0000_0000_0000_0001,
+        0x0000_0000_0000_0000,
+        0x0000_0000_0000_0000,
+        0x0000_0000_0000_0000,
+        0x0000_0000_0000_0000,
+        0x0000_0000_0000_0000,
+    ]),
+];
+
 /// Coefficients of the 11-isogeny y map's numerator
+#[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
 const ISO11_YNUM: [Fp; 16] = [
     Fp::from_raw_unchecked([
         0x2b56_7ff3_e283_7267,
@@ -332,7 +527,140 @@ const ISO11_YNUM: [Fp; 16] = [
     ]),
 ];
 
+#[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+const ISO11_YNUM: [Fp; 16] = [
+    Fp::from_raw_unchecked([
+        0xbe9845719707bb33,
+        0xcd0c7aee9b3ba3c2,
+        0x2b52af6c956543d3,
+        0x11ad138e48a86952,
+        0x259d1f094980dcfa,
+        0x090d97c81ba24ee0,
+    ]),
+    Fp::from_raw_unchecked([
+        0xe097e75a2e41c696,
+        0xd6c56711962fa8bf,
+        0x0f906343eb67ad34,
+        0x1223e96c254f383d,
+        0xd51036d776fb4683,
+        0x134996a104ee5811,
+    ]),
+    Fp::from_raw_unchecked([
+        0xb8dfe240c72de1f6,
+        0xd26d521628b00523,
+        0xc344be4b91400da7,
+        0x2552e2d658a31ce2,
+        0xf4a384c86a3b4994,
+        0x00cc786baa966e66,
+    ]),
+    Fp::from_raw_unchecked([
+        0xa6355c77b0e5f4cb,
+        0xde405aba9ec61dec,
+        0x09e4a3ec03251cf9,
+        0xd42aa7b90eeb791c,
+        0x7898751ad8746757,
+        0x01f86376e8981c21,
+    ]),
+    Fp::from_raw_unchecked([
+        0x41b6daecf2e8fedb,
+        0x2ee7f8dc099040a8,
+        0x79833fd221351adc,
+        0x195536fbe3ce50b8,
+        0x5caf4fe2a21529c4,
+        0x08cc03fdefe0ff13,
+    ]),
+    Fp::from_raw_unchecked([
+        0x99b23ab13633a5f0,
+        0x203f6326c95a8072,
+        0x76505c3d3ad5544e,
+        0x74a7d0d4afadb7bd,
+        0x2211e11db8f0a6a0,
+        0x16603fca40634b6a,
+    ]),
+    Fp::from_raw_unchecked([
+        0xc961f8855fe9d6f2,
+        0x47a87ac2460f415e,
+        0x5231413c4d634f37,
+        0xe75bb8ca2be184cb,
+        0xb2c977d027796b3c,
+        0x04ab0b9bcfac1bbc,
+    ]),
+    Fp::from_raw_unchecked([
+        0xa15e4ca31870fb29,
+        0x42f64550fedfe935,
+        0xfd038da6c26c8426,
+        0x170a05bfe3bdd81f,
+        0xde9926bd2ca6c674,
+        0x0987c8d5333ab86f,
+    ]),
+    Fp::from_raw_unchecked([
+        0x60370e577bdba587,
+        0x69d65201c78607a3,
+        0x1e8b6e6a1f20cabe,
+        0x8f3abd16679dc26c,
+        0xe88c9e221e4da1bb,
+        0x09fc4018bd96684b,
+    ]),
+    Fp::from_raw_unchecked([
+        0x2bafaaebca731c30,
+        0x9b3f7055dd4eba6f,
+        0x06985e7ed1e4d43b,
+        0xc42a0ca7915af6fe,
+        0x223abde7ada14a23,
+        0x0e1bba7a1186bdb5,
+    ]),
+    Fp::from_raw_unchecked([
+        0xe813711ad011c132,
+        0x31bf3a5cce3fbafc,
+        0xd1183e416389e610,
+        0xcd2fcbcb6caf493f,
+        0x0dfd0b8f1d43fb93,
+        0x19713e47937cd1be,
+    ]),
+    Fp::from_raw_unchecked([
+        0xce07c8a4d0074d8e,
+        0x49d9cdf41b44d606,
+        0x2e6bfe7f911f6432,
+        0x523559b8aaf0c246,
+        0xb918c143fed2edcc,
+        0x18b46a908f36f6de,
+    ]),
+    Fp::from_raw_unchecked([
+        0x0d4c04f00b971ef8,
+        0x06c851c1919211f2,
+        0xc02710e807b4633f,
+        0x7aa7b12a3426b08e,
+        0xd155096004f53f44,
+        0x0b182cac101b9399,
+    ]),
+    Fp::from_raw_unchecked([
+        0x42d9d3f5db980133,
+        0xc6cf90ad1c232a64,
+        0x13e6632d3c40659c,
+        0x757b3b080d4c1580,
+        0x72fc00ae7be315dc,
+        0x0245a394ad1eca9b,
+    ]),
+    Fp::from_raw_unchecked([
+        0x866b1e715475224b,
+        0x6ba1049b6579afb7,
+        0xd9ab0f5d396a7ce4,
+        0x5e673d81d7e86568,
+        0x02a159f748c4a3fc,
+        0x05c129645e44cf11,
+    ]),
+    Fp::from_raw_unchecked([
+        0x04b456be69c8b604,
+        0xb665027efec01c77,
+        0x57add4fa95af01b2,
+        0xcb181d8f84965a39,
+        0x4ea50b3b42df2eb5,
+        0x15e6be4e990f03ce,
+    ]),
+];
+
 /// Coefficients of the 11-isogeny y map's denominator
+#[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
 const ISO11_YDEN: [Fp; 16] = [
     Fp::from_raw_unchecked([
         0xeb6c_359d_47e5_2b1c,
@@ -464,6 +792,139 @@ const ISO11_YDEN: [Fp; 16] = [
     ]),
 ];
 
+#[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+const ISO11_YDEN: [Fp; 16] = [
+    Fp::from_raw_unchecked([
+        0x01479253b03663c1,
+        0x07f3688ef60c206d,
+        0xeec3232b5be72e7a,
+        0x601a6de578980be6,
+        0x52181140fad0eae9,
+        0x16112c4c3a9c98b2,
+    ]),
+    Fp::from_raw_unchecked([
+        0x32f6102c2e49a03d,
+        0x78a4260763529e35,
+        0xa4a10356f453e01f,
+        0x85c84ff731c4d59c,
+        0x1a0cbd6c43c348b8,
+        0x1962d75c2381201e,
+    ]),
+    Fp::from_raw_unchecked([
+        0x1e2538b53dbf67f2,
+        0xa6757cd636f96f89,
+        0x0c35a5dd279cd2ec,
+        0x78c4855551ae7f31,
+        0x6faaae7d6e8eb157,
+        0x058df3306640da27,
+    ]),
+    Fp::from_raw_unchecked([
+        0xa8d26d98445f5416,
+        0x727364f2c28297ad,
+        0x123da489e726af41,
+        0xd115c5dbddbcd30e,
+        0xf20d23bf89edb4d1,
+        0x16b7d288798e5395,
+    ]),
+    Fp::from_raw_unchecked([
+        0xda39142311a5001d,
+        0xa20b15dc0fd2eded,
+        0x542eda0fc9dec916,
+        0xc6d19c9f0f69bbb0,
+        0xb00cc912f8228ddc,
+        0x0be0e079545f43e4,
+    ]),
+    Fp::from_raw_unchecked([
+        0x02c6477faaf9b7ac,
+        0x49f38db9dfa9cce2,
+        0xc5ecd87b6f0f5a64,
+        0xb70152c65550d881,
+        0x9fb266eaac783182,
+        0x08d9e5297186db2d,
+    ]),
+    Fp::from_raw_unchecked([
+        0x3d1a1399126a775c,
+        0xd5fa9c01a58b1fb9,
+        0x5dd365bc400a0051,
+        0x5eecfdfa8d0cf8ef,
+        0xc3ba8734ace9824b,
+        0x166007c08a99db2f,
+    ]),
+    Fp::from_raw_unchecked([
+        0x60ee415a15812ed9,
+        0xb920f5b00801dee4,
+        0xfeb34fd206357132,
+        0xe5a4375efa1f4fd7,
+        0x03bcddfabba6ff6e,
+        0x16a3ef08be3ea7ea,
+    ]),
+    Fp::from_raw_unchecked([
+        0x6b233d9d55535d4a,
+        0x52cfe2f7bb924883,
+        0xabc5750c4bf39b48,
+        0xf9fb0ce4c6af5920,
+        0x1a1be54fd1d74cc4,
+        0x1866c8ed336c6123,
+    ]),
+    Fp::from_raw_unchecked([
+        0x346ef48bb8913f55,
+        0xc7385ea3d529b35e,
+        0x5308592e7ea7d4fb,
+        0x3216f763e13d87bb,
+        0xea820597d94a8490,
+        0x167a55cda70a6e1c,
+    ]),
+    Fp::from_raw_unchecked([
+        0x00f8b49cba8f6aa8,
+        0x71a5c29f4f830604,
+        0x0e591b36e636a5c8,
+        0x9c6dd039bb61a629,
+        0x48f010a01ad2911d,
+        0x04d2f259eea405bd,
+    ]),
+    Fp::from_raw_unchecked([
+        0x9684b529e2561092,
+        0x16f968986f7ebbea,
+        0x8c0f9a88cea79135,
+        0x7f94ff8aefce42d2,
+        0xf5852c1e48c50c47,
+        0x0accbb67481d033f,
+    ]),
+    Fp::from_raw_unchecked([
+        0x1e99b138573345cc,
+        0x93000763e3b90ac1,
+        0x7d5ceef9a00d9b86,
+        0x543346d98adf0226,
+        0xc3613144b45f1496,
+        0x0ad6b9514c767fe3,
+    ]),
+    Fp::from_raw_unchecked([
+        0xd1fadc1326ed06f7,
+        0x420517bd8714cc80,
+        0xcb748df27942480e,
+        0xbf565b94e72927c1,
+        0x628bdd0d53cd76f2,
+        0x02660400eb2e4f3b,
+    ]),
+    Fp::from_raw_unchecked([
+        0x4415473a1d634b8f,
+        0x5ca2f570f1349780,
+        0x324efcd6356caa20,
+        0x71c40f65e273b853,
+        0x6b24255e0d7819c1,
+        0x0e0fa1d816ddc03e,
+    ]),
+    Fp::from_raw_unchecked([
+        0x0000000000000001,
+        0x0000000000000000,
+        0x0000000000000000,
+        0x0000000000000000,
+        0x0000000000000000,
+        0x0000000000000000,
+    ]),
+];
+
+#[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
 const SSWU_ELLP_A: Fp = Fp::from_raw_unchecked([
     0x2f65_aa0e_9af5_aa51,
     0x8646_4c2d_1e84_16c3,
@@ -473,6 +934,17 @@ const SSWU_ELLP_A: Fp = Fp::from_raw_unchecked([
     0x1554_55c3_e507_1d85,
 ]);
 
+#[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+const SSWU_ELLP_A: Fp = Fp::from_raw_unchecked([
+    0x5cf4_2808_2d58_4c1d,
+    0x9893_6f8d_a0e0_f97f,
+    0xd8e8_981a_efd8_81ac,
+    0xb0ea_9853_83ee_66a8,
+    0x3d69_3a02_c96d_4982,
+    0x0014_4698_a3b8_e943,
+]);
+
+#[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
 const SSWU_ELLP_B: Fp = Fp::from_raw_unchecked([
     0xfb99_6971_fe22_a1e0,
     0x9aa9_3eb3_5b74_2d6f,
@@ -482,6 +954,17 @@ const SSWU_ELLP_B: Fp = Fp::from_raw_unchecked([
     0x0682_4061_418a_386b,
 ]);
 
+#[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+const SSWU_ELLP_B: Fp = Fp::from_raw_unchecked([
+    0xd1cc_48e9_8e17_2be0,
+    0x5a23_215a_316c_eaa5,
+    0xa0b9_c14f_cef3_5ef5,
+    0x2016_c1f0_f24f_4070,
+    0x018b_12e8_753e_ee3b,
+    0x12e2_908d_1168_8030,
+]);
+
+#[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
 const SSWU_XI: Fp = Fp::from_raw_unchecked([
     0x886c_0000_0023_ffdc,
     0x0f70_008d_3090_001d,
@@ -491,6 +974,17 @@ const SSWU_XI: Fp = Fp::from_raw_unchecked([
     0x078c_712f_be0a_b6e8,
 ]);
 
+#[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+const SSWU_XI: Fp = Fp::from_raw_unchecked([
+    0x0000_0000_0000_000b,
+    0x0000_0000_0000_0000,
+    0x0000_0000_0000_0000,
+    0x0000_0000_0000_0000,
+    0x0000_0000_0000_0000,
+    0x0000_0000_0000_0000,
+]);
+
+#[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
 const SQRT_M_XI_CUBED: Fp = Fp::from_raw_unchecked([
     0x43b5_71ca_d321_5f1f,
     0xccb4_60ef_1c70_2dc2,
@@ -500,11 +994,22 @@ const SQRT_M_XI_CUBED: Fp = Fp::from_raw_unchecked([
     0x0073_a2af_9892_a2ff,
 ]);
 
+#[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+const SQRT_M_XI_CUBED: Fp = Fp::from_raw_unchecked([
+    0x6f2d_beab_c2ba_eff5,
+    0x8a40_7c9c_6db1_95e0,
+    0x77ae_83ea_b1ea_8b8b,
+    0x6b4c_80ed_a6fc_10ce,
+    0xf9f2_bec6_1303_1680,
+    0x03d6_89d1_e0e7_62ce,
+]);
+
 impl HashToField for Fp {
     // ceil(log2(p)) = 381, m = 1, k = 128.
     type InputLength = U64;
 
     fn from_okm(okm: &GenericArray<u8, U64>) -> Fp {
+        #[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
         const F_2_256: Fp = Fp::from_raw_unchecked([
             0x075b_3cd7_c5ce_820f,
             0x3ec6_ba62_1c3e_db0b,
@@ -513,6 +1018,9 @@ impl HashToField for Fp {
             0x15f3_4c83_ddc8_d830,
             0x0f96_28b4_9caa_2e85,
         ]);
+
+        #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+        const F_2_256: Fp = Fp::from_raw_unchecked([0,0,0,0,1,0]);
 
         let mut bs = [0u8; 48];
         bs[16..].copy_from_slice(&okm[..32]);
@@ -529,9 +1037,14 @@ impl Sgn0 for Fp {
     fn sgn0(&self) -> Choice {
         // Turn into canonical form by computing
         // (a.R) / R = a
+        #[cfg(not(all(target_os = "zkvm", target_arch = "riscv32")))]
         let tmp = Fp::montgomery_reduce(
             self.0[0], self.0[1], self.0[2], self.0[3], self.0[4], self.0[5], 0, 0, 0, 0, 0, 0,
         );
+
+        #[cfg(all(target_os = "zkvm", target_arch = "riscv32"))]
+        let tmp = self;
+
         Choice::from((tmp.0[0] & 1) as u8)
     }
 }
