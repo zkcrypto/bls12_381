@@ -1,5 +1,6 @@
 # Unreleased
 ## Changed
+- MSRV is now 1.63.0.
 - Bumped dependencies to `digest 0.10`.
 
 # 0.8.0
