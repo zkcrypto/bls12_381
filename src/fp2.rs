@@ -2,7 +2,7 @@
 
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use rand_core::RngCore;
+use rand_core::TryRngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::fp::Fp;
@@ -129,11 +129,11 @@ impl Fp2 {
         self.c0.is_zero() & self.c1.is_zero()
     }
 
-    pub(crate) fn random(mut rng: impl RngCore) -> Fp2 {
-        Fp2 {
-            c0: Fp::random(&mut rng),
-            c1: Fp::random(&mut rng),
-        }
+    pub(crate) fn try_from_rng<R: TryRngCore + ?Sized>(rng: &mut R) -> Result<Fp2, R::Error> {
+        Ok(Fp2 {
+            c0: Fp::try_from_rng(rng)?,
+            c1: Fp::try_from_rng(rng)?,
+        })
     }
 
     /// Raises this element to p.

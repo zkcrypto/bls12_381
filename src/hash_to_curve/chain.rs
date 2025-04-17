@@ -886,7 +886,7 @@ mod tests {
         ];
 
         for _ in 0..32 {
-            let input = Fp::random(&mut rng);
+            let input = Fp::try_from_rng(&mut rng).unwrap();
             assert_eq!(chain_pm3div4(&input), input.pow_vartime(&p_m3_over4));
         }
     }
@@ -910,7 +910,7 @@ mod tests {
         ];
 
         for _ in 0..32 {
-            let input = Fp2::random(&mut rng);
+            let input = Fp2::try_from_rng(&mut rng).unwrap();
             assert_eq!(
                 chain_p2m9div16(&input),
                 input.pow_vartime_extended(&p_sq_m9_over16[..]),

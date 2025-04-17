@@ -6,7 +6,7 @@ use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 #[cfg(feature = "pairings")]
-use rand_core::RngCore;
+use rand_core::TryRngCore;
 
 /// This represents an element $c_0 + c_1 v + c_2 v^2$ of $\mathbb{F}_{p^6} = \mathbb{F}_{p^2} / v^3 - u - 1$.
 pub struct Fp6 {
@@ -102,12 +102,12 @@ impl Fp6 {
     }
 
     #[cfg(feature = "pairings")]
-    pub(crate) fn random(mut rng: impl RngCore) -> Self {
-        Fp6 {
-            c0: Fp2::random(&mut rng),
-            c1: Fp2::random(&mut rng),
-            c2: Fp2::random(&mut rng),
-        }
+    pub(crate) fn try_from_rng<R: TryRngCore + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
+        Ok(Fp6 {
+            c0: Fp2::try_from_rng(rng)?,
+            c1: Fp2::try_from_rng(rng)?,
+            c2: Fp2::try_from_rng(rng)?,
+        })
     }
 
     pub fn mul_by_1(&self, c1: &Fp2) -> Fp6 {

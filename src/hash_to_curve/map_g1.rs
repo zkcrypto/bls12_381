@@ -766,7 +766,7 @@ fn test_osswu_semirandom() {
         0xe5,
     ]);
     for _ in 0..32 {
-        let input = Fp::random(&mut rng);
+        let input = Fp::try_from_rng(&mut rng).unwrap();
         let p = map_to_curve_simple_swu(&input);
         assert!(check_g1_prime(&p));
 
