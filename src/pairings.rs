@@ -255,6 +255,29 @@ impl Gt {
     pub fn double(&self) -> Gt {
         Gt(self.0.square())
     }
+
+    /// Multiply this point by a scalar, using variable-time multiplication.
+    pub fn multiply_vartime(self, other: &Scalar) -> Gt {
+        let mut acc = Gt::identity();
+
+        // This is a simple double-and-add implementation of group element
+        // multiplication, moving from most significant to least
+        // significant bit of the scalar.
+        //
+        // We skip the leading bit as part of the vartime implementation.
+        for bit in other
+            .to_bytes()
+            .iter()
+            .rev()
+            .flat_map(|byte| (0..8).rev().map(move |i| Choice::from((byte >> i) & 1u8)))
+            .skip_while(|c| !bool::from(*c))
+        {
+            acc = acc.double();
+            acc = Gt::conditional_select(&acc, &(acc + self), bit);
+        }
+
+        acc
+    }
 }
 
 impl<'a> Neg for &'a Gt {
