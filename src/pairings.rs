@@ -10,7 +10,7 @@ use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use group::Group;
 use pairing::{Engine, PairingCurveAffine};
-use rand_core::RngCore;
+use rand_core::TryRngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
 #[cfg(feature = "alloc")]
@@ -339,15 +339,15 @@ where
 impl Group for Gt {
     type Scalar = Scalar;
 
-    fn random(mut rng: impl RngCore) -> Self {
+    fn try_from_rng<R: TryRngCore + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
         loop {
-            let inner = Fp12::random(&mut rng);
+            let inner = Fp12::try_from_rng(rng)?;
 
             // Not all elements of Fp12 are elements of the prime-order multiplicative
             // subgroup. We run the random element through final_exponentiation to obtain
             // a valid element, which requires that it is non-zero.
             if !bool::from(inner.is_zero()) {
-                return MillerLoopResult(inner).final_exponentiation();
+                return Ok(MillerLoopResult(inner).final_exponentiation());
             }
         }
     }

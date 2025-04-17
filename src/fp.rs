@@ -3,7 +3,7 @@
 
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use rand_core::RngCore;
+use rand_core::TryRngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::util::{adc, mac, sbb};
@@ -226,12 +226,12 @@ impl Fp {
         res
     }
 
-    pub(crate) fn random(mut rng: impl RngCore) -> Fp {
+    pub(crate) fn try_from_rng<R: TryRngCore + ?Sized>(rng: &mut R) -> Result<Fp, R::Error> {
         let mut bytes = [0u8; 96];
-        rng.fill_bytes(&mut bytes);
+        rng.try_fill_bytes(&mut bytes)?;
 
         // Parse the random bytes as a big-endian number, to match Fp encoding order.
-        Fp::from_u768([
+        Ok(Fp::from_u768([
             u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[0..8]).unwrap()),
             u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[8..16]).unwrap()),
             u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[16..24]).unwrap()),
@@ -244,7 +244,7 @@ impl Fp {
             u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[72..80]).unwrap()),
             u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[80..88]).unwrap()),
             u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[88..96]).unwrap()),
-        ])
+        ]))
     }
 
     /// Reduces a big-endian 64-bit limb representation of a 768-bit number.
