@@ -884,6 +884,12 @@ impl AsMut<[u8]> for G1Compressed {
     }
 }
 
+impl From<G1Compressed> for [u8; 48] {
+    fn from(value: G1Compressed) -> Self {
+        value.0
+    }
+}
+
 impl ConstantTimeEq for G1Compressed {
     fn ct_eq(&self, other: &Self) -> Choice {
         self.0.ct_eq(&other.0)
@@ -925,6 +931,12 @@ impl AsRef<[u8]> for G1Uncompressed {
 impl AsMut<[u8]> for G1Uncompressed {
     fn as_mut(&mut self) -> &mut [u8] {
         &mut self.0
+    }
+}
+
+impl From<G1Uncompressed> for [u8; 96] {
+    fn from(value: G1Uncompressed) -> Self {
+        value.0
     }
 }
 
