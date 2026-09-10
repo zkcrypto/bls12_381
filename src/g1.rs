@@ -8,7 +8,7 @@ use group::{
     prime::{PrimeCurve, PrimeGroup},
     Curve, CurveAffine, Group, GroupEncoding, UncompressedEncoding,
 };
-use rand_core::TryRngCore;
+use rand_core::TryRng;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 #[cfg(feature = "alloc")]
@@ -945,9 +945,9 @@ impl PartialEq for G1Uncompressed {
 impl Group for G1Projective {
     type Scalar = Scalar;
 
-    fn try_from_rng<R: TryRngCore + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
+    fn try_random<R: TryRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
         loop {
-            let x = Fp::try_from_rng(rng)?;
+            let x = Fp::try_random(rng)?;
             let flip_sign = rng.try_next_u32()? % 2 != 0;
 
             // Obtain the corresponding y-coordinate given x as y = sqrt(x^3 + 4)

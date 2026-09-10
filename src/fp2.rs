@@ -2,7 +2,7 @@
 
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use rand_core::TryRngCore;
+use rand_core::TryRng;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::fp::Fp;
@@ -129,10 +129,10 @@ impl Fp2 {
         self.c0.is_zero() & self.c1.is_zero()
     }
 
-    pub(crate) fn try_from_rng<R: TryRngCore + ?Sized>(rng: &mut R) -> Result<Fp2, R::Error> {
+    pub(crate) fn try_random<R: TryRng + ?Sized>(rng: &mut R) -> Result<Fp2, R::Error> {
         Ok(Fp2 {
-            c0: Fp::try_from_rng(rng)?,
-            c1: Fp::try_from_rng(rng)?,
+            c0: Fp::try_random(rng)?,
+            c1: Fp::try_random(rng)?,
         })
     }
 

@@ -3,7 +3,7 @@
 
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use rand_core::TryRngCore;
+use rand_core::TryRng;
 
 use ff::{Field, PrimeField};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
@@ -643,7 +643,7 @@ impl Field for Scalar {
     const ZERO: Self = Self::zero();
     const ONE: Self = Self::one();
 
-    fn try_from_rng<R: TryRngCore + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
+    fn try_random<R: TryRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
         let mut buf = [0; 64];
         rng.try_fill_bytes(&mut buf)?;
         Ok(Self::from_bytes_wide(&buf))

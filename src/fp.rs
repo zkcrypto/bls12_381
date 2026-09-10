@@ -3,7 +3,7 @@
 
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use rand_core::TryRngCore;
+use rand_core::TryRng;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::util::{adc, mac, sbb};
@@ -226,7 +226,7 @@ impl Fp {
         res
     }
 
-    pub(crate) fn try_from_rng<R: TryRngCore + ?Sized>(rng: &mut R) -> Result<Fp, R::Error> {
+    pub(crate) fn try_random<R: TryRng + ?Sized>(rng: &mut R) -> Result<Fp, R::Error> {
         let mut bytes = [0u8; 96];
         rng.try_fill_bytes(&mut bytes)?;
 
