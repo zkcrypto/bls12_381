@@ -728,13 +728,11 @@ impl G2Projective {
         let x3 = t0 * t1;
         let x3 = x3 + x3;
 
-        let tmp = G2Projective {
+        G2Projective {
             x: x3,
             y: y3,
             z: z3,
-        };
-
-        G2Projective::conditional_select(&tmp, &G2Projective::identity(), self.is_identity())
+        }
     }
 
     /// Adds this point to another point.
