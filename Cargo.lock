@@ -68,7 +68,7 @@ dependencies = [
 
 [[package]]
 name = "bls12_381"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "criterion",
  "csv",

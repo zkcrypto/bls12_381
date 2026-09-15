@@ -1,8 +1,12 @@
 # Unreleased
+
+# 0.9.0
 ## Changed
 - MSRV is now 1.85.0.
 - Bumped dependencies to `digest 0.10`, `ff 0.14`, `group 0.14`, `pairing 0.24`,
   `rand_core 0.10`.
+- `experimental`: Migrated to Hashing to curves
+  ([Internet Draft v16](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-16)).
 
 # 0.8.0
 ## Changed
