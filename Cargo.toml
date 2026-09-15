@@ -1,6 +1,6 @@
 [package]
 name = "bls12_381"
-version = "0.8.0"
+version = "0.9.0"
 authors = [
     "Sean Bowe <ewillbefull@gmail.com>",
     "Jack Grigg <thestr4d@gmail.com>",
