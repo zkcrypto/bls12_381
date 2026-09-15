@@ -1,8 +1,8 @@
 use crate::fp::Fp;
-use crate::fp12::Fp12;
 use crate::fp2::Fp2;
 use crate::fp6::Fp6;
-use crate::{G1Affine, G1Projective, G2Affine, G2Projective, Scalar, BLS_X, BLS_X_IS_NEGATIVE};
+use crate::fp12::Fp12;
+use crate::{BLS_X, BLS_X_IS_NEGATIVE, G1Affine, G1Projective, G2Affine, G2Projective, Scalar};
 
 use core::borrow::Borrow;
 use core::fmt;

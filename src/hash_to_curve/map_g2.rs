@@ -5,8 +5,8 @@ use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable, ConstantTi
 use super::chain::chain_p2m9div16;
 use super::{HashToField, MapToCurve, Sgn0};
 use crate::generic_array::{
-    typenum::{U128, U32, U64},
     GenericArray,
+    typenum::{U32, U64, U128},
 };
 use crate::{fp::Fp, fp2::Fp2, g2::G2Projective};
 

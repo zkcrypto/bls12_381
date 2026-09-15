@@ -5,7 +5,7 @@ authors = [
     "Sean Bowe <ewillbefull@gmail.com>",
     "Jack Grigg <thestr4d@gmail.com>",
 ]
-edition = "2021"
+edition = "2024"
 rust-version = "1.85"
 description = "Implementation of the BLS12-381 pairing-friendly elliptic curve construction"
 documentation = "https://docs.rs/bls12_381/"

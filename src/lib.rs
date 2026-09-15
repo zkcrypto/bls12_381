@@ -77,10 +77,10 @@ const BLS_X_IS_NEGATIVE: bool = true;
 mod pairings;
 
 #[cfg(feature = "pairings")]
-pub use pairings::{pairing, Bls12, Gt, MillerLoopResult};
+pub use pairings::{Bls12, Gt, MillerLoopResult, pairing};
 
 #[cfg(all(feature = "pairings", feature = "alloc"))]
-pub use pairings::{multi_miller_loop, G2Prepared};
+pub use pairings::{G2Prepared, multi_miller_loop};
 
 /// Use the generic_array re-exported by digest to avoid a version mismatch
 #[cfg(feature = "experimental")]

@@ -4,7 +4,7 @@ extern crate criterion;
 extern crate bls12_381;
 use bls12_381::*;
 
-use criterion::{black_box, Criterion};
+use criterion::{Criterion, black_box};
 
 #[allow(clippy::many_single_char_names)]
 fn criterion_benchmark(c: &mut Criterion) {

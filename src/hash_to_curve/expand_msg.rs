@@ -4,13 +4,13 @@
 use core::fmt::{self, Debug, Formatter};
 
 use digest::{
-    core_api::BlockSizeUser, generic_array::typenum::IsLess, ExtendableOutput, FixedOutput,
-    XofReader,
+    ExtendableOutput, FixedOutput, XofReader, core_api::BlockSizeUser,
+    generic_array::typenum::IsLess,
 };
 
 use crate::generic_array::{
-    typenum::{Unsigned, U256},
     ArrayLength, GenericArray,
+    typenum::{U256, Unsigned},
 };
 
 #[cfg(feature = "alloc")]

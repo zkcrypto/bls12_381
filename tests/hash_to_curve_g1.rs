@@ -1,6 +1,6 @@
 use bls12_381::{
-    hash_to_curve::{ExpandMsgXmd, HashToCurve},
     G1Affine, G1Projective,
+    hash_to_curve::{ExpandMsgXmd, HashToCurve},
 };
 use hex_literal::hex;
 use sha2::Sha256;
