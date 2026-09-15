@@ -5,8 +5,8 @@ use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable, ConstantTi
 use super::chain::chain_p2m9div16;
 use super::{HashToField, MapToCurve, Sgn0};
 use crate::generic_array::{
-    typenum::{U128, U32, U64},
     GenericArray,
+    typenum::{U32, U64, U128},
 };
 use crate::{fp::Fp, fp2::Fp2, g2::G2Projective};
 
@@ -521,7 +521,7 @@ fn test_osswu_semirandom() {
         0xe5,
     ]);
     for _ in 0..32 {
-        let input = Fp2::random(&mut rng);
+        let input = Fp2::try_random(&mut rng).unwrap();
         let p = map_to_curve_simple_swu(&input);
         assert!(check_g2_prime(&p));
 

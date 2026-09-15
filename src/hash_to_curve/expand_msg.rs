@@ -4,13 +4,13 @@
 use core::fmt::{self, Debug, Formatter};
 
 use digest::{
-    core_api::BlockSizeUser, generic_array::typenum::IsLess, ExtendableOutput, FixedOutput,
-    XofReader,
+    ExtendableOutput, FixedOutput, XofReader, core_api::BlockSizeUser,
+    generic_array::typenum::IsLess,
 };
 
 use crate::generic_array::{
-    typenum::{Unsigned, U256},
     ArrayLength, GenericArray,
+    typenum::{U256, Unsigned},
 };
 
 #[cfg(feature = "alloc")]
@@ -56,7 +56,7 @@ impl ExpandMsgDst {
             if input_len > MAX_DST_LENGTH {
                 H::default()
                     .chain(OVERSIZE_DST_SALT)
-                    .chain(&dst)
+                    .chain(dst)
                     .finalize_xof()
                     .read(&mut buf[..L::USIZE]);
                 L::USIZE
@@ -81,7 +81,7 @@ impl ExpandMsgDst {
             if input_len > MAX_DST_LENGTH {
                 let hashed = H::default()
                     .chain(OVERSIZE_DST_SALT)
-                    .chain(&dst)
+                    .chain(dst)
                     .finalize_fixed();
                 let len = hashed.len();
                 buf[..len].copy_from_slice(&hashed);
@@ -255,7 +255,7 @@ where
         L: ArrayLength<u8> + IsLess<U256>,
     {
         let hash_size = H::OutputSize::to_usize();
-        let ell = (len_in_bytes + hash_size - 1) / hash_size;
+        let ell = len_in_bytes.div_ceil(hash_size);
         if ell > 255 {
             panic!("Invalid ExpandMsgXmd usage: ell > 255");
         }

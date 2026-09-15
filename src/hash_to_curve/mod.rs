@@ -15,8 +15,8 @@ mod map_g2;
 mod map_scalar;
 
 use crate::generic_array::{
-    typenum::{IsLess, Unsigned, U256},
     ArrayLength, GenericArray,
+    typenum::{IsLess, U256, Unsigned},
 };
 
 /// Enables a byte string to be hashed into one or more field elements for a given curve.

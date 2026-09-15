@@ -5,17 +5,17 @@ use core::fmt;
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use group::{
-    prime::{PrimeCurve, PrimeCurveAffine, PrimeGroup},
-    Curve, Group, GroupEncoding, UncompressedEncoding,
+    Curve, CurveAffine, Group, GroupEncoding, UncompressedEncoding,
+    prime::{PrimeCurve, PrimeGroup},
 };
-use rand_core::RngCore;
+use rand_core::TryRng;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 #[cfg(feature = "alloc")]
 use group::WnafGroup;
 
-use crate::fp::Fp;
 use crate::Scalar;
+use crate::fp::Fp;
 
 /// This is an element of $\mathbb{G}_1$ represented in the affine coordinate space.
 /// It is ideal to keep elements in this representation to reduce memory usage and
@@ -100,7 +100,7 @@ impl PartialEq for G1Affine {
     }
 }
 
-impl<'a> Neg for &'a G1Affine {
+impl Neg for &G1Affine {
     type Output = G1Affine;
 
     #[inline]
@@ -122,7 +122,7 @@ impl Neg for G1Affine {
     }
 }
 
-impl<'a, 'b> Add<&'b G1Projective> for &'a G1Affine {
+impl<'b> Add<&'b G1Projective> for &G1Affine {
     type Output = G1Projective;
 
     #[inline]
@@ -131,7 +131,7 @@ impl<'a, 'b> Add<&'b G1Projective> for &'a G1Affine {
     }
 }
 
-impl<'a, 'b> Add<&'b G1Affine> for &'a G1Projective {
+impl<'b> Add<&'b G1Affine> for &G1Projective {
     type Output = G1Projective;
 
     #[inline]
@@ -140,7 +140,7 @@ impl<'a, 'b> Add<&'b G1Affine> for &'a G1Projective {
     }
 }
 
-impl<'a, 'b> Sub<&'b G1Projective> for &'a G1Affine {
+impl<'b> Sub<&'b G1Projective> for &G1Affine {
     type Output = G1Projective;
 
     #[inline]
@@ -149,7 +149,7 @@ impl<'a, 'b> Sub<&'b G1Projective> for &'a G1Affine {
     }
 }
 
-impl<'a, 'b> Sub<&'b G1Affine> for &'a G1Projective {
+impl<'b> Sub<&'b G1Affine> for &G1Projective {
     type Output = G1Projective;
 
     #[inline]
@@ -513,7 +513,7 @@ impl PartialEq for G1Projective {
     }
 }
 
-impl<'a> Neg for &'a G1Projective {
+impl Neg for &G1Projective {
     type Output = G1Projective;
 
     #[inline]
@@ -535,7 +535,7 @@ impl Neg for G1Projective {
     }
 }
 
-impl<'a, 'b> Add<&'b G1Projective> for &'a G1Projective {
+impl<'b> Add<&'b G1Projective> for &G1Projective {
     type Output = G1Projective;
 
     #[inline]
@@ -544,7 +544,7 @@ impl<'a, 'b> Add<&'b G1Projective> for &'a G1Projective {
     }
 }
 
-impl<'a, 'b> Sub<&'b G1Projective> for &'a G1Projective {
+impl<'b> Sub<&'b G1Projective> for &G1Projective {
     type Output = G1Projective;
 
     #[inline]
@@ -553,7 +553,7 @@ impl<'a, 'b> Sub<&'b G1Projective> for &'a G1Projective {
     }
 }
 
-impl<'a, 'b> Mul<&'b Scalar> for &'a G1Projective {
+impl<'b> Mul<&'b Scalar> for &G1Projective {
     type Output = G1Projective;
 
     fn mul(self, other: &'b Scalar) -> Self::Output {
@@ -561,7 +561,7 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a G1Projective {
     }
 }
 
-impl<'a, 'b> Mul<&'b G1Projective> for &'a Scalar {
+impl<'b> Mul<&'b G1Projective> for &Scalar {
     type Output = G1Projective;
 
     #[inline]
@@ -570,7 +570,7 @@ impl<'a, 'b> Mul<&'b G1Projective> for &'a Scalar {
     }
 }
 
-impl<'a, 'b> Mul<&'b Scalar> for &'a G1Affine {
+impl<'b> Mul<&'b Scalar> for &G1Affine {
     type Output = G1Projective;
 
     fn mul(self, other: &'b Scalar) -> Self::Output {
@@ -578,7 +578,7 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a G1Affine {
     }
 }
 
-impl<'a, 'b> Mul<&'b G1Affine> for &'a Scalar {
+impl<'b> Mul<&'b G1Affine> for &Scalar {
     type Output = G1Projective;
 
     #[inline]
@@ -945,10 +945,10 @@ impl PartialEq for G1Uncompressed {
 impl Group for G1Projective {
     type Scalar = Scalar;
 
-    fn random(mut rng: impl RngCore) -> Self {
+    fn try_random<R: TryRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
         loop {
-            let x = Fp::random(&mut rng);
-            let flip_sign = rng.next_u32() % 2 != 0;
+            let x = Fp::try_random(rng)?;
+            let flip_sign = rng.try_next_u32()? % 2 != 0;
 
             // Obtain the corresponding y-coordinate given x as y = sqrt(x^3 + 4)
             let p = ((x.square() * x) + B).sqrt().map(|y| G1Affine {
@@ -961,7 +961,7 @@ impl Group for G1Projective {
                 let p = p.unwrap().to_curve().clear_cofactor();
 
                 if bool::from(!p.is_identity()) {
-                    return p;
+                    return Ok(p);
                 }
             }
         }
@@ -1007,22 +1007,20 @@ impl WnafGroup for G1Projective {
 impl PrimeGroup for G1Projective {}
 
 impl Curve for G1Projective {
-    type AffineRepr = G1Affine;
+    type Affine = G1Affine;
 
-    fn batch_normalize(p: &[Self], q: &mut [Self::AffineRepr]) {
+    fn batch_normalize(p: &[Self], q: &mut [Self::Affine]) {
         Self::batch_normalize(p, q);
     }
 
-    fn to_affine(&self) -> Self::AffineRepr {
+    fn to_affine(&self) -> Self::Affine {
         self.into()
     }
 }
 
-impl PrimeCurve for G1Projective {
-    type Affine = G1Affine;
-}
+impl PrimeCurve for G1Projective {}
 
-impl PrimeCurveAffine for G1Affine {
+impl CurveAffine for G1Affine {
     type Scalar = Scalar;
     type Curve = G1Projective;
 
@@ -1123,10 +1121,10 @@ fn test_is_on_curve() {
         0x12b1_08ac_3364_3c3e,
     ]);
 
-    let gen = G1Affine::generator();
+    let r#gen = G1Affine::generator();
     let mut test = G1Projective {
-        x: gen.x * z,
-        y: gen.y * z,
+        x: r#gen.x * z,
+        y: r#gen.y * z,
         z,
     };
 

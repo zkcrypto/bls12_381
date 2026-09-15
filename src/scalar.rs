@@ -3,7 +3,7 @@
 
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use rand_core::RngCore;
+use rand_core::TryRng;
 
 use ff::{Field, PrimeField};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
@@ -104,7 +104,7 @@ const GENERATOR: Scalar = Scalar([
     0x3513_3220_8fc5_a8c4,
 ]);
 
-impl<'a> Neg for &'a Scalar {
+impl Neg for &Scalar {
     type Output = Scalar;
 
     #[inline]
@@ -122,7 +122,7 @@ impl Neg for Scalar {
     }
 }
 
-impl<'a, 'b> Sub<&'b Scalar> for &'a Scalar {
+impl<'b> Sub<&'b Scalar> for &Scalar {
     type Output = Scalar;
 
     #[inline]
@@ -131,7 +131,7 @@ impl<'a, 'b> Sub<&'b Scalar> for &'a Scalar {
     }
 }
 
-impl<'a, 'b> Add<&'b Scalar> for &'a Scalar {
+impl<'b> Add<&'b Scalar> for &Scalar {
     type Output = Scalar;
 
     #[inline]
@@ -140,7 +140,7 @@ impl<'a, 'b> Add<&'b Scalar> for &'a Scalar {
     }
 }
 
-impl<'a, 'b> Mul<&'b Scalar> for &'a Scalar {
+impl<'b> Mul<&'b Scalar> for &Scalar {
     type Output = Scalar;
 
     #[inline]
@@ -333,7 +333,7 @@ impl Scalar {
     /// Converts from an integer represented in little endian
     /// into its (congruent) `Scalar` representation.
     pub const fn from_raw(val: [u64; 4]) -> Self {
-        (&Scalar(val)).mul(&R2)
+        Self::mul(&Scalar(val), &R2)
     }
 
     /// Squares this element.
@@ -546,7 +546,7 @@ impl Scalar {
         let (r7, _) = adc(r7, carry2, carry);
 
         // Result may be within MODULUS of the correct value
-        (&Scalar([r4, r5, r6, r7])).sub(&MODULUS)
+        Self::sub(&Scalar([r4, r5, r6, r7]), &MODULUS)
     }
 
     /// Multiplies `rhs` by `self`, returning the result.
@@ -605,7 +605,7 @@ impl Scalar {
 
         // Attempt to subtract the modulus, to ensure the value
         // is smaller than the modulus.
-        (&Scalar([d0, d1, d2, d3])).sub(&MODULUS)
+        Self::sub(&Scalar([d0, d1, d2, d3]), &MODULUS)
     }
 
     /// Negates `self`.
@@ -643,10 +643,10 @@ impl Field for Scalar {
     const ZERO: Self = Self::zero();
     const ONE: Self = Self::one();
 
-    fn random(mut rng: impl RngCore) -> Self {
+    fn try_random<R: TryRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
         let mut buf = [0; 64];
-        rng.fill_bytes(&mut buf);
-        Self::from_bytes_wide(&buf)
+        rng.try_fill_bytes(&mut buf)?;
+        Ok(Self::from_bytes_wide(&buf))
     }
 
     #[must_use]
@@ -671,7 +671,7 @@ impl Field for Scalar {
         // (t - 1) // 2 = 6104339283789297388802252303364915521546564123189034618274734669823
         ff::helpers::sqrt_tonelli_shanks(
             self,
-            &[
+            [
                 0x7fff_2dff_7fff_ffff,
                 0x04d0_ec02_a9de_d201,
                 0x94ce_bea4_199c_ec04,
@@ -830,7 +830,7 @@ fn test_inv() {
     assert_eq!(inv, INV);
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 #[test]
 fn test_debug() {
     assert_eq!(
@@ -998,7 +998,9 @@ fn test_from_u512_max() {
     let max_u64 = 0xffff_ffff_ffff_ffff;
     assert_eq!(
         R3 - R,
-        Scalar::from_u512([max_u64, max_u64, max_u64, max_u64, max_u64, max_u64, max_u64, max_u64])
+        Scalar::from_u512([
+            max_u64, max_u64, max_u64, max_u64, max_u64, max_u64, max_u64, max_u64
+        ])
     );
 }
 

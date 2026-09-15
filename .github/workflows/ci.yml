@@ -44,7 +44,7 @@ jobs:
         target:
           - thumbv6m-none-eabi
           - wasm32-unknown-unknown
-          - wasm32-wasi
+          - wasm32-wasip1
 
     steps:
       - uses: actions/checkout@v4

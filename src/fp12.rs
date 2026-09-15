@@ -7,7 +7,7 @@ use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 #[cfg(feature = "pairings")]
-use rand_core::RngCore;
+use rand_core::TryRng;
 
 /// This represents an element $c_0 + c_1 w$ of $\mathbb{F}_{p^12} = \mathbb{F}_{p^6} / w^2 - v$.
 pub struct Fp12 {
@@ -106,11 +106,11 @@ impl Fp12 {
     }
 
     #[cfg(feature = "pairings")]
-    pub(crate) fn random(mut rng: impl RngCore) -> Self {
-        Fp12 {
-            c0: Fp6::random(&mut rng),
-            c1: Fp6::random(&mut rng),
-        }
+    pub(crate) fn try_random<R: TryRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
+        Ok(Fp12 {
+            c0: Fp6::try_random(rng)?,
+            c1: Fp6::try_random(rng)?,
+        })
     }
 
     pub fn mul_by_014(&self, c0: &Fp2, c1: &Fp2, c4: &Fp2) -> Fp12 {
@@ -194,7 +194,7 @@ impl Fp12 {
     }
 }
 
-impl<'a, 'b> Mul<&'b Fp12> for &'a Fp12 {
+impl<'b> Mul<&'b Fp12> for &Fp12 {
     type Output = Fp12;
 
     #[inline]
@@ -213,7 +213,7 @@ impl<'a, 'b> Mul<&'b Fp12> for &'a Fp12 {
     }
 }
 
-impl<'a, 'b> Add<&'b Fp12> for &'a Fp12 {
+impl<'b> Add<&'b Fp12> for &Fp12 {
     type Output = Fp12;
 
     #[inline]
@@ -225,7 +225,7 @@ impl<'a, 'b> Add<&'b Fp12> for &'a Fp12 {
     }
 }
 
-impl<'a> Neg for &'a Fp12 {
+impl Neg for &Fp12 {
     type Output = Fp12;
 
     #[inline]
@@ -246,7 +246,7 @@ impl Neg for Fp12 {
     }
 }
 
-impl<'a, 'b> Sub<&'b Fp12> for &'a Fp12 {
+impl<'b> Sub<&'b Fp12> for &Fp12 {
     type Output = Fp12;
 
     #[inline]

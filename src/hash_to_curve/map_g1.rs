@@ -7,8 +7,8 @@ use super::{HashToField, MapToCurve, Sgn0};
 use crate::fp::Fp;
 use crate::g1::G1Projective;
 use crate::generic_array::{
-    typenum::{U32, U64},
     GenericArray,
+    typenum::{U32, U64},
 };
 
 /// Coefficients of the 11-isogeny x map's numerator
@@ -766,7 +766,7 @@ fn test_osswu_semirandom() {
         0xe5,
     ]);
     for _ in 0..32 {
-        let input = Fp::random(&mut rng);
+        let input = Fp::try_random(&mut rng).unwrap();
         let p = map_to_curve_simple_swu(&input);
         assert!(check_g1_prime(&p));
 

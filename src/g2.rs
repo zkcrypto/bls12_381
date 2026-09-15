@@ -5,18 +5,18 @@ use core::fmt;
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use group::{
-    prime::{PrimeCurve, PrimeCurveAffine, PrimeGroup},
-    Curve, Group, GroupEncoding, UncompressedEncoding,
+    Curve, CurveAffine, Group, GroupEncoding, UncompressedEncoding,
+    prime::{PrimeCurve, PrimeGroup},
 };
-use rand_core::RngCore;
+use rand_core::TryRng;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 #[cfg(feature = "alloc")]
 use group::WnafGroup;
 
+use crate::Scalar;
 use crate::fp::Fp;
 use crate::fp2::Fp2;
-use crate::Scalar;
 
 /// This is an element of $\mathbb{G}_2$ represented in the affine coordinate space.
 /// It is ideal to keep elements in this representation to reduce memory usage and
@@ -101,7 +101,7 @@ impl PartialEq for G2Affine {
     }
 }
 
-impl<'a> Neg for &'a G2Affine {
+impl Neg for &G2Affine {
     type Output = G2Affine;
 
     #[inline]
@@ -123,7 +123,7 @@ impl Neg for G2Affine {
     }
 }
 
-impl<'a, 'b> Add<&'b G2Projective> for &'a G2Affine {
+impl<'b> Add<&'b G2Projective> for &G2Affine {
     type Output = G2Projective;
 
     #[inline]
@@ -132,7 +132,7 @@ impl<'a, 'b> Add<&'b G2Projective> for &'a G2Affine {
     }
 }
 
-impl<'a, 'b> Add<&'b G2Affine> for &'a G2Projective {
+impl<'b> Add<&'b G2Affine> for &G2Projective {
     type Output = G2Projective;
 
     #[inline]
@@ -141,7 +141,7 @@ impl<'a, 'b> Add<&'b G2Affine> for &'a G2Projective {
     }
 }
 
-impl<'a, 'b> Sub<&'b G2Projective> for &'a G2Affine {
+impl<'b> Sub<&'b G2Projective> for &G2Affine {
     type Output = G2Projective;
 
     #[inline]
@@ -150,7 +150,7 @@ impl<'a, 'b> Sub<&'b G2Projective> for &'a G2Affine {
     }
 }
 
-impl<'a, 'b> Sub<&'b G2Affine> for &'a G2Projective {
+impl<'b> Sub<&'b G2Affine> for &G2Projective {
     type Output = G2Projective;
 
     #[inline]
@@ -258,8 +258,8 @@ impl G2Affine {
 
         let mut res = [0; 96];
 
-        (&mut res[0..48]).copy_from_slice(&x.c1.to_bytes()[..]);
-        (&mut res[48..96]).copy_from_slice(&x.c0.to_bytes()[..]);
+        res[0..48].copy_from_slice(&x.c1.to_bytes()[..]);
+        res[48..96].copy_from_slice(&x.c0.to_bytes()[..]);
 
         // This point is in compressed form, so we set the most significant bit.
         res[0] |= 1u8 << 7;
@@ -566,7 +566,7 @@ impl PartialEq for G2Projective {
     }
 }
 
-impl<'a> Neg for &'a G2Projective {
+impl Neg for &G2Projective {
     type Output = G2Projective;
 
     #[inline]
@@ -588,7 +588,7 @@ impl Neg for G2Projective {
     }
 }
 
-impl<'a, 'b> Add<&'b G2Projective> for &'a G2Projective {
+impl<'b> Add<&'b G2Projective> for &G2Projective {
     type Output = G2Projective;
 
     #[inline]
@@ -597,7 +597,7 @@ impl<'a, 'b> Add<&'b G2Projective> for &'a G2Projective {
     }
 }
 
-impl<'a, 'b> Sub<&'b G2Projective> for &'a G2Projective {
+impl<'b> Sub<&'b G2Projective> for &G2Projective {
     type Output = G2Projective;
 
     #[inline]
@@ -606,7 +606,7 @@ impl<'a, 'b> Sub<&'b G2Projective> for &'a G2Projective {
     }
 }
 
-impl<'a, 'b> Mul<&'b Scalar> for &'a G2Projective {
+impl<'b> Mul<&'b Scalar> for &G2Projective {
     type Output = G2Projective;
 
     fn mul(self, other: &'b Scalar) -> Self::Output {
@@ -614,7 +614,7 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a G2Projective {
     }
 }
 
-impl<'a, 'b> Mul<&'b G2Projective> for &'a Scalar {
+impl<'b> Mul<&'b G2Projective> for &Scalar {
     type Output = G2Projective;
 
     #[inline]
@@ -623,7 +623,7 @@ impl<'a, 'b> Mul<&'b G2Projective> for &'a Scalar {
     }
 }
 
-impl<'a, 'b> Mul<&'b Scalar> for &'a G2Affine {
+impl<'b> Mul<&'b Scalar> for &G2Affine {
     type Output = G2Projective;
 
     fn mul(self, other: &'b Scalar) -> Self::Output {
@@ -631,7 +631,7 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a G2Affine {
     }
 }
 
-impl<'a, 'b> Mul<&'b G2Affine> for &'a Scalar {
+impl<'b> Mul<&'b G2Affine> for &Scalar {
     type Output = G2Projective;
 
     #[inline]
@@ -1090,10 +1090,10 @@ impl PartialEq for G2Uncompressed {
 impl Group for G2Projective {
     type Scalar = Scalar;
 
-    fn random(mut rng: impl RngCore) -> Self {
+    fn try_random<R: TryRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
         loop {
-            let x = Fp2::random(&mut rng);
-            let flip_sign = rng.next_u32() % 2 != 0;
+            let x = Fp2::try_random(rng)?;
+            let flip_sign = rng.try_next_u32()? % 2 != 0;
 
             // Obtain the corresponding y-coordinate given x as y = sqrt(x^3 + 4)
             let p = ((x.square() * x) + B).sqrt().map(|y| G2Affine {
@@ -1106,7 +1106,7 @@ impl Group for G2Projective {
                 let p = p.unwrap().to_curve().clear_cofactor();
 
                 if bool::from(!p.is_identity()) {
-                    return p;
+                    return Ok(p);
                 }
             }
         }
@@ -1151,22 +1151,20 @@ impl WnafGroup for G2Projective {
 impl PrimeGroup for G2Projective {}
 
 impl Curve for G2Projective {
-    type AffineRepr = G2Affine;
+    type Affine = G2Affine;
 
-    fn batch_normalize(p: &[Self], q: &mut [Self::AffineRepr]) {
+    fn batch_normalize(p: &[Self], q: &mut [Self::Affine]) {
         Self::batch_normalize(p, q);
     }
 
-    fn to_affine(&self) -> Self::AffineRepr {
+    fn to_affine(&self) -> Self::Affine {
         self.into()
     }
 }
 
-impl PrimeCurve for G2Projective {
-    type Affine = G2Affine;
-}
+impl PrimeCurve for G2Projective {}
 
-impl PrimeCurveAffine for G2Affine {
+impl CurveAffine for G2Affine {
     type Scalar = Scalar;
     type Curve = G2Projective;
 
@@ -1261,10 +1259,10 @@ fn test_is_on_curve() {
         ]),
     };
 
-    let gen = G2Affine::generator();
+    let r#gen = G2Affine::generator();
     let mut test = G2Projective {
-        x: gen.x * z,
-        y: gen.y * z,
+        x: r#gen.x * z,
+        y: r#gen.y * z,
         z,
     };
 

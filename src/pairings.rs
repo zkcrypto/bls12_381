@@ -1,8 +1,8 @@
 use crate::fp::Fp;
-use crate::fp12::Fp12;
 use crate::fp2::Fp2;
 use crate::fp6::Fp6;
-use crate::{G1Affine, G1Projective, G2Affine, G2Projective, Scalar, BLS_X, BLS_X_IS_NEGATIVE};
+use crate::fp12::Fp12;
+use crate::{BLS_X, BLS_X_IS_NEGATIVE, G1Affine, G1Projective, G2Affine, G2Projective, Scalar};
 
 use core::borrow::Borrow;
 use core::fmt;
@@ -10,7 +10,7 @@ use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use group::Group;
 use pairing::{Engine, PairingCurveAffine};
-use rand_core::RngCore;
+use rand_core::TryRng;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
 #[cfg(feature = "alloc")]
@@ -176,7 +176,7 @@ impl MillerLoopResult {
     }
 }
 
-impl<'a, 'b> Add<&'b MillerLoopResult> for &'a MillerLoopResult {
+impl<'b> Add<&'b MillerLoopResult> for &MillerLoopResult {
     type Output = MillerLoopResult;
 
     #[inline]
@@ -257,7 +257,7 @@ impl Gt {
     }
 }
 
-impl<'a> Neg for &'a Gt {
+impl Neg for &Gt {
     type Output = Gt;
 
     #[inline]
@@ -276,7 +276,7 @@ impl Neg for Gt {
     }
 }
 
-impl<'a, 'b> Add<&'b Gt> for &'a Gt {
+impl<'b> Add<&'b Gt> for &Gt {
     type Output = Gt;
 
     #[inline]
@@ -285,7 +285,7 @@ impl<'a, 'b> Add<&'b Gt> for &'a Gt {
     }
 }
 
-impl<'a, 'b> Sub<&'b Gt> for &'a Gt {
+impl<'b> Sub<&'b Gt> for &Gt {
     type Output = Gt;
 
     #[inline]
@@ -294,7 +294,7 @@ impl<'a, 'b> Sub<&'b Gt> for &'a Gt {
     }
 }
 
-impl<'a, 'b> Mul<&'b Scalar> for &'a Gt {
+impl<'b> Mul<&'b Scalar> for &Gt {
     type Output = Gt;
 
     fn mul(self, other: &'b Scalar) -> Self::Output {
@@ -339,15 +339,15 @@ where
 impl Group for Gt {
     type Scalar = Scalar;
 
-    fn random(mut rng: impl RngCore) -> Self {
+    fn try_random<R: TryRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
         loop {
-            let inner = Fp12::random(&mut rng);
+            let inner = Fp12::try_random(rng)?;
 
             // Not all elements of Fp12 are elements of the prime-order multiplicative
             // subgroup. We run the random element through final_exponentiation to obtain
             // a valid element, which requires that it is non-zero.
             if !bool::from(inner.is_zero()) {
-                return MillerLoopResult(inner).final_exponentiation();
+                return Ok(MillerLoopResult(inner).final_exponentiation());
             }
         }
     }
@@ -557,7 +557,7 @@ pub fn multi_miller_loop(terms: &[(&G1Affine, &G2Prepared)]) -> MillerLoopResult
         index: usize,
     }
 
-    impl<'a, 'b, 'c> MillerLoopDriver for Adder<'a, 'b, 'c> {
+    impl MillerLoopDriver for Adder<'_, '_, '_> {
         type Output = Fp12;
 
         fn doubling_step(&mut self, mut f: Self::Output) -> Self::Output {

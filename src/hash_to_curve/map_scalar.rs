@@ -2,8 +2,8 @@
 
 use super::HashToField;
 use crate::generic_array::{
-    typenum::{U32, U48},
     GenericArray,
+    typenum::{U32, U48},
 };
 use crate::scalar::Scalar;
 

@@ -98,9 +98,9 @@ fn test_pairing_result_against_relic() {
     let b = G2Affine::generator();
 
     use super::fp::Fp;
-    use super::fp12::Fp12;
     use super::fp2::Fp2;
     use super::fp6::Fp6;
+    use super::fp12::Fp12;
 
     let res = pairing(&a, &b);
 
