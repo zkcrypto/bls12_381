@@ -139,40 +139,38 @@ impl MillerLoopResult {
             .frobenius_map()
             .frobenius_map()
             .frobenius_map();
-        Gt(f.invert()
-            .map(|mut t1| {
-                let mut t2 = t0 * t1;
-                t1 = t2;
-                t2 = t2.frobenius_map().frobenius_map();
-                t2 *= t1;
-                t1 = cyclotomic_square(t2).conjugate();
-                let mut t3 = cycolotomic_exp(t2);
-                let mut t4 = cyclotomic_square(t3);
-                let mut t5 = t1 * t3;
-                t1 = cycolotomic_exp(t5);
-                t0 = cycolotomic_exp(t1);
-                let mut t6 = cycolotomic_exp(t0);
-                t6 *= t4;
-                t4 = cycolotomic_exp(t6);
-                t5 = t5.conjugate();
-                t4 *= t5 * t2;
-                t5 = t2.conjugate();
-                t1 *= t2;
-                t1 = t1.frobenius_map().frobenius_map().frobenius_map();
-                t6 *= t5;
-                t6 = t6.frobenius_map();
-                t3 *= t0;
-                t3 = t3.frobenius_map().frobenius_map();
-                t3 *= t1;
-                t3 *= t6;
-                f = t3 * t4;
 
-                f
-            })
-            // We unwrap() because `MillerLoopResult` can only be constructed
-            // by a function within this crate, and we uphold the invariant
-            // that the enclosed value is nonzero.
-            .unwrap())
+        // We unwrap() because `MillerLoopResult` can only be constructed
+        // by a function within this crate, and we uphold the invariant
+        // that the enclosed value is nonzero.
+        let mut t1 = f.invert().unwrap();
+
+        let mut t2 = t0 * t1;
+        t1 = t2;
+        t2 = t2.frobenius_map().frobenius_map();
+        t2 *= t1;
+        f = t2;
+        t1 = cyclotomic_square(t2).conjugate();
+        let mut t3 = cycolotomic_exp(t2);
+        let mut t4 = t1 * t3;
+        t1 = cycolotomic_exp(t4);
+        t4 = t4.conjugate();
+        f *= t4;
+        t4 = cyclotomic_square(t3);
+        t0 = cycolotomic_exp(t1);
+        t3 *= t0;
+        t3 = t3.frobenius_map().frobenius_map();
+        f *= t3;
+        t4 *= cycolotomic_exp(t0);
+        f *= cycolotomic_exp(t4);
+        t4 *= t2.conjugate();
+        t2 *= t1;
+        t2 = t2.frobenius_map().frobenius_map().frobenius_map();
+        f *= t2;
+        t4 = t4.frobenius_map();
+        f *= t4;
+
+        Gt(f)
     }
 }
 
