@@ -1,6 +1,6 @@
 # Unreleased
 ## Changed
-- MSRV is now 1.63.0.
+- MSRV is now 1.85.0.
 - Bumped dependencies to `digest 0.10`, `ff 0.14`, `group 0.14`, `pairing 0.24`,
   `rand_core 0.9`.
 

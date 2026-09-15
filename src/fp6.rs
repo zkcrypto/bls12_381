@@ -312,7 +312,7 @@ impl Fp6 {
     }
 }
 
-impl<'a, 'b> Mul<&'b Fp6> for &'a Fp6 {
+impl<'b> Mul<&'b Fp6> for &Fp6 {
     type Output = Fp6;
 
     #[inline]
@@ -321,7 +321,7 @@ impl<'a, 'b> Mul<&'b Fp6> for &'a Fp6 {
     }
 }
 
-impl<'a, 'b> Add<&'b Fp6> for &'a Fp6 {
+impl<'b> Add<&'b Fp6> for &Fp6 {
     type Output = Fp6;
 
     #[inline]
@@ -334,7 +334,7 @@ impl<'a, 'b> Add<&'b Fp6> for &'a Fp6 {
     }
 }
 
-impl<'a> Neg for &'a Fp6 {
+impl Neg for &Fp6 {
     type Output = Fp6;
 
     #[inline]
@@ -356,7 +356,7 @@ impl Neg for Fp6 {
     }
 }
 
-impl<'a, 'b> Sub<&'b Fp6> for &'a Fp6 {
+impl<'b> Sub<&'b Fp6> for &Fp6 {
     type Output = Fp6;
 
     #[inline]

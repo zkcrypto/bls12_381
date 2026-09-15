@@ -109,7 +109,7 @@ const R3: Fp = Fp([
     0x0aa6_3460_9175_5d4d,
 ]);
 
-impl<'a> Neg for &'a Fp {
+impl Neg for &Fp {
     type Output = Fp;
 
     #[inline]
@@ -127,7 +127,7 @@ impl Neg for Fp {
     }
 }
 
-impl<'a, 'b> Sub<&'b Fp> for &'a Fp {
+impl<'b> Sub<&'b Fp> for &Fp {
     type Output = Fp;
 
     #[inline]
@@ -136,7 +136,7 @@ impl<'a, 'b> Sub<&'b Fp> for &'a Fp {
     }
 }
 
-impl<'a, 'b> Add<&'b Fp> for &'a Fp {
+impl<'b> Add<&'b Fp> for &Fp {
     type Output = Fp;
 
     #[inline]
@@ -145,7 +145,7 @@ impl<'a, 'b> Add<&'b Fp> for &'a Fp {
     }
 }
 
-impl<'a, 'b> Mul<&'b Fp> for &'a Fp {
+impl<'b> Mul<&'b Fp> for &Fp {
     type Output = Fp;
 
     #[inline]
@@ -389,7 +389,7 @@ impl Fp {
 
         // Attempt to subtract the modulus, to ensure the value
         // is smaller than the modulus.
-        (&Fp([d0, d1, d2, d3, d4, d5])).subtract_p()
+        Fp([d0, d1, d2, d3, d4, d5]).subtract_p()
     }
 
     #[inline]
@@ -419,7 +419,7 @@ impl Fp {
 
     #[inline]
     pub const fn sub(&self, rhs: &Fp) -> Fp {
-        (&rhs.neg()).add(self)
+        Fp::add(&Fp::neg(rhs), self)
     }
 
     /// Returns `c = a.zip(b).fold(0, |acc, (a_i, b_i)| acc + a_i * b_i)`.
@@ -480,7 +480,7 @@ impl Fp {
 
         // Because we represent F_p elements in non-redundant form, we need a final
         // conditional subtraction to ensure the output is in range.
-        (&Fp([u0, u1, u2, u3, u4, u5])).subtract_p()
+        Fp([u0, u1, u2, u3, u4, u5]).subtract_p()
     }
 
     #[inline(always)]
@@ -558,7 +558,7 @@ impl Fp {
 
         // Attempt to subtract the modulus, to ensure the value
         // is smaller than the modulus.
-        (&Fp([r6, r7, r8, r9, r10, r11])).subtract_p()
+        Fp([r6, r7, r8, r9, r10, r11]).subtract_p()
     }
 
     #[inline]

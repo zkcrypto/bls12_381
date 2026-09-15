@@ -60,7 +60,7 @@ impl ConditionallySelectable for Fp2 {
     }
 }
 
-impl<'a> Neg for &'a Fp2 {
+impl Neg for &Fp2 {
     type Output = Fp2;
 
     #[inline]
@@ -78,7 +78,7 @@ impl Neg for Fp2 {
     }
 }
 
-impl<'a, 'b> Sub<&'b Fp2> for &'a Fp2 {
+impl<'b> Sub<&'b Fp2> for &Fp2 {
     type Output = Fp2;
 
     #[inline]
@@ -87,7 +87,7 @@ impl<'a, 'b> Sub<&'b Fp2> for &'a Fp2 {
     }
 }
 
-impl<'a, 'b> Add<&'b Fp2> for &'a Fp2 {
+impl<'b> Add<&'b Fp2> for &Fp2 {
     type Output = Fp2;
 
     #[inline]
@@ -96,7 +96,7 @@ impl<'a, 'b> Add<&'b Fp2> for &'a Fp2 {
     }
 }
 
-impl<'a, 'b> Mul<&'b Fp2> for &'a Fp2 {
+impl<'b> Mul<&'b Fp2> for &Fp2 {
     type Output = Fp2;
 
     #[inline]
@@ -192,13 +192,13 @@ impl Fp2 {
         // c0' = (c0 + c1) * (c0 - c1)
         // c1' = 2 * c0 * c1
 
-        let a = (&self.c0).add(&self.c1);
-        let b = (&self.c0).sub(&self.c1);
-        let c = (&self.c0).add(&self.c0);
+        let a = Fp::add(&self.c0, &self.c1);
+        let b = Fp::sub(&self.c0, &self.c1);
+        let c = Fp::add(&self.c0, &self.c0);
 
         Fp2 {
-            c0: (&a).mul(&b),
-            c1: (&c).mul(&self.c1),
+            c0: Fp::mul(&a, &b),
+            c1: Fp::mul(&c, &self.c1),
         }
     }
 
@@ -223,22 +223,22 @@ impl Fp2 {
 
     pub const fn add(&self, rhs: &Fp2) -> Fp2 {
         Fp2 {
-            c0: (&self.c0).add(&rhs.c0),
-            c1: (&self.c1).add(&rhs.c1),
+            c0: Fp::add(&self.c0, &rhs.c0),
+            c1: Fp::add(&self.c1, &rhs.c1),
         }
     }
 
     pub const fn sub(&self, rhs: &Fp2) -> Fp2 {
         Fp2 {
-            c0: (&self.c0).sub(&rhs.c0),
-            c1: (&self.c1).sub(&rhs.c1),
+            c0: Fp::sub(&self.c0, &rhs.c0),
+            c1: Fp::sub(&self.c1, &rhs.c1),
         }
     }
 
     pub const fn neg(&self) -> Fp2 {
         Fp2 {
-            c0: (&self.c0).neg(),
-            c1: (&self.c1).neg(),
+            c0: Fp::neg(&self.c0),
+            c1: Fp::neg(&self.c1),
         }
     }
 
@@ -272,7 +272,7 @@ impl Fp2 {
                     c0: -x0.c1,
                     c1: x0.c0,
                 },
-                alpha.ct_eq(&(&Fp2::one()).neg()),
+                alpha.ct_eq(&Fp2::one().neg()),
             )
             // Otherwise, the correct solution is (1 + alpha)^((q - 1) // 2) * x0
             .or_else(|| {

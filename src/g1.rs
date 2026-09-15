@@ -100,7 +100,7 @@ impl PartialEq for G1Affine {
     }
 }
 
-impl<'a> Neg for &'a G1Affine {
+impl Neg for &G1Affine {
     type Output = G1Affine;
 
     #[inline]
@@ -122,7 +122,7 @@ impl Neg for G1Affine {
     }
 }
 
-impl<'a, 'b> Add<&'b G1Projective> for &'a G1Affine {
+impl<'b> Add<&'b G1Projective> for &G1Affine {
     type Output = G1Projective;
 
     #[inline]
@@ -131,7 +131,7 @@ impl<'a, 'b> Add<&'b G1Projective> for &'a G1Affine {
     }
 }
 
-impl<'a, 'b> Add<&'b G1Affine> for &'a G1Projective {
+impl<'b> Add<&'b G1Affine> for &G1Projective {
     type Output = G1Projective;
 
     #[inline]
@@ -140,7 +140,7 @@ impl<'a, 'b> Add<&'b G1Affine> for &'a G1Projective {
     }
 }
 
-impl<'a, 'b> Sub<&'b G1Projective> for &'a G1Affine {
+impl<'b> Sub<&'b G1Projective> for &G1Affine {
     type Output = G1Projective;
 
     #[inline]
@@ -149,7 +149,7 @@ impl<'a, 'b> Sub<&'b G1Projective> for &'a G1Affine {
     }
 }
 
-impl<'a, 'b> Sub<&'b G1Affine> for &'a G1Projective {
+impl<'b> Sub<&'b G1Affine> for &G1Projective {
     type Output = G1Projective;
 
     #[inline]
@@ -513,7 +513,7 @@ impl PartialEq for G1Projective {
     }
 }
 
-impl<'a> Neg for &'a G1Projective {
+impl Neg for &G1Projective {
     type Output = G1Projective;
 
     #[inline]
@@ -535,7 +535,7 @@ impl Neg for G1Projective {
     }
 }
 
-impl<'a, 'b> Add<&'b G1Projective> for &'a G1Projective {
+impl<'b> Add<&'b G1Projective> for &G1Projective {
     type Output = G1Projective;
 
     #[inline]
@@ -544,7 +544,7 @@ impl<'a, 'b> Add<&'b G1Projective> for &'a G1Projective {
     }
 }
 
-impl<'a, 'b> Sub<&'b G1Projective> for &'a G1Projective {
+impl<'b> Sub<&'b G1Projective> for &G1Projective {
     type Output = G1Projective;
 
     #[inline]
@@ -553,7 +553,7 @@ impl<'a, 'b> Sub<&'b G1Projective> for &'a G1Projective {
     }
 }
 
-impl<'a, 'b> Mul<&'b Scalar> for &'a G1Projective {
+impl<'b> Mul<&'b Scalar> for &G1Projective {
     type Output = G1Projective;
 
     fn mul(self, other: &'b Scalar) -> Self::Output {
@@ -561,7 +561,7 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a G1Projective {
     }
 }
 
-impl<'a, 'b> Mul<&'b G1Projective> for &'a Scalar {
+impl<'b> Mul<&'b G1Projective> for &Scalar {
     type Output = G1Projective;
 
     #[inline]
@@ -570,7 +570,7 @@ impl<'a, 'b> Mul<&'b G1Projective> for &'a Scalar {
     }
 }
 
-impl<'a, 'b> Mul<&'b Scalar> for &'a G1Affine {
+impl<'b> Mul<&'b Scalar> for &G1Affine {
     type Output = G1Projective;
 
     fn mul(self, other: &'b Scalar) -> Self::Output {
@@ -578,7 +578,7 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a G1Affine {
     }
 }
 
-impl<'a, 'b> Mul<&'b G1Affine> for &'a Scalar {
+impl<'b> Mul<&'b G1Affine> for &Scalar {
     type Output = G1Projective;
 
     #[inline]

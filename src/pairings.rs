@@ -176,7 +176,7 @@ impl MillerLoopResult {
     }
 }
 
-impl<'a, 'b> Add<&'b MillerLoopResult> for &'a MillerLoopResult {
+impl<'b> Add<&'b MillerLoopResult> for &MillerLoopResult {
     type Output = MillerLoopResult;
 
     #[inline]
@@ -257,7 +257,7 @@ impl Gt {
     }
 }
 
-impl<'a> Neg for &'a Gt {
+impl Neg for &Gt {
     type Output = Gt;
 
     #[inline]
@@ -276,7 +276,7 @@ impl Neg for Gt {
     }
 }
 
-impl<'a, 'b> Add<&'b Gt> for &'a Gt {
+impl<'b> Add<&'b Gt> for &Gt {
     type Output = Gt;
 
     #[inline]
@@ -285,7 +285,7 @@ impl<'a, 'b> Add<&'b Gt> for &'a Gt {
     }
 }
 
-impl<'a, 'b> Sub<&'b Gt> for &'a Gt {
+impl<'b> Sub<&'b Gt> for &Gt {
     type Output = Gt;
 
     #[inline]
@@ -294,7 +294,7 @@ impl<'a, 'b> Sub<&'b Gt> for &'a Gt {
     }
 }
 
-impl<'a, 'b> Mul<&'b Scalar> for &'a Gt {
+impl<'b> Mul<&'b Scalar> for &Gt {
     type Output = Gt;
 
     fn mul(self, other: &'b Scalar) -> Self::Output {
@@ -557,7 +557,7 @@ pub fn multi_miller_loop(terms: &[(&G1Affine, &G2Prepared)]) -> MillerLoopResult
         index: usize,
     }
 
-    impl<'a, 'b, 'c> MillerLoopDriver for Adder<'a, 'b, 'c> {
+    impl MillerLoopDriver for Adder<'_, '_, '_> {
         type Output = Fp12;
 
         fn doubling_step(&mut self, mut f: Self::Output) -> Self::Output {
