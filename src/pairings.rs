@@ -2,6 +2,7 @@ use crate::fp::Fp;
 use crate::fp2::Fp2;
 use crate::fp6::Fp6;
 use crate::fp12::Fp12;
+use crate::g1::BETA;
 use crate::{BLS_X, BLS_X_IS_NEGATIVE, G1Affine, G1Projective, G2Affine, G2Projective, Scalar};
 
 use core::borrow::Borrow;
@@ -37,6 +38,34 @@ impl zeroize::DefaultIsZeroes for MillerLoopResult {}
 impl ConditionallySelectable for MillerLoopResult {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
         MillerLoopResult(Fp12::conditional_select(&a.0, &b.0, choice))
+    }
+}
+
+#[inline(always)]
+fn mul_fp2_by_fp(value: Fp2, factor: Fp) -> Fp2 {
+    Fp2 {
+        c0: value.c0 * factor,
+        c1: value.c1 * factor,
+    }
+}
+
+#[inline]
+fn frobenius_map_2(value: Fp12) -> Fp12 {
+    // BETA = (u + 1)^((p^2 - 1) / 3), which lies in Fp.
+    let gamma = BETA;
+    // gamma^2 + gamma + 1 = 0, and the w coefficient is -gamma^2.
+    let delta = gamma + Fp::one();
+    Fp12 {
+        c0: Fp6 {
+            c0: value.c0.c0,
+            c1: mul_fp2_by_fp(value.c0.c1, gamma),
+            c2: mul_fp2_by_fp(value.c0.c2, -delta),
+        },
+        c1: Fp6 {
+            c0: mul_fp2_by_fp(value.c1.c0, delta),
+            c1: -value.c1.c1,
+            c2: mul_fp2_by_fp(value.c1.c2, -gamma),
+        },
     }
 }
 
@@ -916,6 +945,20 @@ fn test_multi_miller_loop() {
     .final_exponentiation();
 
     assert_eq!(expected, test);
+}
+
+#[test]
+fn test_frobenius_map_2_matches_two_maps() {
+    use rand_core::SeedableRng;
+
+    let mut rng = rand_xorshift::XorShiftRng::from_seed([0x2f; 16]);
+    for _ in 0..32 {
+        let value = Fp12::try_random(&mut rng).unwrap();
+        assert_eq!(
+            frobenius_map_2(value),
+            value.frobenius_map().frobenius_map()
+        );
+    }
 }
 
 #[test]
