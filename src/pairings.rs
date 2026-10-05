@@ -161,13 +161,8 @@ impl MillerLoopResult {
         }
 
         let mut f = self.0;
-        let mut t0 = f
-            .frobenius_map()
-            .frobenius_map()
-            .frobenius_map()
-            .frobenius_map()
-            .frobenius_map()
-            .frobenius_map();
+        // The p^6 Frobenius map conjugates the quadratic Fp12 extension.
+        let mut t0 = f.conjugate();
 
         // We unwrap() because `MillerLoopResult` can only be constructed
         // by a function within this crate, and we uphold the invariant
@@ -176,7 +171,7 @@ impl MillerLoopResult {
 
         let mut t2 = t0 * t1;
         t1 = t2;
-        t2 = t2.frobenius_map().frobenius_map();
+        t2 = frobenius_map_2(t2);
         t2 *= t1;
         f = t2;
         t1 = cyclotomic_square(t2).conjugate();
@@ -188,13 +183,13 @@ impl MillerLoopResult {
         t4 = cyclotomic_square(t3);
         t0 = cycolotomic_exp(t1);
         t3 *= t0;
-        t3 = t3.frobenius_map().frobenius_map();
+        t3 = frobenius_map_2(t3);
         f *= t3;
         t4 *= cycolotomic_exp(t0);
         f *= cycolotomic_exp(t4);
         t4 *= t2.conjugate();
         t2 *= t1;
-        t2 = t2.frobenius_map().frobenius_map().frobenius_map();
+        t2 = frobenius_map_2(t2.frobenius_map());
         f *= t2;
         t4 = t4.frobenius_map();
         f *= t4;
