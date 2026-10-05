@@ -94,6 +94,9 @@ fn criterion_benchmark(c: &mut Criterion) {
         c.bench_function("G1Projective to affine nontrivial", move |b| {
             b.iter(|| G1Affine::from(black_box(point)))
         });
+        c.bench_function("G1Projective to affine vartime", move |b| {
+            b.iter(|| black_box(&point).to_affine_vartime())
+        });
         c.bench_function(&format!("{} doubling", name), move |b| {
             b.iter(|| black_box(a).double())
         });
@@ -166,6 +169,9 @@ fn criterion_benchmark(c: &mut Criterion) {
         let point = a * s;
         c.bench_function("G2Projective to affine nontrivial", move |b| {
             b.iter(|| G2Affine::from(black_box(point)))
+        });
+        c.bench_function("G2Projective to affine vartime", move |b| {
+            b.iter(|| black_box(&point).to_affine_vartime())
         });
         c.bench_function(&format!("{} doubling", name), move |b| {
             b.iter(|| black_box(a).double())

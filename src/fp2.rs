@@ -318,6 +318,16 @@ impl Fp2 {
         })
     }
 
+    /// Inverts using the variable-time base-field inverse. Timing depends on
+    /// this element's representation.
+    pub(crate) fn invert_vartime(&self) -> Option<Self> {
+        let inverse = (self.c0.square() + self.c1.square()).invert_vartime()?;
+        Some(Self {
+            c0: self.c0 * inverse,
+            c1: -(self.c1 * inverse),
+        })
+    }
+
     /// Although this is labeled "vartime", it is only
     /// variable time with respect to the exponent. It
     /// is also not exposed in the public API.
