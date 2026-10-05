@@ -22,6 +22,19 @@ fn criterion_benchmark(c: &mut Criterion) {
         c.bench_function("miller loop for pairing", move |b| {
             b.iter(|| multi_miller_loop(&[(&g, &prep)]))
         });
+        let points = (1..=11)
+            .map(|i| G1Affine::from(G1Projective::generator() * Scalar::from(i)))
+            .collect::<Vec<_>>();
+        let prepared = (1..=11)
+            .map(|i| G2Prepared::from(G2Affine::from(G2Projective::generator() * Scalar::from(i))))
+            .collect::<Vec<_>>();
+        let terms = points.iter().zip(prepared.iter()).collect::<Vec<_>>();
+        c.bench_function("miller loop for three pairings", |b| {
+            b.iter(|| multi_miller_loop(black_box(&terms[..3])))
+        });
+        c.bench_function("miller loop for eleven pairings", |b| {
+            b.iter(|| multi_miller_loop(black_box(&terms)))
+        });
         let prep = G2Prepared::from(h);
         let r = multi_miller_loop(&[(&g, &prep)]);
         c.bench_function("final exponentiation for pairing", move |b| {
@@ -76,6 +89,10 @@ fn criterion_benchmark(c: &mut Criterion) {
         });
         c.bench_function(&format!("{} to affine", name), move |b| {
             b.iter(|| G1Affine::from(black_box(a)))
+        });
+        let point = a * s;
+        c.bench_function("G1Projective to affine nontrivial", move |b| {
+            b.iter(|| G1Affine::from(black_box(point)))
         });
         c.bench_function(&format!("{} doubling", name), move |b| {
             b.iter(|| black_box(a).double())
@@ -145,6 +162,10 @@ fn criterion_benchmark(c: &mut Criterion) {
         });
         c.bench_function(&format!("{} to affine", name), move |b| {
             b.iter(|| G2Affine::from(black_box(a)))
+        });
+        let point = a * s;
+        c.bench_function("G2Projective to affine nontrivial", move |b| {
+            b.iter(|| G2Affine::from(black_box(point)))
         });
         c.bench_function(&format!("{} doubling", name), move |b| {
             b.iter(|| black_box(a).double())
