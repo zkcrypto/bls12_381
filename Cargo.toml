@@ -63,3 +63,6 @@ required-features = ["groups"]
 name = "hash_to_curve"
 harness = false
 required-features = ["experimental"]
+
+[patch.crates-io]
+pairing = { git = "https://github.com/zkcrypto/pairing.git", rev = "51101cd40aee09841a80d408622011e6bce9ee26" }
