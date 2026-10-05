@@ -3,6 +3,7 @@ extern crate criterion;
 
 extern crate bls12_381;
 use bls12_381::*;
+use pairing::MultiMillerLoop;
 
 use criterion::{Criterion, black_box};
 
@@ -22,6 +23,13 @@ fn criterion_benchmark(c: &mut Criterion) {
         c.bench_function("miller loop for pairing", move |b| {
             b.iter(|| multi_miller_loop(&[(&g, &prep)]))
         });
+        c.bench_function("G2 reusable preparation for pairing", move |b| {
+            b.iter(|| Bls12::prepare_reusable_g2(black_box(h)))
+        });
+        let reusable = Bls12::prepare_reusable_g2(h);
+        c.bench_function("miller loop for reusable pairing", move |b| {
+            b.iter(|| multi_miller_loop(&[(&g, &reusable)]))
+        });
         let points = (1..=11)
             .map(|i| G1Affine::from(G1Projective::generator() * Scalar::from(i)))
             .collect::<Vec<_>>();
@@ -29,11 +37,28 @@ fn criterion_benchmark(c: &mut Criterion) {
             .map(|i| G2Prepared::from(G2Affine::from(G2Projective::generator() * Scalar::from(i))))
             .collect::<Vec<_>>();
         let terms = points.iter().zip(prepared.iter()).collect::<Vec<_>>();
+        let reusable_prepared = (1..=11)
+            .map(|i| {
+                Bls12::prepare_reusable_g2(G2Affine::from(
+                    G2Projective::generator() * Scalar::from(i),
+                ))
+            })
+            .collect::<Vec<_>>();
+        let reusable_terms = points
+            .iter()
+            .zip(reusable_prepared.iter())
+            .collect::<Vec<_>>();
         c.bench_function("miller loop for three pairings", |b| {
             b.iter(|| multi_miller_loop(black_box(&terms[..3])))
         });
         c.bench_function("miller loop for eleven pairings", |b| {
             b.iter(|| multi_miller_loop(black_box(&terms)))
+        });
+        c.bench_function("miller loop for three reusable pairings", |b| {
+            b.iter(|| multi_miller_loop(black_box(&reusable_terms[..3])))
+        });
+        c.bench_function("miller loop for eleven reusable pairings", |b| {
+            b.iter(|| multi_miller_loop(black_box(&reusable_terms)))
         });
         let prep = G2Prepared::from(h);
         let r = multi_miller_loop(&[(&g, &prep)]);
