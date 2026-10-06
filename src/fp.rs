@@ -174,6 +174,12 @@ impl Fp {
         self.ct_eq(&Fp::zero())
     }
 
+    pub(crate) fn is_zero_vartime(&self) -> bool {
+        // Field element limbs are always kept fully reduced, so zero is uniquely
+        // represented and a direct limb comparison is exact.
+        self.0 == Fp::zero().0
+    }
+
     /// Attempts to convert a big-endian byte representation of
     /// a scalar into an `Fp`, failing if the input is not canonical.
     pub fn from_bytes(bytes: &[u8; 48]) -> CtOption<Fp> {

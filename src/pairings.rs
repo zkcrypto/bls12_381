@@ -529,7 +529,7 @@ pub struct G2Prepared {
 
 #[cfg(feature = "alloc")]
 impl G2Prepared {
-    fn normalize_lines(&mut self) {
+    fn normalize_lines_vartime(&mut self) {
         // Every line may be scaled by a nonzero Fp2 element: the factor
         // disappears in the final exponentiation. Make the unscaled line
         // coefficient one so Miller multiplication needs two coefficients.
@@ -538,15 +538,15 @@ impl G2Prepared {
         let mut product = Fp2::one();
         for (_, _, c0) in &self.coeffs {
             prefixes.push(product);
-            let value = Fp2::conditional_select(c0, &Fp2::one(), c0.is_zero());
-            product *= value;
+            if !c0.is_zero_vartime() {
+                product *= c0;
+            }
         }
-        let mut inverse = product.invert().unwrap();
+        let mut inverse = product.invert_vartime().expect("product is not zero");
         for ((c4, c1, c0), prefix) in self.coeffs.iter_mut().zip(prefixes).rev() {
-            let value = Fp2::conditional_select(c0, &Fp2::one(), c0.is_zero());
             let factor = inverse * prefix;
-            inverse *= value;
-            if !bool::from(c0.is_zero()) {
+            if !c0.is_zero_vartime() {
+                inverse *= *c0;
                 *c4 *= factor;
                 *c1 *= factor;
                 *c0 = Fp2::one();
@@ -929,7 +929,7 @@ impl MultiMillerLoop for Bls12 {
 
     fn prepare_reusable_g2(q: Self::G2Affine) -> Self::G2Prepared {
         let mut prepared = G2Prepared::from(q);
-        prepared.normalize_lines();
+        prepared.normalize_lines_vartime();
         prepared
     }
 
@@ -1061,7 +1061,7 @@ fn test_reusable_g2_preparation() {
     let mut raw_with_zero = raw.clone();
     raw_with_zero.coeffs[17].2 = Fp2::zero();
     let mut normalized_with_zero = raw_with_zero.clone();
-    normalized_with_zero.normalize_lines();
+    normalized_with_zero.normalize_lines_vartime();
     assert_eq!(normalized_with_zero.coeffs[17], raw_with_zero.coeffs[17]);
     assert_eq!(
         multi_miller_loop(&[(&p, &raw_with_zero)]).final_exponentiation(),
