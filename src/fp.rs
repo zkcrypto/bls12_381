@@ -345,10 +345,9 @@ impl Fp {
         CtOption::new(sqrt, sqrt.square().ct_eq(self))
     }
 
+    /// Computes the multiplicative inverse of this field element, returning None if the
+    /// element is zero.
     #[inline]
-    /// Computes the multiplicative inverse of this field
-    /// element, returning None in the case that this element
-    /// is zero.
     pub fn invert(&self) -> CtOption<Self> {
         // Exponentiate by p - 2
         let t = self.pow_vartime(&[
@@ -363,11 +362,13 @@ impl Fp {
         CtOption::new(t, !self.is_zero())
     }
 
-    /// Inverts a canonical field element using variable-time binary GCD.
-    /// Returns `None` for zero or a noncanonical raw representation.
+    /// Computes the multiplicative inverse of this field element, returning None if the
+    /// element is zero or a noncanonical raw representation.
     ///
-    /// The running time depends on the element. Callers must accept leakage
-    /// of its representation, including for proof point normalization.
+    /// Unlike [`Self::invert`], this computes the inverse in variable time, where the
+    /// running time depends on the element. Callers must accept leakage of its
+    /// representation.
+    #[cfg(feature = "pairings")]
     pub(crate) fn invert_vartime(&self) -> Option<Self> {
         fn is_one(a: &[u64; 6]) -> bool {
             a[0] == 1 && a[1..].iter().all(|&limb| limb == 0)

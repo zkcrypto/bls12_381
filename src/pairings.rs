@@ -515,6 +515,7 @@ impl Group for Gt {
 /// multiple pairings or is otherwise known in advance. This should be used in
 /// conjunction with the [`multi_miller_loop`](crate::multi_miller_loop)
 /// function provided by this crate.
+///
 /// For a point reused across Miller loops, prepare it with
 /// [`MultiMillerLoop::prepare_reusable_g2`]. That performs extra work once to
 /// speed up each later loop. Its raw Miller result may differ from ordinary
