@@ -129,6 +129,10 @@ impl Fp2 {
         self.c0.is_zero() & self.c1.is_zero()
     }
 
+    pub(crate) fn is_zero_vartime(&self) -> bool {
+        self.c0.is_zero_vartime() && self.c1.is_zero_vartime()
+    }
+
     pub(crate) fn try_random<R: TryRng + ?Sized>(rng: &mut R) -> Result<Fp2, R::Error> {
         Ok(Fp2 {
             c0: Fp::try_random(rng)?,
