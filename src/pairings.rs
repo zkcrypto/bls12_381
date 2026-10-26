@@ -2,6 +2,7 @@ use crate::fp::Fp;
 use crate::fp2::Fp2;
 use crate::fp6::Fp6;
 use crate::fp12::Fp12;
+use crate::g1::BETA;
 use crate::{BLS_X, BLS_X_IS_NEGATIVE, G1Affine, G1Projective, G2Affine, G2Projective, Scalar};
 
 use core::borrow::Borrow;
@@ -37,6 +38,34 @@ impl zeroize::DefaultIsZeroes for MillerLoopResult {}
 impl ConditionallySelectable for MillerLoopResult {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
         MillerLoopResult(Fp12::conditional_select(&a.0, &b.0, choice))
+    }
+}
+
+#[inline(always)]
+fn mul_fp2_by_fp(value: Fp2, factor: Fp) -> Fp2 {
+    Fp2 {
+        c0: value.c0 * factor,
+        c1: value.c1 * factor,
+    }
+}
+
+#[inline]
+fn frobenius_map_2(value: Fp12) -> Fp12 {
+    // BETA = (u + 1)^((p^2 - 1) / 3), which lies in Fp.
+    let gamma = BETA;
+    // gamma^2 + gamma + 1 = 0, and the w coefficient is -gamma^2.
+    let delta = gamma + Fp::one();
+    Fp12 {
+        c0: Fp6 {
+            c0: value.c0.c0,
+            c1: mul_fp2_by_fp(value.c0.c1, gamma),
+            c2: mul_fp2_by_fp(value.c0.c2, -delta),
+        },
+        c1: Fp6 {
+            c0: mul_fp2_by_fp(value.c1.c0, delta),
+            c1: -value.c1.c1,
+            c2: mul_fp2_by_fp(value.c1.c2, -gamma),
+        },
     }
 }
 
@@ -132,13 +161,8 @@ impl MillerLoopResult {
         }
 
         let mut f = self.0;
-        let mut t0 = f
-            .frobenius_map()
-            .frobenius_map()
-            .frobenius_map()
-            .frobenius_map()
-            .frobenius_map()
-            .frobenius_map();
+        // The p^6 Frobenius map conjugates the quadratic Fp12 extension.
+        let mut t0 = f.conjugate();
 
         // We unwrap() because `MillerLoopResult` can only be constructed
         // by a function within this crate, and we uphold the invariant
@@ -147,7 +171,7 @@ impl MillerLoopResult {
 
         let mut t2 = t0 * t1;
         t1 = t2;
-        t2 = t2.frobenius_map().frobenius_map();
+        t2 = frobenius_map_2(t2);
         t2 *= t1;
         f = t2;
         t1 = cyclotomic_square(t2).conjugate();
@@ -159,13 +183,13 @@ impl MillerLoopResult {
         t4 = cyclotomic_square(t3);
         t0 = cycolotomic_exp(t1);
         t3 *= t0;
-        t3 = t3.frobenius_map().frobenius_map();
+        t3 = frobenius_map_2(t3);
         f *= t3;
         t4 *= cycolotomic_exp(t0);
         f *= cycolotomic_exp(t4);
         t4 *= t2.conjugate();
         t2 *= t1;
-        t2 = t2.frobenius_map().frobenius_map().frobenius_map();
+        t2 = frobenius_map_2(t2.frobenius_map());
         f *= t2;
         t4 = t4.frobenius_map();
         f *= t4;
@@ -916,6 +940,20 @@ fn test_multi_miller_loop() {
     .final_exponentiation();
 
     assert_eq!(expected, test);
+}
+
+#[test]
+fn test_frobenius_map_2_matches_two_maps() {
+    use rand_core::SeedableRng;
+
+    let mut rng = rand_xorshift::XorShiftRng::from_seed([0x2f; 16]);
+    for _ in 0..32 {
+        let value = Fp12::try_random(&mut rng).unwrap();
+        assert_eq!(
+            frobenius_map_2(value),
+            value.frobenius_map().frobenius_map()
+        );
+    }
 }
 
 #[test]

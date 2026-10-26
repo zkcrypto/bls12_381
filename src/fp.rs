@@ -419,7 +419,23 @@ impl Fp {
 
     #[inline]
     pub const fn sub(&self, rhs: &Fp) -> Fp {
-        Fp::add(&Fp::neg(rhs), self)
+        let (d0, borrow) = sbb(self.0[0], rhs.0[0], 0);
+        let (d1, borrow) = sbb(self.0[1], rhs.0[1], borrow);
+        let (d2, borrow) = sbb(self.0[2], rhs.0[2], borrow);
+        let (d3, borrow) = sbb(self.0[3], rhs.0[3], borrow);
+        let (d4, borrow) = sbb(self.0[4], rhs.0[4], borrow);
+        let (d5, borrow) = sbb(self.0[5], rhs.0[5], borrow);
+
+        // Add the modulus on underflow. Both inputs are canonical, so the
+        // corrected result is already less than the modulus.
+        let (d0, carry) = adc(d0, MODULUS[0] & borrow, 0);
+        let (d1, carry) = adc(d1, MODULUS[1] & borrow, carry);
+        let (d2, carry) = adc(d2, MODULUS[2] & borrow, carry);
+        let (d3, carry) = adc(d3, MODULUS[3] & borrow, carry);
+        let (d4, carry) = adc(d4, MODULUS[4] & borrow, carry);
+        let (d5, _) = adc(d5, MODULUS[5] & borrow, carry);
+
+        Fp([d0, d1, d2, d3, d4, d5])
     }
 
     /// Returns `c = a.zip(b).fold(0, |acc, (a_i, b_i)| acc + a_i * b_i)`.
@@ -806,6 +822,33 @@ fn test_subtraction() {
     ]);
 
     assert_eq!(a - b, c);
+}
+
+#[test]
+fn test_subtraction_boundaries() {
+    let largest = Fp([
+        MODULUS[0] - 1,
+        MODULUS[1],
+        MODULUS[2],
+        MODULUS[3],
+        MODULUS[4],
+        MODULUS[5],
+    ]);
+    let values = [
+        Fp::zero(),
+        Fp([1, 0, 0, 0, 0, 0]),
+        Fp([0, 1, 0, 0, 0, 0]),
+        Fp([u64::MAX, 0, 0, 0, 0, 0]),
+        largest,
+    ];
+
+    for a in values {
+        for b in values {
+            let result = a - b;
+            assert_eq!(result, (-b) + a);
+            assert_eq!(result + b, a);
+        }
+    }
 }
 
 #[test]
