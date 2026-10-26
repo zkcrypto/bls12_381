@@ -174,6 +174,12 @@ impl Fp {
         self.ct_eq(&Fp::zero())
     }
 
+    pub(crate) fn is_zero_vartime(&self) -> bool {
+        // Field element limbs are always kept fully reduced, so zero is uniquely
+        // represented and a direct limb comparison is exact.
+        self.0 == Fp::zero().0
+    }
+
     /// Attempts to convert a big-endian byte representation of
     /// a scalar into an `Fp`, failing if the input is not canonical.
     pub fn from_bytes(bytes: &[u8; 48]) -> CtOption<Fp> {
@@ -339,10 +345,9 @@ impl Fp {
         CtOption::new(sqrt, sqrt.square().ct_eq(self))
     }
 
+    /// Computes the multiplicative inverse of this field element, returning None if the
+    /// element is zero.
     #[inline]
-    /// Computes the multiplicative inverse of this field
-    /// element, returning None in the case that this element
-    /// is zero.
     pub fn invert(&self) -> CtOption<Self> {
         // Exponentiate by p - 2
         let t = self.pow_vartime(&[
@@ -355,6 +360,99 @@ impl Fp {
         ]);
 
         CtOption::new(t, !self.is_zero())
+    }
+
+    /// Computes the multiplicative inverse of this field element, returning None if the
+    /// element is zero or a noncanonical raw representation.
+    ///
+    /// Unlike [`Self::invert`], this computes the inverse in variable time, where the
+    /// running time depends on the element. Callers must accept leakage of its
+    /// representation.
+    #[cfg(feature = "pairings")]
+    pub(crate) fn invert_vartime(&self) -> Option<Self> {
+        fn is_one(a: &[u64; 6]) -> bool {
+            a[0] == 1 && a[1..].iter().all(|&limb| limb == 0)
+        }
+        fn gte(a: &[u64; 6], b: &[u64; 6]) -> bool {
+            for i in (0..6).rev() {
+                if a[i] != b[i] {
+                    return a[i] > b[i];
+                }
+            }
+            true
+        }
+        fn add(a: &[u64; 6], b: &[u64; 6]) -> [u64; 6] {
+            let mut result = [0; 6];
+            let mut carry = false;
+            for i in 0..6 {
+                let (v, a_carry) = a[i].overflowing_add(b[i]);
+                let (v, b_carry) = v.overflowing_add(carry as u64);
+                result[i] = v;
+                carry = a_carry | b_carry;
+            }
+            result
+        }
+        fn sub(a: &[u64; 6], b: &[u64; 6]) -> [u64; 6] {
+            let mut result = [0; 6];
+            let mut borrow = false;
+            for i in 0..6 {
+                let (v, a_borrow) = a[i].overflowing_sub(b[i]);
+                let (v, b_borrow) = v.overflowing_sub(borrow as u64);
+                result[i] = v;
+                borrow = a_borrow | b_borrow;
+            }
+            result
+        }
+        fn sub_mod(a: &[u64; 6], b: &[u64; 6]) -> [u64; 6] {
+            if gte(a, b) {
+                sub(a, b)
+            } else {
+                sub(&MODULUS, &sub(b, a))
+            }
+        }
+        fn half(a: &mut [u64; 6]) {
+            let mut carry = 0;
+            for limb in a.iter_mut().rev() {
+                let next = *limb & 1;
+                *limb = (*limb >> 1) | (carry << 63);
+                carry = next;
+            }
+        }
+        fn half_mod(a: &mut [u64; 6]) {
+            if a[0] & 1 == 1 {
+                *a = add(a, &MODULUS);
+            }
+            half(a);
+        }
+
+        if bool::from(self.is_zero()) || gte(&self.0, &MODULUS) {
+            return None;
+        }
+        let mut u = self.0;
+        let mut v = MODULUS;
+        let mut a = [1, 0, 0, 0, 0, 0];
+        let mut b = [0; 6];
+
+        while !is_one(&u) && !is_one(&v) {
+            while u[0] & 1 == 0 {
+                half(&mut u);
+                half_mod(&mut a);
+            }
+            while v[0] & 1 == 0 {
+                half(&mut v);
+                half_mod(&mut b);
+            }
+            if gte(&u, &v) {
+                u = sub(&u, &v);
+                a = sub_mod(&a, &b);
+            } else {
+                v = sub(&v, &u);
+                b = sub_mod(&b, &a);
+            }
+        }
+
+        let inverse_raw = if is_one(&u) { a } else { b };
+        Some(Fp(inverse_raw) * R3)
     }
 
     #[inline]
@@ -957,6 +1055,24 @@ fn test_sqrt() {
             0x11eb_ab9d_bb81_e28c,
         ])
     );
+}
+
+#[test]
+#[cfg(feature = "pairings")]
+fn test_vartime_inversion() {
+    use rand_core::SeedableRng;
+
+    assert!(Fp::zero().invert_vartime().is_none());
+    assert!(Fp(MODULUS).invert_vartime().is_none());
+    assert_eq!(Fp::one().invert_vartime(), Some(Fp::one()));
+    assert_eq!((-Fp::one()).invert_vartime(), Some(-Fp::one()));
+    let raw_one = Fp([1, 0, 0, 0, 0, 0]);
+    assert_eq!(raw_one.invert_vartime(), Some(raw_one.invert().unwrap()));
+    let mut rng = rand_xorshift::XorShiftRng::from_seed([0x43; 16]);
+    for _ in 0..1000 {
+        let value = Fp::try_random(&mut rng).unwrap();
+        assert_eq!(value.invert_vartime(), Some(value.invert().unwrap()));
+    }
 }
 
 #[test]

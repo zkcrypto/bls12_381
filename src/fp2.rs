@@ -129,6 +129,10 @@ impl Fp2 {
         self.c0.is_zero() & self.c1.is_zero()
     }
 
+    pub(crate) fn is_zero_vartime(&self) -> bool {
+        self.c0.is_zero_vartime() && self.c1.is_zero_vartime()
+    }
+
     pub(crate) fn try_random<R: TryRng + ?Sized>(rng: &mut R) -> Result<Fp2, R::Error> {
         Ok(Fp2 {
             c0: Fp::try_random(rng)?,
@@ -294,9 +298,8 @@ impl Fp2 {
         })
     }
 
-    /// Computes the multiplicative inverse of this field
-    /// element, returning None in the case that this element
-    /// is zero.
+    /// Computes the multiplicative inverse of this field element, returning None if the
+    /// element is zero.
     pub fn invert(&self) -> CtOption<Self> {
         // We wish to find the multiplicative inverse of a nonzero
         // element a + bu in Fp2. We leverage an identity
@@ -315,6 +318,21 @@ impl Fp2 {
         (self.c0.square() + self.c1.square()).invert().map(|t| Fp2 {
             c0: self.c0 * t,
             c1: self.c1 * -t,
+        })
+    }
+
+    /// Computes the multiplicative inverse of this field element, returning None if the
+    /// element is zero or a noncanonical raw representation.
+    ///
+    /// Unlike [`Self::invert`], this computes the inverse in variable time, where the
+    /// running time depends on the element. Callers must accept leakage of its
+    /// representation.
+    pub(crate) fn invert_vartime(&self) -> Option<Self> {
+        // Same algorithm as `Self::invert`.
+        let inverse = (self.c0.square() + self.c1.square()).invert_vartime()?;
+        Some(Self {
+            c0: self.c0 * inverse,
+            c1: -(self.c1 * inverse),
         })
     }
 
