@@ -76,6 +76,7 @@ dependencies = [
  "ff",
  "group",
  "hex-literal",
+ "once_cell",
  "pairing",
  "rand_core",
  "rand_xorshift",
