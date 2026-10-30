@@ -706,15 +706,18 @@ impl G1Projective {
         let z3 = t1 + t2;
         let t1 = t1 - t2;
         let y3 = mul_by_3b(y3);
-        let x3 = t4 * y3;
-        let t2 = t3 * t1;
-        let x3 = t2 - x3;
-        let y3 = y3 * t0;
-        let t1 = t1 * z3;
-        let y3 = t1 + y3;
-        let t0 = t0 * t3;
-        let z3 = z3 * t4;
-        let z3 = z3 + t0;
+        // Five-product cross-product tail (eprint 2026/2667, §2):
+        // A = t3, B = t1, C = t4, D = y3, E = t0, F = z3.
+        let s = z3 + y3;
+        let r = t1 - t4;
+        let m0 = s * r;
+        let m1 = z3 * t4;
+        let m2 = y3 * (t0 - r);
+        let m3 = (t3 - s) * t1;
+        let m4 = t3 * t0;
+        let x3 = m0 + m1 + m3;
+        let y3 = m0 + m1 + m2;
+        let z3 = m1 + m4;
 
         G1Projective {
             x: x3,
@@ -744,15 +747,18 @@ impl G1Projective {
         let z3 = t1 + t2;
         let t1 = t1 - t2;
         let y3 = mul_by_3b(y3);
-        let x3 = t4 * y3;
-        let t2 = t3 * t1;
-        let x3 = t2 - x3;
-        let y3 = y3 * t0;
-        let t1 = t1 * z3;
-        let y3 = t1 + y3;
-        let t0 = t0 * t3;
-        let z3 = z3 * t4;
-        let z3 = z3 + t0;
+        // Five-product cross-product tail (eprint 2026/2667, §2):
+        // A = t3, B = t1, C = t4, D = y3, E = t0, F = z3.
+        let s = z3 + y3;
+        let r = t1 - t4;
+        let m0 = s * r;
+        let m1 = z3 * t4;
+        let m2 = y3 * (t0 - r);
+        let m3 = (t3 - s) * t1;
+        let m4 = t3 * t0;
+        let x3 = m0 + m1 + m3;
+        let y3 = m0 + m1 + m2;
+        let z3 = m1 + m4;
 
         let tmp = G1Projective {
             x: x3,
@@ -763,23 +769,58 @@ impl G1Projective {
         G1Projective::conditional_select(&tmp, self, rhs.is_identity())
     }
 
+    /// Complete tripling through the degree-three isogenies to and from E_{-27b}.
+    /// See Section 3 of https://eprint.iacr.org/2026/2667.
+    fn triple(&self) -> G1Projective {
+        // The first isogeny has coordinates
+        // (X(Y^2 + 3bZ^2), Y(Y^2 - 9bZ^2), Z(Y^2 - bZ^2)).
+        let y2 = self.y.square();
+        let bz2 = self.z.square();
+        let bz2 = bz2 + bz2;
+        let bz2 = bz2 + bz2;
+        let b3z2 = bz2 + bz2 + bz2;
+        let b9z2 = b3z2 + b3z2 + b3z2;
+        let x = self.x * (y2 + b3z2);
+        let y = self.y * (y2 - b9z2);
+        let z = self.z * (y2 - bz2);
+
+        // Apply the isogeny with coefficient -27b, then the isomorphism
+        // (X, Y, Z) -> (3X, Y, 27Z) back to the original curve.
+        let y2 = y.square();
+        let bz2 = z.square();
+        let bz2 = bz2 + bz2;
+        let bz2 = bz2 + bz2;
+        let b3z2 = bz2 + bz2 + bz2;
+        let b9z2 = b3z2 + b3z2 + b3z2;
+        let b27z2 = b9z2 + b9z2 + b9z2;
+        let b81z2 = b27z2 + b27z2 + b27z2;
+        let b243z2 = b81z2 + b81z2 + b81z2;
+        let x = x * (y2 - b81z2);
+        let y = y * (y2 + b243z2);
+        let z = z * (y2 + b27z2);
+        let z = z + z + z;
+        let z = z + z + z;
+        G1Projective {
+            x: x + x + x,
+            y,
+            z: z + z + z,
+        }
+    }
+
     fn multiply(&self, by: &[u8; 32]) -> G1Projective {
+        let digits = crate::scalar_mul::to_radix_3(by);
+        let twice = self.double();
         let mut acc = G1Projective::identity();
 
-        // This is a simple double-and-add implementation of point
-        // multiplication, moving from most significant to least
-        // significant bit of the scalar.
-        //
-        // We skip the leading bit because it's always unset for Fq
-        // elements.
-        for bit in by
-            .iter()
-            .rev()
-            .flat_map(|byte| (0..8).rev().map(move |i| Choice::from((byte >> i) & 1u8)))
-            .skip(1)
-        {
-            acc = acc.double();
-            acc = G1Projective::conditional_select(&acc, &(acc + self), bit);
+        // Evaluate the integer scalar in radix three using complete tripling.
+        // Unlike a subgroup eigenvalue decomposition, this also preserves
+        // multiplication of on-curve points obtained through unchecked decoding.
+        // Every digit performs the same operations and masked table selection.
+        for digit in digits.iter().rev() {
+            let addend =
+                G1Projective::conditional_select(&G1Projective::identity(), self, digit.ct_eq(&1));
+            let addend = G1Projective::conditional_select(&addend, &twice, digit.ct_eq(&2));
+            acc = acc.triple() + addend;
         }
 
         acc
@@ -1795,4 +1836,264 @@ fn test_commutative_scalar_subgroup_multiplication() {
     // By value.
     assert_eq!(g1_p * a, a * g1_p);
     assert_eq!(g1_a * a, a * g1_a);
+}
+
+// The original six-product tails of RCB Algorithms 7 and 8, kept only as
+// independent references for the five-product addition tests.
+#[test]
+fn test_five_product_addition_against_six_product() {
+    fn old_add(a: &G1Projective, b: &G1Projective) -> G1Projective {
+        let t0 = a.x * b.x;
+        let t1 = a.y * b.y;
+        let t2 = a.z * b.z;
+        let t3 = (a.x + a.y) * (b.x + b.y) - (t0 + t1);
+        let t4 = (a.y + a.z) * (b.y + b.z) - (t1 + t2);
+        let y3 = (a.x + a.z) * (b.x + b.z) - (t0 + t2);
+        let t0 = t0 + t0 + t0;
+        let t2 = mul_by_3b(t2);
+        let z3 = t1 + t2;
+        let t1 = t1 - t2;
+        let y3 = mul_by_3b(y3);
+        G1Projective {
+            x: t3 * t1 - t4 * y3,
+            y: y3 * t0 + t1 * z3,
+            z: z3 * t4 + t0 * t3,
+        }
+    }
+
+    fn old_add_mixed(a: &G1Projective, b: &G1Affine) -> G1Projective {
+        let t0 = a.x * b.x;
+        let t1 = a.y * b.y;
+        let t3 = (b.x + b.y) * (a.x + a.y) - (t0 + t1);
+        let t4 = b.y * a.z + a.y;
+        let y3 = b.x * a.z + a.x;
+        let t0 = t0 + t0 + t0;
+        let t2 = mul_by_3b(a.z);
+        let z3 = t1 + t2;
+        let t1 = t1 - t2;
+        let y3 = mul_by_3b(y3);
+        let tmp = G1Projective {
+            x: t3 * t1 - t4 * y3,
+            y: y3 * t0 + t1 * z3,
+            z: z3 * t4 + t0 * t3,
+        };
+        G1Projective::conditional_select(&tmp, a, b.is_identity())
+    }
+
+    fn scale(p: G1Projective, z: Fp) -> G1Projective {
+        G1Projective {
+            x: p.x * z,
+            y: p.y * z,
+            z: p.z * z,
+        }
+    }
+
+    let generator = G1Projective::generator();
+    let twice = generator.double();
+    let non_subgroup = G1Affine {
+        x: Fp::zero(),
+        y: B.sqrt().unwrap(),
+        infinity: Choice::from(0u8),
+    };
+    assert!(bool::from(non_subgroup.is_on_curve()));
+    assert!(!bool::from(non_subgroup.is_torsion_free()));
+    let outsider = G1Projective::from(non_subgroup);
+    let points = [
+        G1Projective::identity(),
+        generator,
+        -generator,
+        twice,
+        scale(generator, Fp::one() + Fp::one()),
+        scale(twice, Fp::one() + Fp::one() + Fp::one()),
+        outsider,
+        scale(outsider, Fp::one() + Fp::one()),
+    ];
+    for (i, a) in points.iter().enumerate() {
+        assert!(bool::from(a.is_on_curve()));
+        for (j, b) in points.iter().enumerate() {
+            let expected = old_add(a, b);
+            let actual = a.add(b);
+            assert_eq!(
+                (actual.x, actual.y, actual.z),
+                (expected.x, expected.y, expected.z),
+                "full {i}, {j}"
+            );
+            assert!(bool::from(actual.is_on_curve()), "full {i}, {j}");
+        }
+        for (j, b) in [
+            G1Affine::identity(),
+            G1Affine::generator(),
+            -G1Affine::generator(),
+            G1Affine::from(twice),
+            non_subgroup,
+        ]
+        .iter()
+        .enumerate()
+        {
+            let expected = old_add_mixed(a, b);
+            let actual = a.add_mixed(b);
+            assert_eq!(
+                (actual.x, actual.y, actual.z),
+                (expected.x, expected.y, expected.z),
+                "mixed {i}, {j}"
+            );
+            assert!(bool::from(actual.is_on_curve()), "mixed {i}, {j}");
+        }
+    }
+}
+
+#[test]
+fn test_triple_against_double_and_add_on_curve() {
+    fn check(p: G1Projective) {
+        assert!(bool::from(p.is_on_curve()));
+        let actual = p.triple();
+        let expected = p.double() + p;
+        assert_eq!(actual, expected);
+        assert!(bool::from(actual.is_on_curve()));
+        if bool::from(expected.is_identity()) {
+            assert!(bool::from(actual.is_identity()));
+            assert!(!bool::from(actual.y.is_zero()));
+        } else {
+            assert!(!bool::from(actual.z.is_zero()));
+            assert!(!bool::from(actual.y.is_zero()) || !bool::from(actual.x.is_zero()));
+        }
+    }
+    fn scale(p: G1Projective, factor: Fp) -> G1Projective {
+        G1Projective {
+            x: p.x * factor,
+            y: p.y * factor,
+            z: p.z * factor,
+        }
+    }
+
+    let generator = G1Projective::generator();
+    let order_three = G1Projective {
+        x: Fp::zero(),
+        y: B.sqrt().unwrap(),
+        z: Fp::one(),
+    };
+    assert!(!bool::from(order_three.is_identity()));
+    assert_eq!(order_three.double(), -order_three);
+    for p in [
+        G1Projective::identity(),
+        generator,
+        -generator,
+        generator.double(),
+        scale(generator, Fp::one() + Fp::one()),
+        scale(-generator, Fp::one() + Fp::one() + Fp::one()),
+        order_three,
+        -order_three,
+        scale(order_three, Fp::one() + Fp::one()),
+    ] {
+        check(p);
+    }
+    assert!(bool::from(order_three.triple().is_identity()));
+    assert_ne!(generator.triple(), -generator.double() - generator);
+
+    // Scan affine x-coordinates, without requiring prime-order subgroup membership.
+    let mut x = Fp::zero();
+    let mut found = 0;
+    for _ in 0..128 {
+        let y = (x.square() * x + B).sqrt();
+        if bool::from(y.is_some()) {
+            let p = G1Projective {
+                x,
+                y: y.unwrap(),
+                z: Fp::one(),
+            };
+            check(p);
+            check(-p);
+            check(scale(p, Fp::one() + Fp::one() + Fp::one()));
+            found += 1;
+        }
+        x += Fp::one();
+    }
+    assert!(found >= 30);
+}
+
+#[test]
+fn test_radix_three_scalar_multiply_against_binary_g1() {
+    fn binary(p: G1Projective, by: &[u8; 32]) -> G1Projective {
+        let mut acc = G1Projective::identity();
+        for bit in by
+            .iter()
+            .rev()
+            .flat_map(|byte| (0..8).rev().map(move |i| (byte >> i) & 1))
+            .skip(1)
+        {
+            acc = acc.double();
+            if bit == 1 {
+                acc += p;
+            }
+        }
+        acc
+    }
+    fn scale(p: G1Projective, factor: Fp) -> G1Projective {
+        G1Projective {
+            x: p.x * factor,
+            y: p.y * factor,
+            z: p.z * factor,
+        }
+    }
+    let generator = G1Projective::generator();
+    let order_three = G1Projective {
+        x: Fp::zero(),
+        y: B.sqrt().unwrap(),
+        z: Fp::one(),
+    };
+    let mut x = Fp::one();
+    let outsider = loop {
+        let y = (x.square() * x + B).sqrt();
+        if bool::from(y.is_some()) {
+            break G1Projective {
+                x,
+                y: y.unwrap(),
+                z: Fp::one(),
+            };
+        }
+        x += Fp::one();
+    };
+    assert!(!bool::from(G1Affine::from(outsider).is_torsion_free()));
+    let points = [
+        G1Projective::identity(),
+        generator,
+        -generator,
+        scale(generator, Fp::one() + Fp::one()),
+        order_three,
+        scale(order_three, Fp::one() + Fp::one() + Fp::one()),
+        outsider,
+        scale(outsider, Fp::one() + Fp::one()),
+    ];
+    let mut scalars = [[0u8; 32]; 28];
+    for (index, value) in [0u64, 1, 2, 3, 4, 8, 9, 26, 27, 80, 81, 255, 256, 257]
+        .iter()
+        .enumerate()
+    {
+        scalars[index][..8].copy_from_slice(&value.to_le_bytes());
+    }
+    scalars[14] = [0xff; 32];
+    scalars[15] = [0xff; 32];
+    scalars[15][31] = 0x7f;
+    scalars[16][31] = 0x80;
+    scalars[17] = [0x55; 32];
+    scalars[18] = [0xaa; 32];
+    let mut state = 0x9e37_79b9_7f4a_7c15u64;
+    for bytes in &mut scalars[19..] {
+        for chunk in bytes.chunks_exact_mut(8) {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            chunk.copy_from_slice(&state.to_le_bytes());
+        }
+    }
+    for (point_index, p) in points.iter().enumerate() {
+        assert!(bool::from(p.is_on_curve()), "point {point_index}");
+        for (scalar_index, by) in scalars.iter().enumerate() {
+            assert_eq!(
+                p.multiply(by),
+                binary(*p, by),
+                "point {point_index}, scalar {scalar_index}"
+            );
+        }
+    }
 }
