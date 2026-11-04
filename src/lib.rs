@@ -46,6 +46,9 @@ pub mod notes {
 
 mod scalar;
 
+#[cfg(feature = "sqrt-table")]
+mod sqrt_table;
+
 pub use scalar::Scalar;
 
 #[cfg(feature = "groups")]
