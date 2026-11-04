@@ -634,6 +634,18 @@ impl G1Projective {
         }
     }
 
+    /// Converts a point to affine form with coordinate-dependent timing.
+    pub fn to_affine_vartime(&self) -> G1Affine {
+        let Some(zinv) = self.z.invert_vartime() else {
+            return G1Affine::identity();
+        };
+        G1Affine {
+            x: self.x * zinv,
+            y: self.y * zinv,
+            infinity: Choice::from(0),
+        }
+    }
+
     /// Computes the doubling of this point.
     pub fn double(&self) -> G1Projective {
         // Algorithm 9, https://eprint.iacr.org/2015/1060.pdf
@@ -1244,6 +1256,9 @@ fn test_projective_to_affine() {
     };
 
     assert_eq!(G1Affine::from(c), G1Affine::generator());
+    for point in [a, b, c] {
+        assert_eq!(point.to_affine_vartime(), G1Affine::from(point));
+    }
 }
 
 #[test]
