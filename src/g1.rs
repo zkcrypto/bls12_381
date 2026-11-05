@@ -812,36 +812,36 @@ impl G1Projective {
     fn multiply(&self, by: &[u8; 32]) -> G1Projective {
         let digits = crate::scalar_mul::to_radix_3(by);
 
-        // A table of [j]P for j in 1..9, built with complete formulas; digit 0 adds
-        // the identity, which is the initial addend below.
-        let mut table = [*self; 8];
-        table[1] = self.double();
-        table[2] = table[1] + self;
-        table[3] = table[1].double();
-        table[4] = table[3] + self;
-        table[5] = table[2].double();
-        table[6] = table[5] + self;
-        table[7] = table[3].double();
+        // A table of [j]P for j in 1..27, built with complete formulas: each step doubles
+        // an earlier entry and adds P to the result, which fills 2P to 25P; 26P is one more
+        // doubling. Digit 0 adds the identity, the initial addend.
+        let mut table = [*self; 26];
+        for idx in (1..25).step_by(2) {
+            // idx is odd, so idx >> 1 is the entry holding half of (idx + 1)P.
+            table[idx] = table[idx >> 1].double();
+            table[idx + 1] = table[idx] + self;
+        }
+        table[25] = table[12].double();
 
         let mut acc = G1Projective::identity();
 
-        // Evaluate the integer scalar in radix nine: two complete triplings and one
-        // complete addition per digit, the addend chosen from the table by masked
-        // selection over all nine entries. The digit pairs the trits 2i and 2i + 1;
-        // the top pair's high trit is zero, since there are 161 trits.
-        for pair in (0..81).rev() {
-            let low = digits[2 * pair];
-            let high = if 2 * pair + 1 < 161 {
-                digits[2 * pair + 1]
+        // Radix 27: three complete triplings and one complete addition per digit, which
+        // packs the trits 3i, 3i + 1 and 3i + 2. Since 161 = 3 · 53 + 2, only the top
+        // digit's third trit is missing, and it is zero.
+        for i in (0..54).rev() {
+            let t0 = digits[3 * i];
+            let t1 = digits[3 * i + 1];
+            let t2 = if 3 * i + 2 < 161 {
+                digits[3 * i + 2]
             } else {
                 0
             };
-            let d = low + 3 * high;
+            let d = t0 + 3 * t1 + 9 * t2;
             let mut addend = G1Projective::identity();
             for (j, entry) in table.iter().enumerate() {
                 addend = G1Projective::conditional_select(&addend, entry, d.ct_eq(&(j as u8 + 1)));
             }
-            acc = acc.triple().triple() + addend;
+            acc = acc.triple().triple().triple() + addend;
         }
 
         acc
