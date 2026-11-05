@@ -1,17 +1,20 @@
 // Scalar recoding for group multiplication.
 
 /// Recodes the low 255 bits of a little-endian scalar into 161 little-endian
-/// ternary digits. The high bit is ignored, as in the existing group multiply
-/// implementations.
-pub(crate) fn to_radix_3(by: &[u8; 32]) -> [u8; 161] {
+/// ternary digits.
+///
+/// An additional zero digit is appended so that the number of digits is divisible by 3.
+///
+/// The high bit is ignored, as in the existing group multiply implementations.
+pub(crate) fn to_radix_3(by: &[u8; 32]) -> [u8; 162] {
     let mut limbs = [0u32; 8];
     for i in 0..8 {
         limbs[i] = u32::from_le_bytes([by[4 * i], by[4 * i + 1], by[4 * i + 2], by[4 * i + 3]]);
     }
     limbs[7] &= 0x7fff_ffff;
 
-    let mut digits = [0u8; 161];
-    for digit in &mut digits {
+    let mut digits = [0u8; 162];
+    for digit in &mut digits[..161] {
         let mut remainder = 0u64;
         // Long division from the most significant limb to the least. The
         // dividend fits in 34 bits because the incoming remainder is < 3.
@@ -31,7 +34,7 @@ mod tests {
     use super::to_radix_3;
     use crate::Scalar;
 
-    fn check_reconstruction(by: &[u8; 32]) -> [u8; 161] {
+    fn check_reconstruction(by: &[u8; 32]) -> [u8; 162] {
         let digits = to_radix_3(by);
         let mut reconstructed = [0u8; 32];
         for &digit in digits.iter().rev() {
@@ -64,7 +67,7 @@ mod tests {
 
         let mut top_bit_only = [0; 32];
         top_bit_only[31] = 0x80;
-        assert_eq!(to_radix_3(&top_bit_only), [0; 161]);
+        assert_eq!(to_radix_3(&top_bit_only), [0; 162]);
         check_reconstruction(&top_bit_only);
     }
 

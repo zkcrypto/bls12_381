@@ -826,16 +826,12 @@ impl G1Projective {
         let mut acc = G1Projective::identity();
 
         // Radix 27: three complete triplings and one complete addition per digit, which
-        // packs the trits 3i, 3i + 1 and 3i + 2. Since 161 = 3 · 53 + 2, only the top
-        // digit's third trit is missing, and it is zero.
+        // packs the trits 3i, 3i + 1 and 3i + 2; the recoding pads the 161 trits with a
+        // zero so that there are 54 whole digits.
         for i in (0..54).rev() {
             let t0 = digits[3 * i];
             let t1 = digits[3 * i + 1];
-            let t2 = if 3 * i + 2 < 161 {
-                digits[3 * i + 2]
-            } else {
-                0
-            };
+            let t2 = digits[3 * i + 2];
             let d = t0 + 3 * t1 + 9 * t2;
             let mut addend = G1Projective::identity();
             for (j, entry) in table.iter().enumerate() {
