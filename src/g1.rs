@@ -778,11 +778,12 @@ impl G1Projective {
         let bz2 = self.z.square();
         let bz2 = bz2 + bz2;
         let bz2 = bz2 + bz2;
-        let b3z2 = bz2 + bz2 + bz2;
-        let b9z2 = b3z2 + b3z2 + b3z2;
-        let x = self.x * (y2 + b3z2);
-        let y = self.y * (y2 - b9z2);
-        let z = self.z * (y2 - bz2);
+        let v = y2 - bz2;
+        let b4z2 = bz2 + bz2;
+        let b4z2 = b4z2 + b4z2;
+        let x = self.x * (v + b4z2);
+        let y = self.y * (v - (b4z2 + b4z2));
+        let z = self.z * v;
 
         // Apply the isogeny with coefficient -27b, then the isomorphism
         // (X, Y, Z) -> (3X, Y, 27Z) back to the original curve.
@@ -793,11 +794,12 @@ impl G1Projective {
         let b3z2 = bz2 + bz2 + bz2;
         let b9z2 = b3z2 + b3z2 + b3z2;
         let b27z2 = b9z2 + b9z2 + b9z2;
-        let b81z2 = b27z2 + b27z2 + b27z2;
-        let b243z2 = b81z2 + b81z2 + b81z2;
-        let x = x * (y2 - b81z2);
-        let y = y * (y2 + b243z2);
-        let z = z * (y2 + b27z2);
+        let w = y2 + b27z2;
+        let b108z2 = b27z2 + b27z2;
+        let b108z2 = b108z2 + b108z2;
+        let x = x * (w - b108z2);
+        let y = y * (w + b108z2 + b108z2);
+        let z = z * w;
         let z = z + z + z;
         let z = z + z + z;
         G1Projective {
