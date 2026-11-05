@@ -1,11 +1,17 @@
 # Unreleased
+
+# 0.9.1
 ## Added
+- `sqrt-table` feature flag (enabled by default), which enables large
+  precomputed tables (stored on the heap) that speed up square root
+  computation.
 - `bls12_381::G1Projective::to_affine_vartime`
 - `bls12_381::G2Projective::to_affine_vartime`
 
 ## Changed
 - Raised `pairing` minimum version to `0.24.1`, to provide a more efficient
   implementation of `pairing::MultiMillerLoop::prepare_reusable_g2`.
+- Improved performance.
 
 # 0.9.0
 ## Changed
