@@ -887,17 +887,37 @@ impl G2Projective {
 
     fn multiply(&self, by: &[u8; 32]) -> G2Projective {
         let digits = crate::scalar_mul::to_radix_3(by);
-        let twice = self.double();
+
+        // A table of [j]P for j in 1..9, built with complete formulas; digit 0 adds
+        // the identity, which is the initial addend below.
+        let mut table = [*self; 8];
+        table[1] = self.double();
+        table[2] = table[1] + self;
+        table[3] = table[1].double();
+        table[4] = table[3] + self;
+        table[5] = table[2].double();
+        table[6] = table[5] + self;
+        table[7] = table[3].double();
+
         let mut acc = G2Projective::identity();
 
-        // Evaluate the integer scalar in radix three using complete tripling.
-        // This avoids subgroup-only eigenvalue assumptions for unchecked inputs.
-        // The loop length and table accesses do not depend on the scalar.
-        for digit in digits.iter().rev() {
-            let addend =
-                G2Projective::conditional_select(&G2Projective::identity(), self, digit.ct_eq(&1));
-            let addend = G2Projective::conditional_select(&addend, &twice, digit.ct_eq(&2));
-            acc = acc.triple() + addend;
+        // Evaluate the integer scalar in radix nine: two complete triplings and one
+        // complete addition per digit, the addend chosen from the table by masked
+        // selection over all nine entries. The digit pairs the trits 2i and 2i + 1;
+        // the top pair's high trit is zero, since there are 161 trits.
+        for pair in (0..81).rev() {
+            let low = digits[2 * pair];
+            let high = if 2 * pair + 1 < 161 {
+                digits[2 * pair + 1]
+            } else {
+                0
+            };
+            let d = low + 3 * high;
+            let mut addend = G2Projective::identity();
+            for (j, entry) in table.iter().enumerate() {
+                addend = G2Projective::conditional_select(&addend, entry, d.ct_eq(&(j as u8 + 1)));
+            }
+            acc = acc.triple().triple() + addend;
         }
 
         acc
