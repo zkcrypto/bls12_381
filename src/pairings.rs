@@ -283,15 +283,59 @@ fn cyclotomic_exp(f: Fp12) -> Fp12 {
 }
 
 impl MillerLoopResult {
+    /// This performs a "final exponentiation" routine to convert the result
+    /// of a Miller loop into an element of `Gt` with help of efficient squaring
+    /// operation in the so-called `cyclotomic subgroup` of `Fq6` so that
+    /// it can be compared with other elements of `Gt`.
+    pub fn final_exponentiation(&self) -> Gt {
+        let mut f = self.0;
+        // The p^6 Frobenius map conjugates the quadratic Fp12 extension.
+        let mut t0 = f.conjugate();
+
+        // We unwrap() because `MillerLoopResult` can only be constructed
+        // by a function within this crate, and we uphold the invariant
+        // that the enclosed value is nonzero.
+        let mut t1 = f.invert().unwrap();
+
+        let mut t2 = t0 * t1;
+        t1 = t2;
+        t2 = frobenius_map_2(t2);
+        t2 *= t1;
+        f = t2;
+        t1 = cyclotomic_square(t2).conjugate();
+        let mut t3 = cyclotomic_exp_full(t2);
+        let mut t4 = t1 * t3;
+        t1 = cyclotomic_exp_full(t4);
+        t4 = t4.conjugate();
+        f *= t4;
+        t4 = cyclotomic_square(t3);
+        t0 = cyclotomic_exp_full(t1);
+        t3 *= t0;
+        t3 = frobenius_map_2(t3);
+        f *= t3;
+        t4 *= cyclotomic_exp_full(t0);
+        f *= cyclotomic_exp_full(t4);
+        t4 *= t2.conjugate();
+        t2 *= t1;
+        t2 = frobenius_map_2(t2.frobenius_map());
+        f *= t2;
+        t4 = t4.frobenius_map();
+        f *= t4;
+
+        Gt(f)
+    }
+}
+
+impl MillerLoopResult {
     /// Converts the result of a Miller loop into an element of [`Gt`], using
     /// efficient squaring in the cyclotomic subgroup of the degree-12 field
     /// extension.
     ///
     /// This operation is variable time. Its inversions and compressed-square
-    /// fallback depend on the Miller loop result. Do not use it with long-lived
-    /// secret pairing inputs. Batch verification also includes fresh verifier
-    /// randomizers in this result.
-    pub fn final_exponentiation(&self) -> Gt {
+    /// fallback depend on the Miller loop result. Do not use it with secret
+    /// pairing inputs. Batch verification also includes fresh verifier
+    /// randomizers in this result; callers must accept their timing exposure.
+    pub fn final_exponentiation_vartime(&self) -> Gt {
         let mut f = self.0;
         // The p^6 Frobenius map conjugates the quadratic Fp12 extension.
         let mut t0 = f.conjugate();
@@ -1249,80 +1293,6 @@ fn test_miller_loop_result_default() {
     );
 }
 
-#[test]
-fn test_compressed_cyclotomic_squaring() {
-    use rand_core::SeedableRng;
-
-    let last_checkpoint = COMPRESSED_FIRST_SQUARES + COMPRESSED_NEXT_SQUARES;
-    let mut bit = last_checkpoint;
-    let mut exponent = (1_u64 << COMPRESSED_FIRST_SQUARES) | (1_u64 << bit);
-    for squarings in CYCLOTOMIC_TAIL_SQUARES {
-        bit += squarings;
-        exponent |= 1_u64 << bit;
-    }
-    assert_eq!(BLS_X, exponent << 1);
-    assert!(BLS_X_IS_NEGATIVE);
-
-    let generator = Gt::generator().0;
-    let mut rng = rand_xorshift::XorShiftRng::from_seed([0x35; 16]);
-    let sample = Fp12::try_random(&mut rng).unwrap();
-    let unitary = sample.conjugate() * sample.invert().unwrap();
-    let cyclotomic = unitary.frobenius_map().frobenius_map() * unitary;
-    for (index, base) in [generator, generator.square(), Fp12::one(), cyclotomic]
-        .into_iter()
-        .enumerate()
-    {
-        let mut full = base;
-        let mut ordinary = base;
-        let mut compressed = CompressedCyclotomic::from(base);
-        let mut checkpoint_first = None;
-        let mut checkpoint_next = None;
-
-        for exponent in 1..=last_checkpoint {
-            full = cyclotomic_square(full);
-            ordinary = ordinary.square();
-            compressed = compressed_square(compressed);
-            assert_eq!(full, ordinary);
-            assert_eq!(compressed.g1, full.c0.c1);
-            assert_eq!(compressed.g2, full.c0.c2);
-            assert_eq!(compressed.g3, full.c1.c0);
-            assert_eq!(compressed.g5, full.c1.c2);
-
-            if exponent == COMPRESSED_FIRST_SQUARES {
-                checkpoint_first = Some((compressed, full));
-            } else if exponent == last_checkpoint {
-                checkpoint_next = Some((compressed, full));
-            }
-        }
-
-        let (compressed_first, full_first) = checkpoint_first.unwrap();
-        let (compressed_next, full_next) = checkpoint_next.unwrap();
-        if index != 2 {
-            assert_eq!(
-                decompress_pair(compressed_first, compressed_next),
-                Some((full_first, full_next))
-            );
-        } else {
-            assert_eq!(decompress_pair(compressed_first, compressed_next), None);
-        }
-        assert_eq!(cyclotomic_exp(base), cyclotomic_exp_full(base));
-    }
-}
-
-#[test]
-fn test_vartime_fp12_inversion() {
-    use rand_core::SeedableRng;
-
-    assert_eq!(invert_fp12_vartime(Fp12::zero()), None);
-    let mut rng = rand_xorshift::XorShiftRng::from_seed([0x52; 16]);
-    for _ in 0..32 {
-        let value = Fp12::try_random(&mut rng).unwrap();
-        let inverse = invert_fp12_vartime(value).unwrap();
-        assert_eq!(inverse, value.invert().unwrap());
-        assert_eq!(value * inverse, Fp12::one());
-    }
-}
-
 #[cfg(feature = "zeroize")]
 #[test]
 fn test_miller_loop_result_zeroize() {
@@ -1363,3 +1333,6 @@ fn tricking_miller_loop_result() {
         Gt::identity()
     );
 }
+
+#[cfg(test)]
+mod tests;
