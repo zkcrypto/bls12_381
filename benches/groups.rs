@@ -3,7 +3,7 @@ extern crate criterion;
 
 extern crate bls12_381;
 use bls12_381::*;
-use pairing::MultiMillerLoop;
+use pairing::{MillerLoopResult, MultiMillerLoop};
 
 use criterion::{Criterion, black_box};
 

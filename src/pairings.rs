@@ -335,7 +335,7 @@ impl MillerLoopResult {
     /// fallback depend on the Miller loop result. Do not use it with secret
     /// pairing inputs. Batch verification also includes fresh verifier
     /// randomizers in this result; callers must accept their timing exposure.
-    pub fn final_exponentiation_vartime(&self) -> Gt {
+    fn final_exponentiation_vartime(&self) -> Gt {
         let mut f = self.0;
         // The p^6 Frobenius map conjugates the quadratic Fp12 extension.
         let mut t0 = f.conjugate();
@@ -1099,6 +1099,10 @@ impl pairing::MillerLoopResult for MillerLoopResult {
     fn final_exponentiation(&self) -> Self::Gt {
         self.final_exponentiation()
     }
+
+    fn final_exponentiation_vartime(&self) -> Self::Gt {
+        self.final_exponentiation_vartime()
+    }
 }
 
 #[cfg(feature = "alloc")]
@@ -1336,3 +1340,6 @@ fn tricking_miller_loop_result() {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod trait_tests;
