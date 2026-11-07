@@ -1,4 +1,9 @@
 # Unreleased
+## Added
+- `bls12_381::MillerLoopResult::final_exponentiation_vartime` for public
+  verification inputs, using variable-time tower inversion and compressed
+  cyclotomic squaring. Timing may also expose fresh verifier randomizers;
+  ordinary constant-time final exponentiation is unchanged.
 
 # 0.9.1
 ## Added
