@@ -65,6 +65,9 @@ fn criterion_benchmark(c: &mut Criterion) {
         c.bench_function("final exponentiation for pairing", move |b| {
             b.iter(|| r.final_exponentiation())
         });
+        c.bench_function("variable-time final exponentiation for pairing", move |b| {
+            b.iter(|| r.final_exponentiation_vartime())
+        });
     }
     // G1Affine
     {
