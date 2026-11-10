@@ -1,8 +1,8 @@
 //! Table-based square roots (Sarkar 2020), ported from pasta_curves 0.6.1
 //! (`src/arithmetic/fields.rs`, MIT OR Apache-2.0, Copyright (c) 2020-2025 The Electric Coin
-//! Company). Everything below the imports is pasta_curves' code unchanged; the only
-//! bls12_381-specific inputs are `Scalar`'s `SqrtTableHelpers` impl and its hash multiplier
-//! (`scalar.rs`).
+//! Company). Everything below the imports is pasta_curves' code unchanged, except for the
+//! comment on the exponentiations in `sqrt_ratio`; the only bls12_381-specific inputs are
+//! `Scalar`'s `SqrtTableHelpers` impl and its hash multiplier (`scalar.rs`).
 //!
 //! Timing is pasta_curves': every input runs the same sequence of field operations
 //! (exponentiation by the constant (t - 1) / 2, then four fixed 8-bit table steps, no early
@@ -207,14 +207,12 @@ impl<F: SqrtTableHelpers> SqrtTables<F> {
         //
         // We calculate:
         //
-        //      s = div^(2^S - 1) using an addition chain
+        //      s = div^(2^S - 1) by repeated squaring and multiplication
         //      t = div^(2^(S+1) - 1) = s^2 * div
-        //      w = (num * t)^((T-1)/2) * s using another addition chain
+        //      w = (num * t)^((T-1)/2) * s, with the exponentiation by `pow_by_t_minus1_over2`
         //
-        // then u and uv as above. The addition chains are given in
-        // https://github.com/zcash/pasta/blob/master/addchain_sqrt.py .
-        // The overall cost of this part is similar to a single full-width exponentiation,
-        // regardless of S.
+        // then u and uv as above. The overall cost of this part is similar to a single full-width
+        // exponentiation, regardless of S.
 
         let sqr = |x: F, i: u32| (0..i).fold(x, |x, _| x.square());
 
