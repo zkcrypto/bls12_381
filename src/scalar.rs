@@ -426,100 +426,10 @@ impl Scalar {
     /// Computes the multiplicative inverse of this element,
     /// failing if the element is zero.
     pub fn invert(&self) -> CtOption<Self> {
-        #[inline(always)]
-        fn square_assign_multi(n: &mut Scalar, num_times: usize) {
-            for _ in 0..num_times {
-                *n = n.square();
-            }
-        }
-        // found using https://github.com/kwantam/addchain
-        let mut t0 = self.square();
-        let mut t1 = t0 * self;
-        let mut t16 = t0.square();
-        let mut t6 = t16.square();
-        let mut t5 = t6 * t0;
-        t0 = t6 * t16;
-        let mut t12 = t5 * t16;
-        let mut t2 = t6.square();
-        let mut t7 = t5 * t6;
-        let mut t15 = t0 * t5;
-        let mut t17 = t12.square();
-        t1 *= t17;
-        let mut t3 = t7 * t2;
-        let t8 = t1 * t17;
-        let t4 = t8 * t2;
-        let t9 = t8 * t7;
-        t7 = t4 * t5;
-        let t11 = t4 * t17;
-        t5 = t9 * t17;
-        let t14 = t7 * t15;
-        let t13 = t11 * t12;
-        t12 = t11 * t17;
-        t15 *= &t12;
-        t16 *= &t15;
-        t3 *= &t16;
-        t17 *= &t3;
-        t0 *= &t17;
-        t6 *= &t0;
-        t2 *= &t6;
-        square_assign_multi(&mut t0, 8);
-        t0 *= &t17;
-        square_assign_multi(&mut t0, 9);
-        t0 *= &t16;
-        square_assign_multi(&mut t0, 9);
-        t0 *= &t15;
-        square_assign_multi(&mut t0, 9);
-        t0 *= &t15;
-        square_assign_multi(&mut t0, 7);
-        t0 *= &t14;
-        square_assign_multi(&mut t0, 7);
-        t0 *= &t13;
-        square_assign_multi(&mut t0, 10);
-        t0 *= &t12;
-        square_assign_multi(&mut t0, 9);
-        t0 *= &t11;
-        square_assign_multi(&mut t0, 8);
-        t0 *= &t8;
-        square_assign_multi(&mut t0, 8);
-        t0 *= self;
-        square_assign_multi(&mut t0, 14);
-        t0 *= &t9;
-        square_assign_multi(&mut t0, 10);
-        t0 *= &t8;
-        square_assign_multi(&mut t0, 15);
-        t0 *= &t7;
-        square_assign_multi(&mut t0, 10);
-        t0 *= &t6;
-        square_assign_multi(&mut t0, 8);
-        t0 *= &t5;
-        square_assign_multi(&mut t0, 16);
-        t0 *= &t3;
-        square_assign_multi(&mut t0, 8);
-        t0 *= &t2;
-        square_assign_multi(&mut t0, 7);
-        t0 *= &t4;
-        square_assign_multi(&mut t0, 9);
-        t0 *= &t2;
-        square_assign_multi(&mut t0, 8);
-        t0 *= &t3;
-        square_assign_multi(&mut t0, 8);
-        t0 *= &t2;
-        square_assign_multi(&mut t0, 8);
-        t0 *= &t2;
-        square_assign_multi(&mut t0, 8);
-        t0 *= &t2;
-        square_assign_multi(&mut t0, 8);
-        t0 *= &t3;
-        square_assign_multi(&mut t0, 8);
-        t0 *= &t2;
-        square_assign_multi(&mut t0, 8);
-        t0 *= &t2;
-        square_assign_multi(&mut t0, 5);
-        t0 *= &t1;
-        square_assign_multi(&mut t0, 5);
-        t0 *= &t1;
-
-        CtOption::new(t0, !self.ct_eq(&Self::zero()))
+        CtOption::new(
+            crate::chains::scalar::pow_by_q_minus2(self),
+            !self.ct_eq(&Self::zero()),
+        )
     }
 
     #[inline(always)]
@@ -731,50 +641,7 @@ fn scalar_tables() -> &'static SqrtTables<Scalar> {
 #[cfg(feature = "sqrt-table")]
 impl SqrtTableHelpers for Scalar {
     fn pow_by_t_minus1_over2(&self) -> Self {
-        // Addition chain for (t - 1) / 2 generated with mmcloughlin/addchain v0.4.0 (217 squarings
-        // and 47 multiplications; `pow_vartime` over the same constant costs 256 squarings and 132
-        // multiplications). `test_pow_by_t_minus1_over2` checks it against `pow_vartime`.
-        #[inline(always)]
-        fn sqr_n(x: Scalar, n: usize) -> Scalar {
-            (0..n).fold(x, |x, _| x.square())
-        }
-        let x1 = *self;
-        let x10 = x1.square();
-        let x100 = x10.square();
-        let x110 = x10 * x100;
-        let x1100 = x110.square();
-        let x10010 = x110 * x1100;
-        let x10011 = x1 * x10010;
-        let x10110 = x100 * x10010;
-        let x11000 = x10 * x10110;
-        let x11010 = x10 * x11000;
-        let x100010 = x1100 * x10110;
-        let x110101 = x10011 * x100010;
-        let x111011 = x110 * x110101;
-        let x1001011 = x10110 * x110101;
-        let x1001101 = x10 * x1001011;
-        let x1010101 = x11010 * x111011;
-        let x1100111 = x10010 * x1010101;
-        let x1101001 = x10 * x1100111;
-        let x10000011 = x11010 * x1101001;
-        let x10011001 = x10110 * x10000011;
-        let x10011101 = x100 * x10011001;
-        let x10111111 = x100010 * x10011101;
-        let x11010111 = x11000 * x10111111;
-        let x11011011 = x100 * x11010111;
-        let x11100111 = x1100 * x11011011;
-        let x11101111 = x11000 * x11010111;
-        let x11111111 = x11000 * x11100111;
-        let i54 = sqr_n(sqr_n(sqr_n(x11100111, 8) * x11011011, 9) * x10011101, 9);
-        let i74 = sqr_n(sqr_n(x10011001 * i54, 9) * x10011001, 8) * x11010111;
-        let i101 = sqr_n(sqr_n(sqr_n(i74, 6) * x110101, 10) * x10000011, 9);
-        let i120 = sqr_n(sqr_n(x1100111 * i101, 8) * x111011, 8) * x1;
-        let i161 = sqr_n(sqr_n(sqr_n(i120, 14) * x1001101, 10) * x111011, 15);
-        let i182 = sqr_n(sqr_n(x1010101 * i161, 10) * x11101111, 8) * x1101001;
-        let i215 = sqr_n(sqr_n(sqr_n(i182, 16) * x10111111, 8) * x11111111, 7);
-        let i235 = sqr_n(sqr_n(x1001011 * i215, 9) * x11111111, 8) * x10111111;
-        let i261 = sqr_n(sqr_n(sqr_n(i235, 8) * x11111111, 8) * x11111111, 8);
-        (x11111111 * i261).square() * x1
+        crate::chains::scalar::pow_by_t_minus1_over2(self)
     }
 
     fn sqrt_hash_key(&self) -> u32 {

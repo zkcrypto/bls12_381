@@ -51,6 +51,7 @@ mod sqrt_table;
 
 pub use scalar::Scalar;
 
+mod chains;
 #[cfg(feature = "groups")]
 mod fp;
 #[cfg(feature = "groups")]
