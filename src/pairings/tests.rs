@@ -37,10 +37,10 @@ fn test_compressed_cyclotomic_squaring() {
             ordinary = ordinary.square();
             compressed = compressed_square(compressed);
             assert_eq!(full, ordinary);
-            assert_eq!(compressed.g1, full.c0.c1);
-            assert_eq!(compressed.g2, full.c0.c2);
-            assert_eq!(compressed.g3, full.c1.c0);
-            assert_eq!(compressed.g5, full.c1.c2);
+            assert_eq!(compressed.z4, full.c0.c1);
+            assert_eq!(compressed.z3, full.c0.c2);
+            assert_eq!(compressed.z2, full.c1.c0);
+            assert_eq!(compressed.z5, full.c1.c2);
 
             if exponent == COMPRESSED_FIRST_SQUARES {
                 checkpoint_first = Some((compressed, full));
@@ -184,10 +184,10 @@ fn test_random_compressed_checkpoints_and_exception_fallback() {
         for i in 1..=COMPRESSED_FIRST_SQUARES + COMPRESSED_NEXT_SQUARES {
             full = full.square();
             compressed = compressed_square(compressed);
-            assert_eq!(compressed.g1, full.c0.c1);
-            assert_eq!(compressed.g2, full.c0.c2);
-            assert_eq!(compressed.g3, full.c1.c0);
-            assert_eq!(compressed.g5, full.c1.c2);
+            assert_eq!(compressed.z4, full.c0.c1);
+            assert_eq!(compressed.z3, full.c0.c2);
+            assert_eq!(compressed.z2, full.c1.c0);
+            assert_eq!(compressed.z5, full.c1.c2);
             if i == COMPRESSED_FIRST_SQUARES {
                 first = Some((compressed, full));
             }

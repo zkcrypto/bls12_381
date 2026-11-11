@@ -144,43 +144,43 @@ fn cyclotomic_square(f: Fp12) -> Fp12 {
 // Adapted from gnark-crypto's BLS12-381 fptower E12 implementation.
 #[derive(Copy, Clone)]
 struct CompressedCyclotomic {
-    g1: Fp2,
-    g2: Fp2,
-    g3: Fp2,
-    g5: Fp2,
+    z4: Fp2,
+    z3: Fp2,
+    z2: Fp2,
+    z5: Fp2,
 }
 
 impl From<Fp12> for CompressedCyclotomic {
     fn from(value: Fp12) -> Self {
         Self {
-            g1: value.c0.c1,
-            g2: value.c0.c2,
-            g3: value.c1.c0,
-            g5: value.c1.c2,
+            z4: value.c0.c1,
+            z3: value.c0.c2,
+            z2: value.c1.c0,
+            z5: value.c1.c2,
         }
     }
 }
 
 #[must_use]
 fn compressed_square(f: CompressedCyclotomic) -> CompressedCyclotomic {
-    let CompressedCyclotomic { g1, g2, g3, g5 } = f;
+    let CompressedCyclotomic { z4, z3, z2, z5 } = f;
 
-    let g1_sq = g1.square();
-    let g5_sq = g5.square();
-    let twice_g1_g5 = (g1 + g5).square() - g1_sq - g5_sq;
-    let g3_sq = g3.square();
-    let g2_sq = g2.square();
-    let twice_g3_g2 = (g3 + g2).square() - g3_sq - g2_sq;
+    let z4_sq = z4.square();
+    let z5_sq = z5.square();
+    let twice_z4_z5 = (z4 + z5).square() - z4_sq - z5_sq;
+    let z2_sq = z2.square();
+    let z3_sq = z3.square();
+    let twice_z2_z3 = (z2 + z3).square() - z2_sq - z3_sq;
 
-    let a = g1_sq + g5_sq.mul_by_nonresidue();
-    let b = g3_sq + g2_sq.mul_by_nonresidue();
-    let c = twice_g1_g5.mul_by_nonresidue();
+    let a = z4_sq + z5_sq.mul_by_nonresidue();
+    let b = z2_sq + z3_sq.mul_by_nonresidue();
+    let c = twice_z4_z5.mul_by_nonresidue();
 
     CompressedCyclotomic {
-        g1: b + b + b - g1 - g1,
-        g2: a + a + a - g2 - g2,
-        g3: c + c + c + g3 + g3,
-        g5: twice_g3_g2 + twice_g3_g2 + twice_g3_g2 + g5 + g5,
+        z4: b + b + b - z4 - z4,
+        z3: a + a + a - z3 - z3,
+        z2: c + c + c + z2 + z2,
+        z5: twice_z2_z3 + twice_z2_z3 + twice_z2_z3 + z5 + z5,
     }
 }
 
@@ -208,36 +208,36 @@ fn invert_fp12_vartime(value: Fp12) -> Option<Fp12> {
 
 fn decompress_pair(a: CompressedCyclotomic, b: CompressedCyclotomic) -> Option<(Fp12, Fp12)> {
     fn numerator(f: CompressedCyclotomic) -> Fp2 {
-        let g1_sq = f.g1.square();
-        f.g5.square().mul_by_nonresidue() + g1_sq + g1_sq + g1_sq - f.g2 - f.g2
+        let z4_sq = f.z4.square();
+        f.z5.square().mul_by_nonresidue() + z4_sq + z4_sq + z4_sq - f.z3 - f.z3
     }
-    fn finish(f: CompressedCyclotomic, g4: Fp2) -> Fp12 {
-        let g0 =
-            (g4.square() + g4.square() + f.g3 * f.g5 - f.g2 * f.g1 - f.g2 * f.g1 - f.g2 * f.g1)
+    fn finish(f: CompressedCyclotomic, z1: Fp2) -> Fp12 {
+        let z0 =
+            (z1.square() + z1.square() + f.z2 * f.z5 - f.z3 * f.z4 - f.z3 * f.z4 - f.z3 * f.z4)
                 .mul_by_nonresidue()
                 + Fp2::one();
         Fp12 {
             c0: Fp6 {
-                c0: g0,
-                c1: f.g1,
-                c2: f.g2,
+                c0: z0,
+                c1: f.z4,
+                c2: f.z3,
             },
             c1: Fp6 {
-                c0: f.g3,
-                c1: g4,
-                c2: f.g5,
+                c0: f.z2,
+                c1: z1,
+                c2: f.z5,
             },
         }
     }
 
-    let den_a = a.g3 + a.g3 + a.g3 + a.g3;
-    let den_b = b.g3 + b.g3 + b.g3 + b.g3;
+    let den_a = a.z2 + a.z2 + a.z2 + a.z2;
+    let den_b = b.z2 + b.z2 + b.z2 + b.z2;
     // Batch two Fp2 inversions into one Fp inversion. A zero denominator
     // makes the caller use the full cyclotomic exponentiation instead.
     let inverse = (den_a * den_b).invert_vartime()?;
-    let g4_a = numerator(a) * (den_b * inverse);
-    let g4_b = numerator(b) * (den_a * inverse);
-    Some((finish(a, g4_a), finish(b, g4_b)))
+    let z1_a = numerator(a) * (den_b * inverse);
+    let z1_b = numerator(b) * (den_a * inverse);
+    Some((finish(a, z1_a), finish(b, z1_b)))
 }
 
 fn cyclotomic_exp_full(f: Fp12) -> Fp12 {
