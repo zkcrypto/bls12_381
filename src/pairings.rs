@@ -282,47 +282,48 @@ fn cyclotomic_exp(f: Fp12) -> Fp12 {
     cyclotomic_square(result.conjugate())
 }
 
+// The input must be in the cyclotomic subgroup. Passing a function item keeps
+// the choice of constant-time or variable-time exponentiation statically dispatched.
+fn final_exponentiation_hard(mut t2: Fp12, exp_by_x: impl Fn(Fp12) -> Fp12) -> Gt {
+    let mut f = t2;
+    let mut t1 = cyclotomic_square(t2).conjugate();
+    let mut t3 = exp_by_x(t2);
+    let mut t4 = t1 * t3;
+    t1 = exp_by_x(t4);
+    t4 = t4.conjugate();
+    f *= t4;
+    t4 = cyclotomic_square(t3);
+    let t0 = exp_by_x(t1);
+    t3 *= t0;
+    t3 = frobenius_map_2(t3);
+    f *= t3;
+    t4 *= exp_by_x(t0);
+    f *= exp_by_x(t4);
+    t4 *= t2.conjugate();
+    t2 *= t1;
+    t2 = frobenius_map_2(t2.frobenius_map());
+    f *= t2;
+    t4 = t4.frobenius_map();
+    f *= t4;
+
+    Gt(f)
+}
+
 impl MillerLoopResult {
     /// This performs a "final exponentiation" routine to convert the result
     /// of a Miller loop into an element of `Gt` with help of efficient squaring
     /// operation in the so-called `cyclotomic subgroup` of `Fq6` so that
     /// it can be compared with other elements of `Gt`.
     pub fn final_exponentiation(&self) -> Gt {
-        let mut f = self.0;
-        // The p^6 Frobenius map conjugates the quadratic Fp12 extension.
-        let mut t0 = f.conjugate();
-
+        let f = self.0;
         // We unwrap() because `MillerLoopResult` can only be constructed
         // by a function within this crate, and we uphold the invariant
         // that the enclosed value is nonzero.
-        let mut t1 = f.invert().unwrap();
-
-        let mut t2 = t0 * t1;
-        t1 = t2;
-        t2 = frobenius_map_2(t2);
-        t2 *= t1;
-        f = t2;
-        t1 = cyclotomic_square(t2).conjugate();
-        let mut t3 = cyclotomic_exp_full(t2);
-        let mut t4 = t1 * t3;
-        t1 = cyclotomic_exp_full(t4);
-        t4 = t4.conjugate();
-        f *= t4;
-        t4 = cyclotomic_square(t3);
-        t0 = cyclotomic_exp_full(t1);
-        t3 *= t0;
-        t3 = frobenius_map_2(t3);
-        f *= t3;
-        t4 *= cyclotomic_exp_full(t0);
-        f *= cyclotomic_exp_full(t4);
-        t4 *= t2.conjugate();
-        t2 *= t1;
-        t2 = frobenius_map_2(t2.frobenius_map());
-        f *= t2;
-        t4 = t4.frobenius_map();
-        f *= t4;
-
-        Gt(f)
+        let inverse = f.invert().unwrap();
+        // The p^6 Frobenius map conjugates the quadratic Fp12 extension.
+        let unitary = f.conjugate() * inverse;
+        let cyclotomic = frobenius_map_2(unitary) * unitary;
+        final_exponentiation_hard(cyclotomic, cyclotomic_exp_full)
     }
 }
 
@@ -336,43 +337,15 @@ impl MillerLoopResult {
     /// pairing inputs. Batch verification also includes fresh verifier
     /// randomizers in this result; callers must accept their timing exposure.
     fn final_exponentiation_vartime(&self) -> Gt {
-        let mut f = self.0;
+        let f = self.0;
+        // We unwrap() because `MillerLoopResult` can only be constructed
+        // by a function within this crate, and we uphold the invariant
+        // that the enclosed value is nonzero.
+        let inverse = invert_fp12_vartime(f).unwrap();
         // The p^6 Frobenius map conjugates the quadratic Fp12 extension.
-        let mut t0 = f.conjugate();
-        Gt(invert_fp12_vartime(f)
-            .map(|mut t1| {
-                let mut t2 = t0 * t1;
-                t1 = t2;
-                t2 = frobenius_map_2(t2);
-                t2 *= t1;
-                t1 = cyclotomic_square(t2).conjugate();
-                let mut t3 = cyclotomic_exp(t2);
-                let mut t4 = cyclotomic_square(t3);
-                let mut t5 = t1 * t3;
-                t1 = cyclotomic_exp(t5);
-                t0 = cyclotomic_exp(t1);
-                let mut t6 = cyclotomic_exp(t0);
-                t6 *= t4;
-                t4 = cyclotomic_exp(t6);
-                t5 = t5.conjugate();
-                t4 *= t5 * t2;
-                t5 = t2.conjugate();
-                t1 *= t2;
-                t1 = frobenius_map_2(t1.frobenius_map());
-                t6 *= t5;
-                t6 = t6.frobenius_map();
-                t3 *= t0;
-                t3 = frobenius_map_2(t3);
-                t3 *= t1;
-                t3 *= t6;
-                f = t3 * t4;
-
-                f
-            })
-            // We unwrap() because `MillerLoopResult` can only be constructed
-            // by a function within this crate, and we uphold the invariant
-            // that the enclosed value is nonzero.
-            .unwrap())
+        let unitary = f.conjugate() * inverse;
+        let cyclotomic = frobenius_map_2(unitary) * unitary;
+        final_exponentiation_hard(cyclotomic, cyclotomic_exp)
     }
 }
 
