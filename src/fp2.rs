@@ -5,7 +5,7 @@ use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand_core::TryRng;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
-use crate::fp::Fp;
+use crate::{chains::fp2 as chain, fp::Fp};
 
 #[derive(Copy, Clone)]
 pub struct Fp2 {
@@ -253,14 +253,7 @@ impl Fp2 {
 
         CtOption::new(Fp2::zero(), self.is_zero()).or_else(|| {
             // a1 = self^((p - 3) / 4)
-            let a1 = self.pow_vartime(&[
-                0xee7f_bfff_ffff_eaaa,
-                0x07aa_ffff_ac54_ffff,
-                0xd9cc_34a8_3dac_3d89,
-                0xd91d_d2e1_3ce1_44af,
-                0x92c6_e9ed_90d2_eb35,
-                0x0680_447a_8e5f_f9a6,
-            ]);
+            let a1 = chain::pow_by_p_minus3_over4(self);
 
             // alpha = a1^2 * self = self^((p - 3) / 2 + 1) = self^((p - 1) / 2)
             let alpha = a1.square() * self;
@@ -282,14 +275,7 @@ impl Fp2 {
             // Otherwise, the correct solution is (1 + alpha)^((q - 1) // 2) * x0
             .or_else(|| {
                 CtOption::new(
-                    (alpha + Fp2::one()).pow_vartime(&[
-                        0xdcff_7fff_ffff_d555,
-                        0x0f55_ffff_58a9_ffff,
-                        0xb398_6950_7b58_7b12,
-                        0xb23b_a5c2_79c2_895f,
-                        0x258d_d3db_21a5_d66b,
-                        0x0d00_88f5_1cbf_f34d,
-                    ]) * x0,
+                    chain::pow_by_p_minus1_over2(&(alpha + Fp2::one())) * x0,
                     Choice::from(1),
                 )
             })

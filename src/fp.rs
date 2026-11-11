@@ -6,7 +6,10 @@ use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand_core::TryRng;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
-use crate::util::{adc, mac, sbb};
+use crate::{
+    chains::fp as chain,
+    util::{adc, mac, sbb},
+};
 
 // The internal representation of this type is six 64-bit unsigned
 // integers in little-endian order. `Fp` values are always in
@@ -333,15 +336,7 @@ impl Fp {
         // we only need to exponentiate by (p+1)/4. This only
         // works for elements that are actually quadratic residue,
         // so we check that we got the correct result at the end.
-
-        let sqrt = self.pow_vartime(&[
-            0xee7f_bfff_ffff_eaab,
-            0x07aa_ffff_ac54_ffff,
-            0xd9cc_34a8_3dac_3d89,
-            0xd91d_d2e1_3ce1_44af,
-            0x92c6_e9ed_90d2_eb35,
-            0x0680_447a_8e5f_f9a6,
-        ]);
+        let sqrt = chain::pow_by_p_plus1_over4(self);
 
         CtOption::new(sqrt, sqrt.square().ct_eq(self))
     }
@@ -351,14 +346,7 @@ impl Fp {
     #[inline]
     pub fn invert(&self) -> CtOption<Self> {
         // Exponentiate by p - 2
-        let t = self.pow_vartime(&[
-            0xb9fe_ffff_ffff_aaa9,
-            0x1eab_fffe_b153_ffff,
-            0x6730_d2a0_f6b0_f624,
-            0x6477_4b84_f385_12bf,
-            0x4b1b_a7b6_434b_acd7,
-            0x1a01_11ea_397f_e69a,
-        ]);
+        let t = chain::pow_by_p_minus2(self);
 
         CtOption::new(t, !self.is_zero())
     }

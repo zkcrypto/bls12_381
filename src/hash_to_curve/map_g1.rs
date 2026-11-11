@@ -2,8 +2,8 @@
 
 use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable, ConstantTimeEq};
 
-use super::chain::chain_pm3div4;
 use super::{HashToField, MapToCurve, Sgn0};
+use crate::chains::fp::pow_by_p_minus3_over4;
 use crate::fp::Fp;
 use crate::g1::G1Projective;
 use crate::generic_array::{
@@ -565,7 +565,7 @@ fn map_to_curve_simple_swu(u: &Fp) -> G1Projective {
     let sqrt_candidate = {
         let u_v = gx0_num * gx_den; // u*v
         let vsq = gx_den.square(); // v^2
-        u_v * chain_pm3div4(&(u_v * vsq)) // u v (u v^3) ^ ((p - 3) // 4)
+        u_v * pow_by_p_minus3_over4(&(u_v * vsq)) // u v (u v^3) ^ ((p - 3) // 4)
     };
 
     let gx0_square = (sqrt_candidate.square() * gx_den).ct_eq(&gx0_num); // g(x0) is square
