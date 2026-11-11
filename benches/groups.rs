@@ -3,7 +3,7 @@ extern crate criterion;
 
 extern crate bls12_381;
 use bls12_381::*;
-use pairing::MultiMillerLoop;
+use pairing::{MillerLoopResult, MultiMillerLoop};
 
 use criterion::{Criterion, black_box};
 
@@ -64,6 +64,9 @@ fn criterion_benchmark(c: &mut Criterion) {
         let r = multi_miller_loop(&[(&g, &prep)]);
         c.bench_function("final exponentiation for pairing", move |b| {
             b.iter(|| r.final_exponentiation())
+        });
+        c.bench_function("variable-time final exponentiation for pairing", move |b| {
+            b.iter(|| r.final_exponentiation_vartime())
         });
     }
     // G1Affine

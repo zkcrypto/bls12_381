@@ -24,7 +24,7 @@ once_cell = { version = "1", optional = true, default-features = false, features
     "alloc",
     "race",
 ] }
-pairing = { version = "0.24.1", optional = true }
+pairing = { version = "0.24.2", optional = true }
 rand_core = { version = "0.10", default-features = false }
 subtle = { version = "2.2.1", default-features = false }
 zeroize = { version = "1.4", optional = true, default-features = false }

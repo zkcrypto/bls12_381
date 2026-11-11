@@ -1,4 +1,8 @@
 # Unreleased
+## Added
+- An optimized implementation of
+  `pairing::MillerLoopResult::final_exponentiation_vartime` for generic
+  public-verifier callers.
 
 # 0.9.1
 ## Added
