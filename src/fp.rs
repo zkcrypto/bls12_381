@@ -174,6 +174,7 @@ impl Fp {
         self.ct_eq(&Fp::zero())
     }
 
+    #[cfg(feature = "alloc")]
     pub(crate) fn is_zero_vartime(&self) -> bool {
         // Field element limbs are always kept fully reduced, so zero is uniquely
         // represented and a direct limb comparison is exact.
@@ -368,7 +369,7 @@ impl Fp {
     /// Unlike [`Self::invert`], this computes the inverse in variable time, where the
     /// running time depends on the element. Callers must accept leakage of its
     /// representation.
-    #[cfg(feature = "pairings")]
+    #[cfg(feature = "groups")]
     pub(crate) fn invert_vartime(&self) -> Option<Self> {
         fn is_one(a: &[u64; 6]) -> bool {
             a[0] == 1 && a[1..].iter().all(|&limb| limb == 0)

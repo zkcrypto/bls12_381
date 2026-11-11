@@ -1283,6 +1283,7 @@ fn test_miller_loop_result_zeroize() {
     assert_eq!(m.0, MillerLoopResult::default().0);
 }
 
+#[cfg(feature = "alloc")]
 #[test]
 fn tricking_miller_loop_result() {
     assert_eq!(
