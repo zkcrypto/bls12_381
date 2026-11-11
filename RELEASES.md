@@ -4,6 +4,10 @@
   `pairing::MillerLoopResult::final_exponentiation_vartime` for generic
   public-verifier callers.
 
+## Fixed
+- The `groups` feature flag was broken by 0.9.1; it now works again without the
+  `pairings` feature flag.
+
 # 0.9.1
 ## Added
 - `sqrt-table` feature flag (enabled by default), which enables large

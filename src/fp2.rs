@@ -129,6 +129,7 @@ impl Fp2 {
         self.c0.is_zero() & self.c1.is_zero()
     }
 
+    #[cfg(feature = "alloc")]
     pub(crate) fn is_zero_vartime(&self) -> bool {
         self.c0.is_zero_vartime() && self.c1.is_zero_vartime()
     }
