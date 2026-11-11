@@ -1,8 +1,10 @@
 # Unreleased
-## Added
-- An optimized implementation of
-  `pairing::MillerLoopResult::final_exponentiation_vartime` for generic
-  public-verifier callers.
+
+# 0.9.2
+## Changed
+- Raised `pairing` minimum version to `0.24.2`, to provide a more efficient
+  implementation of `pairing::MillerLoopResult::final_exponentiation_vartime`.
+- Improved performance.
 
 ## Fixed
 - The `groups` feature flag was broken by 0.9.1; it now works again without the
