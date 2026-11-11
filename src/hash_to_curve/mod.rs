@@ -5,8 +5,6 @@ use core::ops::Add;
 
 use subtle::Choice;
 
-pub(crate) mod chain;
-
 mod expand_msg;
 pub use self::expand_msg::{ExpandMessage, ExpandMsgXmd, ExpandMsgXof, Message};
 
