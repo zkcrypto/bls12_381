@@ -177,7 +177,11 @@ pub(crate) fn pow_by_t_minus1_over2(x: &Scalar) -> Scalar {
 
 #[cfg(test)]
 mod tests {
+    use ff::Field;
+
     use super::*;
+    #[cfg(feature = "sqrt-table")]
+    use crate::scalar::T_MINUS1_OVER2;
 
     const Q_MINUS2: [u64; 4] = [
         0xffff_fffe_ffff_ffff,
@@ -186,17 +190,25 @@ mod tests {
         0x73ed_a753_299d_7d48,
     ];
 
+    const TEST_ELEMENTS: [Scalar; 4] = [
+        Scalar::zero(),
+        Scalar::one(),
+        Scalar::one().neg(),
+        Scalar::one().add(&Scalar::one()).square(),
+    ];
     #[test]
     fn test_pow_by_q_minus2() {
-        for x in [
-            Scalar::zero(),
-            Scalar::one(),
-            -Scalar::one(),
-            Scalar::from(2),
-            Scalar::from(42),
-            Scalar::from(u64::MAX),
-        ] {
-            assert_eq!(pow_by_q_minus2(&x), x.pow_vartime(&Q_MINUS2));
-        }
+        test_chain!(Scalar, &TEST_ELEMENTS, pow_by_q_minus2, &Q_MINUS2);
+    }
+
+    #[cfg(feature = "sqrt-table")]
+    #[test]
+    fn test_pow_by_t_minus1_over2() {
+        test_chain!(
+            Scalar,
+            &TEST_ELEMENTS,
+            pow_by_t_minus1_over2,
+            &T_MINUS1_OVER2
+        );
     }
 }

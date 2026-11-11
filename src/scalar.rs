@@ -225,7 +225,7 @@ const ROOT_OF_UNITY_INV: Scalar = Scalar([
 /// With `sqrt-table`, `pow_by_t_minus1_over2` uses an addition chain for this exponent, and the
 /// constant remains as the reference of its test.
 #[cfg(any(test, not(feature = "sqrt-table")))]
-const T_MINUS1_OVER2: [u64; 4] = [
+pub(crate) const T_MINUS1_OVER2: [u64; 4] = [
     0x7fff_2dff_7fff_ffff,
     0x04d0_ec02_a9de_d201,
     0x94ce_bea4_199c_ec04,

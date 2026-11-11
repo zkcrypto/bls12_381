@@ -273,9 +273,6 @@ pub(crate) fn pow_by_p_minus2(x: &Fp) -> Fp {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "experimental")]
-    use rand_core::SeedableRng;
-
     use super::*;
     use crate::fp::Fp;
 
@@ -307,36 +304,25 @@ mod tests {
         0x1a01_11ea_397f_e69a,
     ];
 
+    const TEST_ELEMENTS: [Fp; 4] = [
+        Fp::zero(),
+        Fp::one(),
+        Fp::one().neg(),
+        Fp::one().add(&Fp::one()).square(),
+    ];
     #[cfg(feature = "experimental")]
     #[test]
     fn test_pow_by_p_minus3_over4() {
-        const SEED: [u8; 16] = [
-            0x59, 0x62, 0xbe, 0x5d, 0x76, 0x3d, 0x31, 0x8d, 0x17, 0xdb, 0x37, 0x32, 0x54, 0x06,
-            0xbc, 0xe5,
-        ];
-        let mut rng = rand_xorshift::XorShiftRng::from_seed(SEED);
-        for x in [Fp::zero(), Fp::one(), -Fp::one()] {
-            assert_eq!(pow_by_p_minus3_over4(&x), x.pow_vartime(&P_MINUS3_OVER4));
-        }
-        for _ in 0..32 {
-            let x = Fp::try_random(&mut rng).unwrap();
-            assert_eq!(pow_by_p_minus3_over4(&x), x.pow_vartime(&P_MINUS3_OVER4));
-        }
+        test_chain!(Fp, &TEST_ELEMENTS, pow_by_p_minus3_over4, &P_MINUS3_OVER4);
     }
 
     #[test]
     fn test_pow_by_p_plus1_over4() {
-        let four = (Fp::one() + Fp::one()).square();
-        for x in [Fp::zero(), Fp::one(), -Fp::one(), four] {
-            assert_eq!(pow_by_p_plus1_over4(&x), x.pow_vartime(&P_PLUS1_OVER4));
-        }
+        test_chain!(Fp, &TEST_ELEMENTS, pow_by_p_plus1_over4, &P_PLUS1_OVER4);
     }
 
     #[test]
     fn test_pow_by_p_minus2() {
-        let four = (Fp::one() + Fp::one()).square();
-        for x in [Fp::zero(), Fp::one(), -Fp::one(), four] {
-            assert_eq!(pow_by_p_minus2(&x), x.pow_vartime(&P_MINUS2));
-        }
+        test_chain!(Fp, &TEST_ELEMENTS, pow_by_p_minus2, &P_MINUS2);
     }
 }

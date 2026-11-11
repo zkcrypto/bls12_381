@@ -443,61 +443,38 @@ mod tests {
         0x002a_437a_4b8c_35fc,
     ];
 
+    const TEST_ELEMENTS: [Fp2; 5] = [
+        Fp2::zero(),
+        Fp2::one(),
+        Fp2::one().neg(),
+        Fp2 {
+            c0: Fp::one(),
+            c1: Fp::one(),
+        },
+        Fp2 {
+            c0: Fp::one().add(&Fp::one()),
+            c1: Fp::one().neg(),
+        },
+    ];
     #[test]
     fn test_pow_by_p_minus3_over4() {
-        for x in [
-            Fp2::zero(),
-            Fp2::one(),
-            -Fp2::one(),
-            Fp2 {
-                c0: Fp::one(),
-                c1: Fp::one(),
-            },
-            Fp2 {
-                c0: Fp::one() + Fp::one(),
-                c1: -Fp::one(),
-            },
-        ] {
-            assert_eq!(pow_by_p_minus3_over4(&x), x.pow_vartime(&P_MINUS3_OVER4));
-        }
+        test_chain!(Fp2, &TEST_ELEMENTS, pow_by_p_minus3_over4, &P_MINUS3_OVER4);
     }
 
     #[test]
     fn test_pow_by_p_minus1_over2() {
-        for x in [
-            Fp2::zero(),
-            Fp2::one(),
-            -Fp2::one(),
-            Fp2 {
-                c0: Fp::one(),
-                c1: Fp::one(),
-            },
-            Fp2 {
-                c0: Fp::one() + Fp::one(),
-                c1: -Fp::one(),
-            },
-        ] {
-            assert_eq!(pow_by_p_minus1_over2(&x), x.pow_vartime(&P_MINUS1_OVER2));
-        }
+        test_chain!(Fp2, &TEST_ELEMENTS, pow_by_p_minus1_over2, &P_MINUS1_OVER2);
     }
 
     #[cfg(feature = "experimental")]
     #[test]
     fn test_pow_by_p_squared_minus9_over16() {
-        use rand_core::SeedableRng;
-
-        const SEED: [u8; 16] = [
-            0x59, 0x62, 0xbe, 0x5d, 0x76, 0x3d, 0x31, 0x8d, 0x17, 0xdb, 0x37, 0x32, 0x54, 0x06,
-            0xbc, 0xe5,
-        ];
-
-        let mut rng = rand_xorshift::XorShiftRng::from_seed(SEED);
-        for _ in 0..32 {
-            let input = Fp2::try_random(&mut rng).unwrap();
-            assert_eq!(
-                pow_by_p_squared_minus9_over16(&input),
-                input.pow_vartime_extended(&P_SQUARED_MINUS9_OVER16),
-            );
-        }
+        test_chain!(
+            Fp2,
+            &TEST_ELEMENTS,
+            pow_by_p_squared_minus9_over16,
+            &P_SQUARED_MINUS9_OVER16,
+            pow_vartime_extended
+        );
     }
 }
