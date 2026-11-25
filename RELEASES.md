@@ -1,4 +1,6 @@
 # Unreleased
+## Changed
+- Improved performance.
 
 # 0.9.2
 ## Changed

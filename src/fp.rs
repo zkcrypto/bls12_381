@@ -359,9 +359,50 @@ impl Fp {
     /// representation.
     #[cfg(feature = "groups")]
     pub(crate) fn invert_vartime(&self) -> Option<Self> {
-        fn is_one(a: &[u64; 6]) -> bool {
-            a[0] == 1 && a[1..].iter().all(|&limb| limb == 0)
+        // Variable-time modular inversion via 62-bit Bernstein-Yang `divsteps`
+        // (https://eprint.iacr.org/2019/266) in 7-limb signed radix 2^62.
+        //
+        // Seeding `e = R^2 mod p` maintains `self.0 * d ≡ R^2 * f (mod p)` and
+        // `self.0 * e ≡ R^2 * g (mod p)`, so at termination (`g == 0`, `f == ±1`)
+        // `±d mod p == R^2 * self.0^{-1} mod p` is directly the Montgomery-form inverse.
+        const MASK62: u64 = (1u64 << 62) - 1;
+
+        const fn pack62(x: &[u64; 6]) -> [i64; 7] {
+            [
+                (x[0] & MASK62) as i64,
+                (((x[0] >> 62) | (x[1] << 2)) & MASK62) as i64,
+                (((x[1] >> 60) | (x[2] << 4)) & MASK62) as i64,
+                (((x[2] >> 58) | (x[3] << 6)) & MASK62) as i64,
+                (((x[3] >> 56) | (x[4] << 8)) & MASK62) as i64,
+                (((x[4] >> 54) | (x[5] << 10)) & MASK62) as i64,
+                (x[5] >> 52) as i64,
+            ]
         }
+
+        fn unpack62(v: &[i64; 7]) -> [u64; 6] {
+            let v0 = v[0] as u64;
+            let v1 = v[1] as u64;
+            let v2 = v[2] as u64;
+            let v3 = v[3] as u64;
+            let v4 = v[4] as u64;
+            let v5 = v[5] as u64;
+            let v6 = v[6] as u64;
+            [
+                v0 | (v1 << 62),
+                (v1 >> 2) | (v2 << 60),
+                (v2 >> 4) | (v3 << 58),
+                (v3 >> 6) | (v4 << 56),
+                (v4 >> 8) | (v5 << 54),
+                (v5 >> 10) | (v6 << 52),
+            ]
+        }
+
+        const MOD62: [i64; 7] = pack62(&MODULUS);
+        const R2_62: [i64; 7] = pack62(&R2.0);
+        // `INV = -p^{-1} mod 2^64`, so `-INV & MASK62 = p^{-1} mod 2^62`.
+        const MU62: u64 = INV.wrapping_neg() & MASK62;
+        const _: () = assert!((MU62.wrapping_mul(MOD62[0] as u64) & MASK62) == 1);
+
         fn gte(a: &[u64; 6], b: &[u64; 6]) -> bool {
             for i in (0..6).rev() {
                 if a[i] != b[i] {
@@ -370,78 +411,198 @@ impl Fp {
             }
             true
         }
-        fn add(a: &[u64; 6], b: &[u64; 6]) -> [u64; 6] {
-            let mut result = [0; 6];
-            let mut carry = false;
-            for i in 0..6 {
-                let (v, a_carry) = a[i].overflowing_add(b[i]);
-                let (v, b_carry) = v.overflowing_add(carry as u64);
-                result[i] = v;
-                carry = a_carry | b_carry;
+
+        #[inline]
+        fn divsteps_62_var(mut delta: i64, mut f0: u64, mut g0: u64) -> ([i64; 4], i64) {
+            let mut u: i64 = 1;
+            let mut v: i64 = 0;
+            let mut q: i64 = 0;
+            let mut r: i64 = 1;
+            let mut rem: u32 = 62;
+
+            while rem > 0 {
+                let tz = (g0 | (1u64 << rem)).trailing_zeros();
+                if tz > 0 {
+                    g0 >>= tz;
+                    u <<= tz;
+                    v <<= tz;
+                    delta += i64::from(tz);
+                    rem -= tz;
+                    if rem == 0 {
+                        break;
+                    }
+                }
+                debug_assert!(f0 & 1 == 1 && g0 & 1 == 1);
+                if delta > 0 {
+                    delta = 1 - delta;
+                    let next_g = g0.wrapping_sub(f0) >> 1;
+                    f0 = g0;
+                    g0 = next_g;
+                    let next_u = 2 * q;
+                    let next_v = 2 * r;
+                    q -= u;
+                    r -= v;
+                    u = next_u;
+                    v = next_v;
+                } else {
+                    delta += 1;
+                    g0 = g0.wrapping_add(f0) >> 1;
+                    q += u;
+                    r += v;
+                    u *= 2;
+                    v *= 2;
+                }
+                rem -= 1;
             }
-            result
-        }
-        fn sub(a: &[u64; 6], b: &[u64; 6]) -> [u64; 6] {
-            let mut result = [0; 6];
-            let mut borrow = false;
-            for i in 0..6 {
-                let (v, a_borrow) = a[i].overflowing_sub(b[i]);
-                let (v, b_borrow) = v.overflowing_sub(borrow as u64);
-                result[i] = v;
-                borrow = a_borrow | b_borrow;
-            }
-            result
-        }
-        fn sub_mod(a: &[u64; 6], b: &[u64; 6]) -> [u64; 6] {
-            if gte(a, b) {
-                sub(a, b)
-            } else {
-                sub(&MODULUS, &sub(b, a))
-            }
-        }
-        fn half(a: &mut [u64; 6]) {
-            let mut carry = 0;
-            for limb in a.iter_mut().rev() {
-                let next = *limb & 1;
-                *limb = (*limb >> 1) | (carry << 63);
-                carry = next;
-            }
-        }
-        fn half_mod(a: &mut [u64; 6]) {
-            if a[0] & 1 == 1 {
-                *a = add(a, &MODULUS);
-            }
-            half(a);
+
+            debug_assert!(
+                (i128::from(u) * i128::from(r) - i128::from(v) * i128::from(q)).unsigned_abs()
+                    == (1u128 << 62)
+            );
+            ([u, v, q, r], delta)
         }
 
-        if bool::from(self.is_zero()) || gte(&self.0, &MODULUS) {
+        #[inline]
+        fn update_fg(len: usize, f: &mut [i64; 7], g: &mut [i64; 7], t: &[i64; 4]) {
+            let [u, v, q, r] = *t;
+            let mut cf = i128::from(u) * i128::from(f[0]) + i128::from(v) * i128::from(g[0]);
+            let mut cg = i128::from(q) * i128::from(f[0]) + i128::from(r) * i128::from(g[0]);
+            debug_assert!((cf as u64 & MASK62) == 0 && (cg as u64 & MASK62) == 0);
+            cf >>= 62;
+            cg >>= 62;
+            for i in 1..len {
+                cf += i128::from(u) * i128::from(f[i]) + i128::from(v) * i128::from(g[i]);
+                cg += i128::from(q) * i128::from(f[i]) + i128::from(r) * i128::from(g[i]);
+                f[i - 1] = (cf as u64 & MASK62) as i64;
+                cf >>= 62;
+                g[i - 1] = (cg as u64 & MASK62) as i64;
+                cg >>= 62;
+            }
+            f[len - 1] = cf as i64;
+            g[len - 1] = cg as i64;
+        }
+
+        #[inline]
+        #[allow(clippy::needless_range_loop)]
+        fn update_de(d: &mut [i64; 7], e: &mut [i64; 7], t: &[i64; 4]) {
+            let [u, v, q, r] = *t;
+            let sd = d[6] >> 63;
+            let se = e[6] >> 63;
+            let mut md = (u & sd) + (v & se);
+            let mut me = (q & sd) + (r & se);
+
+            let mut cd = i128::from(u) * i128::from(d[0]) + i128::from(v) * i128::from(e[0]);
+            let mut ce = i128::from(q) * i128::from(d[0]) + i128::from(r) * i128::from(e[0]);
+
+            md -= (MU62.wrapping_mul(cd as u64).wrapping_add(md as u64) & MASK62) as i64;
+            me -= (MU62.wrapping_mul(ce as u64).wrapping_add(me as u64) & MASK62) as i64;
+
+            cd += i128::from(MOD62[0]) * i128::from(md);
+            ce += i128::from(MOD62[0]) * i128::from(me);
+            debug_assert!((cd as u64 & MASK62) == 0 && (ce as u64 & MASK62) == 0);
+            cd >>= 62;
+            ce >>= 62;
+
+            for i in 1..7 {
+                cd += i128::from(u) * i128::from(d[i])
+                    + i128::from(v) * i128::from(e[i])
+                    + i128::from(MOD62[i]) * i128::from(md);
+                ce += i128::from(q) * i128::from(d[i])
+                    + i128::from(r) * i128::from(e[i])
+                    + i128::from(MOD62[i]) * i128::from(me);
+                d[i - 1] = (cd as u64 & MASK62) as i64;
+                cd >>= 62;
+                e[i - 1] = (ce as u64 & MASK62) as i64;
+                ce >>= 62;
+            }
+            d[6] = cd as i64;
+            e[6] = ce as i64;
+        }
+
+        // Hazard: `update_de` maintains `-2 * p < d, e < p` across all iterations:
+        // writing `d' = d + p` when `d < 0` and `d' = d` when `d >= 0` gives `-p < d', e' < p`,
+        // and `|u| + |v| <= 2^62` with `k in [0, 2^62 - 1]` implies
+        // `-(2 * 2^62 - 1) * p < u * d' + v * e' - k * p < 2^62 * p`, so dividing by `2^62`
+        // keeps `d` and `e` strictly inside `(-2 * p, p)`. Adding `p` at most twice maps any
+        // non-zero invertible residue (`gcd(d, p) == 1`) strictly into `(0, p)`, after which
+        // optional negation reduces to a single `p - val` subtraction.
+        #[inline]
+        #[allow(clippy::needless_range_loop)]
+        fn normalize62(mut val: [i64; 7], negate: bool) -> [i64; 7] {
+            let add_mod = |v: &mut [i64; 7]| {
+                let mut c: i128 = 0;
+                for i in 0..6 {
+                    c += i128::from(v[i]) + i128::from(MOD62[i]);
+                    v[i] = (c as u64 & MASK62) as i64;
+                    c >>= 62;
+                }
+                v[6] = (i128::from(v[6]) + i128::from(MOD62[6]) + c) as i64;
+            };
+
+            if val[6] < 0 {
+                add_mod(&mut val);
+            }
+            if val[6] < 0 {
+                add_mod(&mut val);
+            }
+            debug_assert!(val != [0; 7] && val[6] >= 0);
+
+            if negate {
+                let mut c: i128 = 0;
+                for i in 0..6 {
+                    c += i128::from(MOD62[i]) - i128::from(val[i]);
+                    val[i] = (c as u64 & MASK62) as i64;
+                    c >>= 62;
+                }
+                val[6] = (i128::from(MOD62[6]) - i128::from(val[6]) + c) as i64;
+                debug_assert!(val[6] >= 0);
+            }
+            val
+        }
+
+        #[inline]
+        fn fits_shrunk(hi: i64, lo: i64) -> bool {
+            (hi == 0 && (lo >> 61) == 0) || (hi == -1 && (lo >> 61) == 1)
+        }
+
+        if self.0 == [0; 6] || gte(&self.0, &MODULUS) {
             return None;
         }
-        let mut u = self.0;
-        let mut v = MODULUS;
-        let mut a = [1, 0, 0, 0, 0, 0];
-        let mut b = [0; 6];
 
-        while !is_one(&u) && !is_one(&v) {
-            while u[0] & 1 == 0 {
-                half(&mut u);
-                half_mod(&mut a);
+        let mut f = MOD62;
+        let mut g = pack62(&self.0);
+        let mut d = [0i64; 7];
+        let mut e = R2_62;
+        let mut delta: i64 = 1;
+        let mut len: usize = 7;
+
+        loop {
+            let (t, next_delta) = divsteps_62_var(delta, f[0] as u64, g[0] as u64);
+            delta = next_delta;
+            update_fg(len, &mut f, &mut g, &t);
+            update_de(&mut d, &mut e, &t);
+
+            while len > 1
+                && fits_shrunk(f[len - 1], f[len - 2])
+                && fits_shrunk(g[len - 1], g[len - 2])
+            {
+                if f[len - 1] == -1 {
+                    f[len - 2] -= 1i64 << 62;
+                }
+                if g[len - 1] == -1 {
+                    g[len - 2] -= 1i64 << 62;
+                }
+                len -= 1;
             }
-            while v[0] & 1 == 0 {
-                half(&mut v);
-                half_mod(&mut b);
-            }
-            if gte(&u, &v) {
-                u = sub(&u, &v);
-                a = sub_mod(&a, &b);
-            } else {
-                v = sub(&v, &u);
-                b = sub_mod(&b, &a);
+
+            if len == 1 && g[0] == 0 {
+                break;
             }
         }
 
-        let inverse_raw = if is_one(&u) { a } else { b };
-        Some(Fp(inverse_raw) * R3)
+        debug_assert!(f[0] == 1 || f[0] == -1);
+        let normalized = normalize62(d, f[0] == -1);
+        Some(Fp(unpack62(&normalized)))
     }
 
     #[inline]
@@ -1047,7 +1208,7 @@ fn test_sqrt() {
 }
 
 #[test]
-#[cfg(feature = "pairings")]
+#[cfg(feature = "groups")]
 fn test_vartime_inversion() {
     use rand_core::SeedableRng;
 
@@ -1058,9 +1219,58 @@ fn test_vartime_inversion() {
     let raw_one = Fp([1, 0, 0, 0, 0, 0]);
     assert_eq!(raw_one.invert_vartime(), Some(raw_one.invert().unwrap()));
     let mut rng = rand_xorshift::XorShiftRng::from_seed([0x43; 16]);
-    for _ in 0..1000 {
+    for _ in 0..2500 {
         let value = Fp::try_random(&mut rng).unwrap();
         assert_eq!(value.invert_vartime(), Some(value.invert().unwrap()));
+    }
+    assert!(Fp([u64::MAX; 6]).invert_vartime().is_none());
+    for limb in 0..6 {
+        let mut above_mod = MODULUS;
+        above_mod[limb] += 1;
+        assert!(Fp(above_mod).invert_vartime().is_none());
+
+        let mut above_zero_low = MODULUS;
+        above_zero_low[..limb].fill(0);
+        above_zero_low[limb] += 1;
+        assert!(Fp(above_zero_low).invert_vartime().is_none());
+
+        let mut below_max_low = MODULUS;
+        below_max_low[..limb].fill(u64::MAX);
+        below_max_low[limb] -= 1;
+        let val = Fp(below_max_low);
+        assert_eq!(val.invert_vartime(), Some(val.invert().unwrap()));
+    }
+    // Canonical inputs exercising both extremes of `update_de`'s `(-2 * p, p)` range
+    // (`d < -p` with `f = ±1`, and `d` near `+p` via round-trip inversion).
+    for raw in [
+        [272, 0, 0, 0, 0, 0],
+        [436, 0, 0, 0, 0, 0],
+        [12_754, 0, 0, 0, 0, 0],
+        [
+            MODULUS[0] - 1_626,
+            MODULUS[1],
+            MODULUS[2],
+            MODULUS[3],
+            MODULUS[4],
+            MODULUS[5],
+        ],
+    ] {
+        let val = Fp(raw);
+        let inv = val.invert().unwrap();
+        assert_eq!(val.invert_vartime(), Some(inv));
+        assert_eq!(inv.invert_vartime(), Some(val));
+    }
+    for limb in 0..6 {
+        for bit in [0, 1, 31, 51, 52, 60, 61, 62, 63] {
+            let mut raw = [0u64; 6];
+            raw[limb] = 1u64 << bit;
+            if limb == 5 && bit >= 61 {
+                assert!(Fp(raw).invert_vartime().is_none());
+            } else {
+                let val = Fp(raw);
+                assert_eq!(val.invert_vartime(), Some(val.invert().unwrap()));
+            }
+        }
     }
 }
 
